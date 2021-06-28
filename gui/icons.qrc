@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/ic">
+        <file>icons/media-playback-start.svg</file>
+        <file>icons/list-remove.svg</file>
+        <file>icons/go-first.svg</file>
+        <file>icons/folder-documents-open.svg</file>
+        <file>icons/document-edit.svg</file>
+        <file>icons/document-import.svg</file>
+        <file>icons/media-playback-pause.svg</file>
+        <file>icons/folder-open.svg</file>
+        <file>icons/list-add.svg</file>
+        <file>icons/document-new.svg</file>
+        <file>icons/go-last.svg</file>
+        <file>icons/go-next.svg</file>
+        <file>icons/document-export.svg</file>
+        <file>icons/document-save.svg</file>
+        <file>icons/system-log-out.svg</file>
+    </qresource>
+    <qresource prefix="/">
+        <file>icons/but-quit.png</file>
+    </qresource>
+</RCC>
