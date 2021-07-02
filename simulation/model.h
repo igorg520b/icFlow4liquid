@@ -53,8 +53,12 @@ public:
     void UnsafeUpdateGeometry();
     void PositionIndenter(double offset);
 
+    void AttachSpring(double X, double Y, double radius);   // attach spring to nodes
+    void ReleaseSpring();
+    void AdjustSpring(double dX, double dY);
+
 signals:
-    void requestGeometryUpdate(); // UnsafeUpdateGeometry() is invoked from the main thread
+//    void requestGeometryUpdate(); // request the main thread to redraw
 
     // VTK visualization
 public:
@@ -65,6 +69,8 @@ public:
 private:
     QMutex vtk_update_mutex; // to prevent modifying mesh data while updating VTK representation
     bool vtk_update_requested = false;  // true when signal has been already emitted to update vtk geometry
+
+    Eigen::Vector2d spring;
 
 };
 

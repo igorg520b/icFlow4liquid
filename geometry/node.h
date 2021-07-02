@@ -28,6 +28,8 @@ public:
 
     void ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
 
+    double spring_attached;
+
 };
 
 #endif // NODE_H

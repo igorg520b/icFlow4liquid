@@ -12,6 +12,7 @@ void icy::Node::Reset()
     eqId = locId = globId = -1;
     area = 0;
     pinned = false;
+    spring_attached = 0;
 }
 
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)

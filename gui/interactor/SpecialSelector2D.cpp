@@ -45,7 +45,7 @@ SpecialSelector2D::SpecialSelector2D()
     actor->SetVisibility(this->Interaction == SELECTING);
 }
 
-void SpecialSelector2D::UpdateActor()
+void SpecialSelector2D::GetCurrentCoords(double &x, double &y)
 {
     vtkRenderWindowInteractor* rwi = this->GetInteractor();
     int curPt[] = { 0, 0 };
@@ -61,18 +61,16 @@ void SpecialSelector2D::UpdateActor()
     double camPosX, camPosY, camPosZ;
     camera->GetPosition(camPosX,camPosY,camPosZ);
 
-    std::cout << "Ox: " << camPosX << "; Oy: " << camPosY << std::endl;
-
     double lastScale = 2.0 *  camera_parallelScale / renderer_getSize1;
 
-    double lastFocalPt[] = { 0, 0, 0 };
-    camera->GetFocalPoint(lastFocalPt);
-    double lastPos[] = { 0, 0, 0 };
-    camera->GetPosition(lastPos);
+    x = lastScale * (curPt[0]-renderer_getSize[0]/2)+camPosX;
+    y = lastScale * (curPt[1]-renderer_getSize[1]/2)+camPosY;
+}
 
-    centerX = lastScale * (curPt[0]-renderer_getSize[0]/2)+camPosX;
-    centerY = lastScale * (curPt[1]-renderer_getSize[1]/2)+camPosY;
 
+void SpecialSelector2D::UpdateActor()
+{
+    GetCurrentCoords(centerX, centerY);
     arcSource->SetCenter(centerX,centerY,0);
     arcSource->SetPolarVector(selectionRadius,0,0);
     arcSource->Update();
@@ -82,6 +80,12 @@ void SpecialSelector2D::UpdateActor()
 
 void SpecialSelector2D::OnLeftButtonDown()
 {
+    if(this->Interaction == SELECTING)
+    {
+        stretching = true;
+        GetCurrentCoords(initialX, initialY);
+        mw->model.AttachSpring(initialX, initialY, selectionRadius);
+    }
     /*
     this->FindPokedRenderer(this->StartPosition[0], this->StartPosition[1]);
 
@@ -100,6 +104,12 @@ void SpecialSelector2D::OnLeftButtonDown()
 
 void SpecialSelector2D::OnLeftButtonUp()
 {
+    if(this->Interaction == SELECTING)
+    {
+        stretching = false;
+        mw->model.ReleaseSpring();
+    }
+
     /*
     if(this->Interaction != SELECTING) return;
     this->Interaction = NONE;
@@ -132,6 +142,35 @@ void SpecialSelector2D::OnLeftButtonUp()
     */
 }
 
+
+void SpecialSelector2D::OnMouseWheelForward()
+{
+    if(this->Interaction == SELECTING)
+    {
+        selectionRadius/=1.1;
+        UpdateActor();
+    }
+    else
+    {
+        vtkInteractorStyleRubberBand2D::OnMouseWheelForward();
+    }
+}
+
+void SpecialSelector2D::OnMouseWheelBackward()
+{
+    if(this->Interaction == SELECTING)
+    {
+        selectionRadius*=1.1;
+        UpdateActor();
+    }
+    else
+    {
+        vtkInteractorStyleRubberBand2D::OnMouseWheelBackward();
+    }
+}
+
+
+
 void SpecialSelector2D::OnMouseMove()
 {
 //    mouse_remained_stationary = false;
@@ -140,9 +179,7 @@ void SpecialSelector2D::OnMouseMove()
     if(this->Interaction == SELECTING)
     {
         UpdateActor();
-
-
-
+        if(stretching) mw->model.AdjustSpring(centerX-initialX, centerY-initialY);
     }
     else
     {

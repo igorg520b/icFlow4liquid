@@ -48,8 +48,8 @@ public:
     void OnRightButtonUp() override;
     void OnMouseMove() override;
 
-    //  void OnMouseWheelForward() override;
-    //  void OnMouseWheelBackward() override;
+    void OnMouseWheelForward() override;
+    void OnMouseWheelBackward() override;
 
 //  void OnMiddleButtonDown() override;
 //  void OnMiddleButtonUp() override;
@@ -58,6 +58,10 @@ private:
     double selectionRadius = 0.25;
     double centerX = 0;
     double centerY = 0;
+
+    double initialX, initialY;
+    void GetCurrentCoords(double &x, double &y);
+    bool stretching = false;
 
     void UpdateActor();
 

@@ -239,3 +239,38 @@ void icy::Model::AcceptTentativeValues(double timeStep)
     vtk_update_mutex.unlock();
 }
 
+
+
+void icy::Model::AttachSpring(double X, double Y, double radius)
+{
+    std::cout << "icy::Model::AttachSpring " << X << "; " << Y << "; " << radius << std::endl;
+    Eigen::Vector2d attachmentPos(X,Y);
+    vtk_update_mutex.lock();
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh->allNodes.size();i++)
+    {
+        icy::Node *nd = mesh->allNodes[i];
+        nd->spring_attached=(nd->xn-attachmentPos).norm()<radius ? 1 : 0;
+    }
+    vtk_update_mutex.unlock();
+}
+
+void icy::Model::ReleaseSpring()
+{
+    std::cout << "icy::Model::ReleaseSpring " << std::endl;
+    vtk_update_mutex.lock();
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh->allNodes.size();i++)
+    {
+        icy::Node *nd = mesh->allNodes[i];
+        nd->spring_attached=0;
+    }
+    vtk_update_mutex.unlock();
+}
+
+void icy::Model::AdjustSpring(double dX, double dY)
+{
+    std::cout << "icy::Model::AdjustSpring " << dX << "; " << dY << std::endl;
+    spring << dX,dY;
+}
+
