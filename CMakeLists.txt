@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(fl4 LANGUAGES CXX)
+project(fl4liquid LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -36,7 +36,7 @@ endif()
 
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 find_package(Qt5Charts)
-add_executable(fl4
+add_executable(fl4liquid
     #    gui/main_test.cpp
     gui/main.cpp
     gui/windows/mainwindow.cpp
@@ -102,29 +102,29 @@ add_executable(fl4
 )
 
 
-target_include_directories(fl4 PUBLIC gui geometry simulation gui/propertybrowser)
-target_include_directories(fl4 PUBLIC gui/objectpropertybrowser gui/windows)
-target_include_directories(fl4 PUBLIC gui/interactor)
+target_include_directories(fl4liquid PUBLIC gui geometry simulation gui/propertybrowser)
+target_include_directories(fl4liquid PUBLIC gui/objectpropertybrowser gui/windows)
+target_include_directories(fl4liquid PUBLIC gui/interactor)
 
 # some paths need to be set manually
-target_include_directories(fl4 PUBLIC /home/s2/Projects-libraries/eigen)
-target_include_directories(fl4 PUBLIC /home/s2/Projects-libraries/vtk/Common/Core/)
-#target_include_directories(fl4 PUBLIC /home/s2/Projects-libraries/gmsh-4.8.4-source/api)
+target_include_directories(fl4liquid PUBLIC /home/s2/Projects-libraries/eigen)
+target_include_directories(fl4liquid PUBLIC /home/s2/Projects-libraries/vtk/Common/Core/)
+#target_include_directories(fl4liquid PUBLIC /home/s2/Projects-libraries/gmsh-4.8.4-source/api)
 
-target_link_directories(fl4 PUBLIC /usr/local/lib)
-#target_link_directories(fl4 PUBLIC /home/s2/Projects-libraries/gmsh-build)
+target_link_directories(fl4liquid PUBLIC /usr/local/lib)
+#target_link_directories(fl4liquid PUBLIC /home/s2/Projects-libraries/gmsh-build)
 
-target_link_libraries(fl4 PRIVATE Qt5::Widgets Qt5::Charts Qt5::Core)
-target_link_libraries(fl4 PRIVATE ${VTK_LIBRARIES})
-target_link_libraries(fl4 PUBLIC gmsh)
-target_link_libraries(fl4 PUBLIC tbb)
-target_link_libraries(fl4 PUBLIC gomp pthread m dl)
+target_link_libraries(fl4liquid PRIVATE Qt5::Widgets Qt5::Charts Qt5::Core)
+target_link_libraries(fl4liquid PRIVATE ${VTK_LIBRARIES})
+target_link_libraries(fl4liquid PUBLIC gmsh)
+target_link_libraries(fl4liquid PUBLIC tbb)
+target_link_libraries(fl4liquid PUBLIC gomp pthread m dl)
 
 #MOSEK
-target_include_directories(fl4 PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/h")
-target_link_directories(fl4 PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/bin")
-target_link_libraries(fl4 PRIVATE mosek64)
+target_include_directories(fl4liquid PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/h")
+target_link_directories(fl4liquid PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/bin")
+target_link_libraries(fl4liquid PRIVATE mosek64)
 
-target_compile_options(fl4 PUBLIC -fopenmp)
+target_compile_options(fl4liquid PUBLIC -fopenmp)
 
 

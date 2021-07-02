@@ -33,8 +33,8 @@ MainWindow::MainWindow(QWidget *parent)
     renderWindow->AddRenderer(renderer);
     renderWindow->GetInteractor()->SetInteractorStyle(specialSelector2D);
     specialSelector2D->mw = this;
+    renderer->AddActor(specialSelector2D->actor);
 
-//    renderWindow->GetInteractor()->SetPicker(pointPicker);
 
     // splitter
     splitter_main = new QSplitter(Qt::Orientation::Horizontal);

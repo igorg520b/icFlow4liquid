@@ -16,6 +16,70 @@
 
 vtkStandardNewMacro(SpecialSelector2D);
 
+SpecialSelector2D::SpecialSelector2D()
+{
+    this->Interaction = SELECTING;
+
+    arcSource->SetResolution(100);
+    arcSource->SetCenter(0,0,0);
+    arcSource->NegativeOff();
+    arcSource->UseNormalAndAngleOn();
+    arcSource->SetNormal(0,0,1);
+    arcSource->SetPolarVector(1,0,0);
+    arcSource->SetAngle(360.0);
+
+
+    arcSource->Update();
+    mapper->SetInputConnection(arcSource->GetOutputPort());
+//    mapper->SetInputConnection(sphereSource->GetOutputPort());
+    actor->SetMapper(mapper);
+    actor->GetProperty()->EdgeVisibilityOn();
+    actor->GetProperty()->SetColor(0.1, 0.1, 0.1);
+    actor->GetProperty()->SetEdgeColor(90.0/255.0, 90.0/255.0, 97.0/255.0);
+    actor->GetProperty()->LightingOff();
+    actor->GetProperty()->ShadingOff();
+    actor->GetProperty()->SetInterpolationToFlat();
+    actor->PickableOff();
+    actor->GetProperty()->SetLineWidth(3);
+
+    actor->SetVisibility(this->Interaction == SELECTING);
+}
+
+void SpecialSelector2D::UpdateActor()
+{
+    vtkRenderWindowInteractor* rwi = this->GetInteractor();
+    int curPt[] = { 0, 0 };
+    rwi->GetEventPosition(curPt);
+
+    vtkRenderer* renderer = rwi->GetRenderWindow()->GetRenderers()->GetFirstRenderer();
+    vtkCamera* camera = renderer->GetActiveCamera();
+
+    double camera_parallelScale = camera->GetParallelScale();
+    int* renderer_getSize = renderer->GetSize();
+    int renderer_getSize1 = renderer_getSize[1];
+
+    double camPosX, camPosY, camPosZ;
+    camera->GetPosition(camPosX,camPosY,camPosZ);
+
+    std::cout << "Ox: " << camPosX << "; Oy: " << camPosY << std::endl;
+
+    double lastScale = 2.0 *  camera_parallelScale / renderer_getSize1;
+
+    double lastFocalPt[] = { 0, 0, 0 };
+    camera->GetFocalPoint(lastFocalPt);
+    double lastPos[] = { 0, 0, 0 };
+    camera->GetPosition(lastPos);
+
+    centerX = lastScale * (curPt[0]-renderer_getSize[0]/2)+camPosX;
+    centerY = lastScale * (curPt[1]-renderer_getSize[1]/2)+camPosY;
+
+    arcSource->SetCenter(centerX,centerY,0);
+    arcSource->SetPolarVector(selectionRadius,0,0);
+    arcSource->Update();
+    this->GetInteractor()->Render();
+}
+
+
 void SpecialSelector2D::OnLeftButtonDown()
 {
     /*
@@ -70,54 +134,15 @@ void SpecialSelector2D::OnLeftButtonUp()
 
 void SpecialSelector2D::OnMouseMove()
 {
-    mouse_remained_stationary = false;
+//    mouse_remained_stationary = false;
     //    std::cout << "SpecialSelector2D::OnMouseMove()" << std::endl;
 
     if(this->Interaction == SELECTING)
     {
-        /*
-        vtkRenderWindowInteractor* rwi = this->GetInteractor();
-        int lastPt[] = { 0, 0 };
-        rwi->GetLastEventPosition(lastPt);
-        int curPt[] = { 0, 0 };
-        rwi->GetEventPosition(curPt);
+        UpdateActor();
 
-        if(this->CurrentRenderer == nullptr) std::cout << "CurrentRenderer is nullptr" << std::endl;
 
-        vtkCamera* camera = this->CurrentRenderer->GetActiveCamera();
 
-        vtkRenderer* renderer = this->CurrentRenderer;
-
-        double camera_parallelScale = camera->GetParallelScale();
-
-        int* renderer_getSize = renderer->GetSize();
-
-        int renderer_getSize1 = renderer_getSize[1];
-
-        double lastScale = 2.0 *  camera_parallelScale / renderer_getSize1;
-
-        double lastFocalPt[] = { 0, 0, 0 };
-        camera->GetFocalPoint(lastFocalPt);
-        double lastPos[] = { 0, 0, 0 };
-        camera->GetPosition(lastPos);
-
-        double delta[] = { 0, 0, 0 };
-        delta[0] = -lastScale * (curPt[0] - lastPt[0]);
-        delta[1] = -lastScale * (curPt[1] - lastPt[1]);
-        delta[2] = 0;
-
-        for(icy::Node &nd : mw->modelController.model.mesh.nodes)
-        {
-            if(!nd.selected) continue;
-            nd.intended_position.x() -= delta[0];
-            nd.intended_position.y() -= delta[1];
-            nd.vn = Eigen::Vector2d::Zero();
-        }
-
-        mw->modelController.model.UnsafeUpdateGeometry();
-
-        rwi->Render();
-        */
     }
     else
     {
@@ -148,5 +173,12 @@ void SpecialSelector2D::OnRightButtonDown()
     */
 }
 
-void SpecialSelector2D::OnRightButtonUp() { }
+void SpecialSelector2D::OnRightButtonUp()
+{
+    if(this->Interaction == NONE) this->Interaction = SELECTING;
+    else this->Interaction = NONE;
+    actor->SetVisibility(this->Interaction == SELECTING);
+    if(this->Interaction == SELECTING) UpdateActor();
+    else this->GetInteractor()->Render();
+}
 

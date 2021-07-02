@@ -19,6 +19,11 @@
 //#include "vtkInteractionStyleModule.h" // For export macro
 #include <vtkInteractorStyle.h>
 #include <vtkInteractorStyleRubberBand2D.h>
+#include <vtkActor.h>
+#include <vtkNew.h>
+#include <vtkArcSource.h>
+//#include <vtkSphereSource.h>
+#include <vtkPolyDataMapper.h>
 
 class vtkUnsignedCharArray;
 
@@ -29,7 +34,13 @@ class SpecialSelector2D : public vtkInteractorStyleRubberBand2D
 public:
     static SpecialSelector2D* New();
     vtkTypeMacro(SpecialSelector2D, vtkInteractorStyleRubberBand2D);
+
+    SpecialSelector2D();
+
     MainWindow* mw;
+    vtkNew<vtkArcSource> arcSource;
+    vtkNew<vtkPolyDataMapper> mapper;
+    vtkNew<vtkActor> actor; // selection circle
 
     void OnLeftButtonDown() override;
     void OnLeftButtonUp() override;
@@ -37,14 +48,19 @@ public:
     void OnRightButtonUp() override;
     void OnMouseMove() override;
 
-/*
-  void OnMiddleButtonDown() override;
-  void OnMiddleButtonUp() override;
-  void OnMouseWheelForward() override;
-  void OnMouseWheelBackward() override;
-*/
+    //  void OnMouseWheelForward() override;
+    //  void OnMouseWheelBackward() override;
+
+//  void OnMiddleButtonDown() override;
+//  void OnMiddleButtonUp() override;
+
 private:
-    bool mouse_remained_stationary = false;
+    double selectionRadius = 0.25;
+    double centerX = 0;
+    double centerY = 0;
+
+    void UpdateActor();
+
 
 };
 
