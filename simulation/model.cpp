@@ -193,7 +193,12 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
     if(mesh_iversion_detected) return false; // mesh inversion
 
 #pragma omp parallel for
-    for(unsigned i=0;i<nNodes;i++) mesh->allNodes[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+    for(unsigned i=0;i<nNodes;i++)
+    {
+        Node *nd = mesh->allNodes[i];
+        nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+        nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
+    }
 
 #pragma omp parallel for
     for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
@@ -250,7 +255,15 @@ void icy::Model::AttachSpring(double X, double Y, double radius)
     for(unsigned i=0;i<mesh->allNodes.size();i++)
     {
         icy::Node *nd = mesh->allNodes[i];
-        nd->spring_attached=(nd->xn-attachmentPos).norm()<radius ? 1 : 0;
+        if((nd->xn-attachmentPos).norm()<radius)
+        {
+            nd->spring_attached = 1;
+            nd->spring_attachment_position = nd->xn;
+        }
+        else
+        {
+            nd->spring_attached = 0;
+        }
     }
     vtk_update_mutex.unlock();
 }

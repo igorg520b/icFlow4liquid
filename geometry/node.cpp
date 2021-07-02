@@ -39,3 +39,21 @@ void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &pr
     eq.AddToConstTerm(const_term);
 }
 
+void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double h, Eigen::Vector2d &spring)
+{
+    if(eqId<0 || spring_attached<1) return;
+    double k = prms.YoungsModulus/1000;
+    Eigen::Vector2d spr = spring_attachment_position+spring;
+    double hsqk = h*h*k;
+
+    Eigen::Vector2d fd;
+    fd = (spr-xt);
+    eq.AddToConstTerm(hsqk*fd.dot(fd)/2);
+
+    eq.AddToC(eqId,hsqk*(xt-spr));
+
+    Eigen::Matrix2d Hessian = hsqk*Eigen::Matrix2d::Identity();
+    eq.AddToQ(eqId,eqId,Hessian);
+
+
+}
