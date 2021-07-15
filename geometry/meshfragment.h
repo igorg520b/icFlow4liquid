@@ -16,10 +16,10 @@ public:
     bool deformable;
     std::vector<icy::Node> nodes;
     std::vector<icy::Element> elems;
-    std::vector<int> boundary_nodes;
+    std::vector<std::size_t> boundary_nodes;
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
 
-    std::vector<int> inner_boundary_nodes; // for liquid-solid interface
+    std::vector<std::size_t> inner_boundary_nodes; // for liquid-solid interface
     std::vector<std::pair<icy::Node*,icy::Node*>> inner_boundary_edges;
 
     unsigned freeNodeCount;

@@ -224,9 +224,77 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         else throw std::runtime_error("error when meshing boundaries");
     }
 
-//    boundary_nodes.resize(set_nds.size());
-//    std::copy(set_nds.begin(), set_nds.end(), boundary_nodes.begin());
     gmsh::clear();
+
+    // STAGE 2 - INNER PART
+    gmsh::model::add("block1");
+
+    // reconstruct inner boundary nodes
+    const int dim = 1;
+    int entityTag = gmsh::model::addDiscreteEntity(dim);
+
+    std::vector<std::size_t> ndTags(inner_boundary_nodes.size());
+    std::iota(ndTags.begin(), ndTags.end(), 1); // fill sequentially starting from 1
+    std::vector<double> ndCoord(ndTags.size()*3);
+    mtags.clear();
+    for(unsigned i=0;i<inner_boundary_nodes.size();i++)
+    {
+        int idx = inner_boundary_nodes[i];
+        mtags[idx] = i+1;
+        ndTags[i] = i+1;
+        ndCoord[i*3+0] = nodes[idx].x_initial.x();
+        ndCoord[i*3+1] = nodes[idx].x_initial.y();
+        ndCoord[i*3+2] = 0;
+    }
+    gmsh::model::mesh::addNodes(dim, entityTag, ndTags, ndCoord);
+    std::cout << "ADDED NODES: " << ndTags.size() << std::endl;
+
+    // reconstruct boundary edges
+    std::vector<int> elementTypes;
+    elementTypes.push_back(1); // 1 == edge
+
+    std::vector<std::vector<std::size_t>> elementTags(1);
+    std::vector<std::size_t> &elementTagsType1 = elementTags[0];
+    elementTagsType1.reserve(inner_boundary_edges.size());
+//    std::iota(elementTagsType1.begin(), elementTagsType1.end(), 1);
+
+    std::vector<std::vector<std::size_t>> nodeTags_(1);
+    std::vector<std::size_t> &nodeTags0 = nodeTags_[0];
+    nodeTags0.reserve(inner_boundary_edges.size()*2);
+
+    for(std::size_t i=0;i<inner_boundary_edges.size();i++)
+    {
+        elementTagsType1.push_back(i+1);
+        std::pair<icy::Node*,icy::Node*> &edge = inner_boundary_edges[i];
+        nodeTags0.push_back(mtags[edge.first->locId]);
+        nodeTags0.push_back(mtags[edge.second->locId]);
+    }
+    gmsh::model::mesh::addElements(dim,entityTag, elementTypes, elementTags, nodeTags_);
+    std::cout << "ADDED EDGES: " << inner_boundary_edges.size() << std::endl;
+
+
+    // SECOND MESHING
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary",0);
+    gmsh::model::mesh::generate(2);
+
+    // RETRIEVE ELEMENTS AND NODES
+    nodeTags.clear();
+    nodeCoords.clear();
+    parametricCoords.clear();
+    gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
+    std::cout << "NEW NODE COUNT " << nodeTags.size() << std::endl;
+
+    // elems
+    trisTags.clear();
+    nodeTagsInTris.clear();
+    gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
+    std::cout << "NEW TRIS COUNT " << trisTags.size() << std::endl;
+
+    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
+    nodeTagsMap1.clear(); // node tag -> its sequential position in nodeTags vector
+    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
+
 }
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
@@ -279,7 +347,91 @@ void icy::MeshFragment::GenerateIndenter(double ElementSize)
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
-    GetFromGmsh();
+
+    gmsh::model::mesh::generate(1);
+
+
+    // retrieve the result
+    elems.clear();
+    nodes.clear();
+    boundary_nodes.clear();
+    boundary_edges.clear();
+    freeNodeCount = 0;
+
+
+    // nodes
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords, parametricCoords;
+    gmsh::model::mesh::getNodesByElementType(1, nodeTags, nodeCoords, parametricCoords);
+
+    // boundary
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+
+    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
+    std::map<std::size_t, int> nodeTagsMap1; // nodeTag -> its sequential position in nodeTag
+    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
+
+    // set the size of the resulting nodes array
+    nodes.resize(nodeTags.size());
+    boundary_nodes.resize(nodeTags.size());
+
+    std::map<std::size_t, int> mtags; // nodeTag -> sequential position
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        boundary_nodes[i]=i;
+        std::size_t tag = nodeTags[i];
+        mtags[tag] = i;
+
+        int idx1 = nodeTagsMap1[tag];
+        double x = nodeCoords[idx1*3+0];
+        double y = nodeCoords[idx1*3+1];
+
+        icy::Node &nd = nodes[i];
+        nd.Reset();
+        nd.locId = i;
+        nd.x_initial << x, y;
+        nd.intended_position = nd.xt = nd.xn = nd.x_initial;
+        if(y==0 || !deformable) nd.pinned=true;
+        else freeNodeCount++;
+    }
+
+    boundary_edges.resize(nodeTagsInEdges.size()/2);
+
+    for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
+    {
+        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
+        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+        Node *nd1, *nd2;
+        if(idx1<idx2)
+        {
+            nd1 = &nodes[idx1];
+            nd2 = &nodes[idx2];
+        }
+        else
+        {
+            nd1 = &nodes[idx2];
+            nd2 = &nodes[idx1];
+        }
+        boundary_edges[i]=std::make_pair(nd1,nd2);
+    }
+
+    std::vector<std::pair<int,int>> dimTags;
+    gmsh::model::getEntities(dimTags,-1);
+    std::cout << "PRINTING entities FOR THE INDENTER\n";
+    for(std::pair<int,int> &val : dimTags)
+        std::cout << "DIM " << val.first << "; TAG " << val.second << std::endl;
+
+    std::vector<std::pair<int, int> > boundary_dimtags;
+    gmsh::model::getBoundary({{1, 1}}, boundary_dimtags, false, false);
+    std::vector<int> boundary_tags, complement_tags;
+    std::cout << "PRINTING BOUNDARY_DIMTAGS FOR {1,1}\n";
+      for(auto e : boundary_dimtags) {
+          std::cout << "DIM " << e.first << "; TAG " << e.second << std::endl;
+      }
+
+
+    gmsh::clear();
 }
 
 void icy::MeshFragment::GenerateCup(double ElementSize)
