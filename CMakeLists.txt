@@ -111,8 +111,8 @@ target_link_libraries(fl4liquid PUBLIC ${HDF5_C_LIBRARIES})
 target_link_libraries(fl4liquid PUBLIC Eigen3::Eigen)
 
 #MOSEK
-target_include_directories(fl4liquid PUBLIC "/home/s2/mosek/9.3/tools/platform/linux64x86/h")
-target_link_directories(fl4liquid PUBLIC "/home/s2/mosek/9.3/tools/platform/linux64x86/bin")
+target_include_directories(fl4liquid PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/h")
+target_link_directories(fl4liquid PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/bin")
 target_link_libraries(fl4liquid PRIVATE mosek64)
 
 target_compile_options(fl4liquid PUBLIC -fopenmp)

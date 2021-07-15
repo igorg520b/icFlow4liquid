@@ -13,13 +13,17 @@ namespace icy { class Element; class Node; }
 class icy::Element
 {
 public:
-    void Reset(void);
 
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
-//    icy::Edge edges[3];        // element's edges opposite to nd 0,1,2
     icy::Element* adj_elems[3]; // nullptr if no adjacent element
-
+    int group;
+    bool fluid;
+    bool prestrained;
     double area_initial;
+
+    Element() { Reset();}
+    void Reset(void);
+    
     void PrecomputeInitialArea();
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq);

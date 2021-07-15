@@ -12,12 +12,13 @@ namespace icy { class Node; }
 class icy::Node
 {
 public:
-    Node();
+    Node(){Reset();}
     void Reset();
 
     int locId, globId, eqId;       // sequential number of a node; identificator in the equation of motion (if not pinned)
     bool pinned;
     double area;        // area that the node "represents", for applying various forces
+    int group;
 
     Eigen::Vector2d x_initial;  // initial configuration
     Eigen::Vector2d xn, vn;     // position and velocity at step n

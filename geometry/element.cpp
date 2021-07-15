@@ -19,6 +19,8 @@ void icy::Element::Reset(void)
         adj_elems[i] = nullptr;
     }
     area_initial = 0;
+    group = -1;
+    fluid = prestrained = false;
 }
 
 void icy::Element::PrecomputeInitialArea()

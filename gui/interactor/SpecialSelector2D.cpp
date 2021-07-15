@@ -18,7 +18,7 @@ vtkStandardNewMacro(SpecialSelector2D);
 
 SpecialSelector2D::SpecialSelector2D()
 {
-    this->Interaction = SELECTING;
+    this->Interaction = NONE; // SELECTING;
 
     arcSource->SetResolution(100);
     arcSource->SetCenter(0,0,0);
@@ -31,7 +31,6 @@ SpecialSelector2D::SpecialSelector2D()
 
     arcSource->Update();
     mapper->SetInputConnection(arcSource->GetOutputPort());
-//    mapper->SetInputConnection(sphereSource->GetOutputPort());
     actor->SetMapper(mapper);
     actor->GetProperty()->EdgeVisibilityOn();
     actor->GetProperty()->SetColor(0.1, 0.1, 0.1);

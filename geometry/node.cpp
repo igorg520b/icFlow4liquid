@@ -1,11 +1,6 @@
 #include <cmath>
 #include "node.h"
 
-icy::Node::Node()
-{
-    Reset();
-}
-
 void icy::Node::Reset()
 {
     x_initial = xn = vn = xt = Eigen::Vector2d::Zero();
@@ -13,6 +8,7 @@ void icy::Node::Reset()
     area = 0;
     pinned = false;
     spring_attached = 0;
+    group = -1;
 }
 
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)

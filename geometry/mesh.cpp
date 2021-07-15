@@ -112,7 +112,8 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
     allMeshes.push_back(mf);
 */
     MeshFragment *brick = new MeshFragment;
-    brick->GenerateBrick(CharacteristicLengthMax);
+    brick->GenerateSpecialBrick(CharacteristicLengthMax);
+//    brick->GenerateBrick(CharacteristicLengthMax);
     allMeshes.push_back(brick);
 
     mf = new MeshFragment;
@@ -303,6 +304,14 @@ void icy::Mesh::ChangeVisualizationOption(int option)
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         return;
     }
+    else if(VisualizingVariable == (int)icy::Model::VisOpt::node_group)
+    {
+        ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
+        ugrid_deformable->GetPointData()->AddArray(visualized_values);
+        ugrid_deformable->GetPointData()->SetActiveScalars("visualized_values");
+        dataSetMapper_deformable->SetScalarModeToUsePointData();
+        dataSetMapper_deformable->ScalarVisibilityOn();
+    }
     else
     {
         ugrid_deformable->GetPointData()->RemoveArray("visualized_values");
@@ -386,6 +395,17 @@ void icy::Mesh::UpdateValues()
         visualized_values->SetNumberOfValues(allElems.size());
         for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->velocity_divergence);
         break;
+
+    case icy::Model::VisOpt::elem_group:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group);
+        break;
+
+    case icy::Model::VisOpt::node_group:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group);
+        break;
+
 
     default:
         break;

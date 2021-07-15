@@ -38,9 +38,186 @@ void icy::MeshFragment::GenerateBrick(double ElementSize)
     gmsh::model::occ::addPlaneSurface(loops);
     gmsh::model::occ::synchronize();
 
-    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
     GetFromGmsh();
+}
+
+void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
+{
+    deformable = true;
+
+    // invoke Gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("block1");
+
+    double width = 2;
+    double height = 1;
+    int point1 = gmsh::model::occ::addPoint(-width/2, 1e-10, 0, 1.0);
+    int point2 = gmsh::model::occ::addPoint(-width/2, height, 0, 1.0);
+    int point3 = gmsh::model::occ::addPoint(width/2, height*1.1, 0, 1.0);
+    int point4 = gmsh::model::occ::addPoint(width/2, 1e-10, 0, 1.0);
+
+    int line1 = gmsh::model::occ::addLine(point1, point2);
+    int line2 = gmsh::model::occ::addLine(point2, point3);
+    int line3 = gmsh::model::occ::addLine(point3, point4);
+    int line4 = gmsh::model::occ::addLine(point4, point1);
+
+    std::vector<int> curveTags1, curveTags2;
+    curveTags1.push_back(line1);
+    curveTags1.push_back(line2);
+    curveTags1.push_back(line3);
+    curveTags1.push_back(line4);
+    int loopTag = gmsh::model::occ::addCurveLoop(curveTags1);
+
+    std::vector<int> loops;
+    loops.push_back(loopTag);
+    int surfaceTag = gmsh::model::occ::addPlaneSurface(loops);
+
+    double offset = 1.2*ElementSize;
+    int point11 = gmsh::model::occ::addPoint(-width/2+offset, offset, 0, 1.0);
+    int point12 = gmsh::model::occ::addPoint(-width/2+offset, height-offset, 0, 1.0);
+    int point13 = gmsh::model::occ::addPoint(width/2-offset, height-offset, 0, 1.0);
+    int point14 = gmsh::model::occ::addPoint(width/2-offset, offset, 0, 1.0);
+
+    int line11 = gmsh::model::occ::addLine(point11, point12);
+    int line12 = gmsh::model::occ::addLine(point12, point13);
+    int line13 = gmsh::model::occ::addLine(point13, point14);
+    int line14 = gmsh::model::occ::addLine(point14, point11);
+
+    curveTags2.push_back(line11);
+    curveTags2.push_back(line12);
+    curveTags2.push_back(line13);
+    curveTags2.push_back(line14);
+//    int loopTag2 = gmsh::model::occ::addCurveLoop(curveTags);
+
+
+
+    gmsh::model::occ::synchronize();
+
+    gmsh::model::mesh::embed(1, curveTags2, 2, surfaceTag);
+
+    // physical groups
+    int group1 = gmsh::model::addPhysicalGroup(1, curveTags1);
+    int group2 = gmsh::model::addPhysicalGroup(1, curveTags2);
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    gmsh::model::mesh::generate(2);
+
+
+    // modified version of GetFromGmsh
+
+    // retrieve the result
+    elems.clear();
+    nodes.clear();
+    boundary_nodes.clear();
+    boundary_edges.clear();
+    freeNodeCount = 0;
+
+
+    // nodes
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords, parametricCoords;
+    gmsh::model::mesh::getNodes(nodeTags, nodeCoords, parametricCoords);
+
+    // elems
+    std::vector<std::size_t> trisTags, nodeTagsInTris;
+    gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
+
+    // boundary
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+
+    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
+    std::map<std::size_t, int> nodeTagsMap1; // nodeTag -> its sequential position in nodeTag
+    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
+
+    std::unordered_set<std::size_t> tagSet; // only keep nodes from the tris and edges
+    for(std::size_t &tag : nodeTagsInTris) tagSet.insert(tag);
+//    for(std::size_t &tag : nodeTagsInEdges) tagSet.insert(tag);
+
+    // set the size of the resulting nodes array
+    nodes.resize(tagSet.size());
+
+    std::map<std::size_t, int> mtags; // nodeTag -> sequential position
+    int count = 0;
+
+    for(const std::size_t &tag : tagSet)
+    {
+        int idx1 = nodeTagsMap1[tag];
+        double x = nodeCoords[idx1*3+0];
+        double y = nodeCoords[idx1*3+1];
+
+        icy::Node &nd = nodes[count];
+        nd.Reset();
+        nd.locId = count;
+        nd.x_initial << x, y;
+        nd.intended_position = nd.xt = nd.xn = nd.x_initial;
+        if(y==0 || !deformable) nd.pinned=true;
+        else freeNodeCount++;
+        mtags[tag] = count;
+        count++;
+    }
+
+    // physical groups of nodes
+    std::vector<std::size_t> nodeTagsGroup;
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, group2, nodeTagsGroup, nodeCoords);
+    for(const std::size_t tag : nodeTagsGroup)
+    {
+        int idx = mtags[tag];
+        nodes[idx].group = group2;
+    }
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, group1, nodeTagsGroup, nodeCoords);
+    for(const std::size_t tag : nodeTagsGroup)
+    {
+        int idx = mtags[tag];
+        nodes[idx].group = group1;
+    }
+
+    // resulting elements array
+    elems.resize(trisTags.size());
+
+    for(std::size_t i=0;i<trisTags.size();i++)
+    {
+        icy::Element &elem = elems[i];
+        for(int j=0;j<3;j++) elem.nds[j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+        elem.PrecomputeInitialArea();
+        if(elem.area_initial == 0) throw std::runtime_error("icy::Mesh::Reset - element's area is zero");
+        if(elem.area_initial < 0)
+        {
+            for(int j=0;j<3;j++) elem.nds[2-j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+            elem.PrecomputeInitialArea();
+            if(elem.area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
+        }
+        for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
+    }
+
+    std::unordered_set<int> set_nds; // set of boundary nodes
+    boundary_edges.resize(nodeTagsInEdges.size()/2);
+    for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
+    {
+        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
+        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+        set_nds.insert(idx1);
+        set_nds.insert(idx2);
+        Node *nd1, *nd2;
+        if(idx1<idx2)
+        {
+            nd1 = &nodes[idx1];
+            nd2 = &nodes[idx2];
+        }
+        else
+        {
+            nd1 = &nodes[idx2];
+            nd2 = &nodes[idx1];
+        }
+        boundary_edges[i]=std::make_pair(nd1,nd2);
+    }
+
+    boundary_nodes.resize(set_nds.size());
+    std::copy(set_nds.begin(), set_nds.end(), boundary_nodes.begin());
+    gmsh::clear();
 }
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
@@ -70,7 +247,7 @@ void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 
     gmsh::model::occ::synchronize();
 
-    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
     GetFromGmsh();
 }
@@ -91,7 +268,7 @@ void icy::MeshFragment::GenerateIndenter(double ElementSize)
     gmsh::model::occ::addEllipse(0, height+radius*1.1, 0, radius, radius/2);
     gmsh::model::occ::synchronize();
 
-    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
     GetFromGmsh();
 }
@@ -131,7 +308,7 @@ void icy::MeshFragment::GenerateCup(double ElementSize)
     gmsh::model::occ::addWire(curveTags);
 
     gmsh::model::occ::synchronize();
-    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", ElementSize*10);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize*10);
 
     GetFromGmsh();
 }
@@ -150,14 +327,14 @@ void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, d
     vp.push_back(std::make_pair(2,diskTag));
     gmsh::model::occ::rotate(vp, x,y,0,0,0,1,M_PI/2);
     gmsh::model::occ::synchronize();
-    gmsh::option::setNumber("Mesh.CharacteristicLengthMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     GetFromGmsh();
 }
 
 
 void icy::MeshFragment::GetFromGmsh()
 {
-    gmsh::option::setNumber("Mesh.CharacteristicLengthExtendFromBoundary",0);
+//    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary",0);
     gmsh::model::mesh::generate(deformable ? 2 : 1);
 
 
