@@ -90,7 +90,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     curveTags2.push_back(line12);
     curveTags2.push_back(line13);
     curveTags2.push_back(line14);
-//    int loopTag2 = gmsh::model::occ::addCurveLoop(curveTags);
+    int loopTag2 = gmsh::model::occ::addCurveLoop(curveTags2);
 
 
 
@@ -99,7 +99,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     gmsh::model::mesh::embed(1, curveTags2, 2, surfaceTag);
 
     // physical groups
-    int group1 = gmsh::model::addPhysicalGroup(1, curveTags1);
+    std::vector<int> group1Tags1;
+    group1Tags1.push_back(loopTag);
+    int group1 = gmsh::model::addPhysicalGroup(2, group1Tags1);
     int group2 = gmsh::model::addPhysicalGroup(1, curveTags2);
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
@@ -135,7 +137,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     std::unordered_set<std::size_t> tagSet; // only keep nodes from the tris and edges
     for(std::size_t &tag : nodeTagsInTris) tagSet.insert(tag);
-//    for(std::size_t &tag : nodeTagsInEdges) tagSet.insert(tag);
 
     // set the size of the resulting nodes array
     nodes.resize(tagSet.size());
@@ -162,17 +163,17 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     // physical groups of nodes
     std::vector<std::size_t> nodeTagsGroup;
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, group1, nodeTagsGroup, nodeCoords);
+    for(const std::size_t tag : nodeTagsGroup)
+    {
+        int idx = mtags[tag];
+        nodes[idx].group = group1;
+    }
     gmsh::model::mesh::getNodesForPhysicalGroup(1, group2, nodeTagsGroup, nodeCoords);
     for(const std::size_t tag : nodeTagsGroup)
     {
         int idx = mtags[tag];
         nodes[idx].group = group2;
-    }
-    gmsh::model::mesh::getNodesForPhysicalGroup(1, group1, nodeTagsGroup, nodeCoords);
-    for(const std::size_t tag : nodeTagsGroup)
-    {
-        int idx = mtags[tag];
-        nodes[idx].group = group1;
     }
 
     // resulting elements array

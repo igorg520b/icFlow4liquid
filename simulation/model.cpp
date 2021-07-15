@@ -20,14 +20,16 @@ void icy::Model::Reset(SimParams &prms)
     UnsafeUpdateGeometry();
 }
 
-void icy::Model::Prepare(void)
+void icy::Model::Prepare()
 {
     abortRequested = false;
 //    timeStepFactor = 1;
 }
 
-bool icy::Model::Step(void)
+bool icy::Model::Step()
 {
+    mesh->UpdateTree(prms.InteractionDistance);
+
     int iter, attempt = 0;
     bool converges=false;
     bool sln_res, ccd_res; // false if matrix is not PSD

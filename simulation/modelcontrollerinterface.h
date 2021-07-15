@@ -5,9 +5,9 @@
 class ModelControllerInterface
 {
 public:
-    virtual void Prepare(void) = 0;
-    virtual bool Step(void) = 0;
-    virtual void RequestAbort(void) = 0;
+    virtual void Prepare() = 0;
+    virtual bool Step() = 0;
+    virtual void RequestAbort() = 0;
 };
 
 

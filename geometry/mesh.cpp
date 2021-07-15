@@ -498,7 +498,7 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     ccd_results.clear();
 
     unsigned nBroadListCCD = broadlist_ccd.size();
-//    qDebug() << "nBroadListCCD/2 " << nBroadListCCD/2;
+//    qDebug() << "nBroadListCCD size " << nBroadListCCD;
 
     bool final_state_contains_edge_intersection = false;
 
