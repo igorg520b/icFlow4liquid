@@ -54,6 +54,8 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     double width = 2;
     double height = 1;
+    int crazyPointForTesting = gmsh::model::occ::addPoint(0.77, 1e-10, 0, 1.0);
+
     int point1 = gmsh::model::occ::addPoint(-width/2, 1e-10, 0, 1.0);
     int point2 = gmsh::model::occ::addPoint(-width/2, height, 0, 1.0);
     int point3 = gmsh::model::occ::addPoint(width/2, height*1.1, 0, 1.0);
@@ -70,10 +72,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     curveTags1.push_back(line3);
     curveTags1.push_back(line4);
     int loopTag = gmsh::model::occ::addCurveLoop(curveTags1);
-
-    std::vector<int> loops;
-    loops.push_back(loopTag);
-    int surfaceTag = gmsh::model::occ::addPlaneSurface(loops);
 
     double offset = 1.2*ElementSize;
     int point11 = gmsh::model::occ::addPoint(-width/2+offset, offset, 0, 1.0);
@@ -92,11 +90,15 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     curveTags2.push_back(line14);
     int loopTag2 = gmsh::model::occ::addCurveLoop(curveTags2);
 
+    std::vector<int> loops;
+    loops.push_back(loopTag);
+    loops.push_back(loopTag2);
+    int surfaceTag = gmsh::model::occ::addPlaneSurface(loops);
 
 
     gmsh::model::occ::synchronize();
 
-    gmsh::model::mesh::embed(1, curveTags2, 2, surfaceTag);
+//    gmsh::model::mesh::embed(1, curveTags2, 2, surfaceTag);
 
     // physical groups
     std::vector<int> group1Tags1;
@@ -117,63 +119,40 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     boundary_edges.clear();
     freeNodeCount = 0;
 
-
     // nodes
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
-    gmsh::model::mesh::getNodes(nodeTags, nodeCoords, parametricCoords);
+    gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
 
     // elems
     std::vector<std::size_t> trisTags, nodeTagsInTris;
     gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
 
-    // boundary
-    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
-    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-
     // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
-    std::map<std::size_t, int> nodeTagsMap1; // nodeTag -> its sequential position in nodeTag
+    std::map<std::size_t, int> nodeTagsMap1; // node tag -> its sequential position in nodeTags vector
     for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
 
-    std::unordered_set<std::size_t> tagSet; // only keep nodes from the tris and edges
-    for(std::size_t &tag : nodeTagsInTris) tagSet.insert(tag);
-
     // set the size of the resulting nodes array
-    nodes.resize(tagSet.size());
+    nodes.resize(nodeTags.size());
 
-    std::map<std::size_t, int> mtags; // nodeTag -> sequential position
-    int count = 0;
+    std::map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
 
-    for(const std::size_t &tag : tagSet)
+    for(unsigned i=0;i<nodeTags.size();i++)
     {
+        std::size_t tag = nodeTags[i];
+        mtags[tag] = i;
+
         int idx1 = nodeTagsMap1[tag];
         double x = nodeCoords[idx1*3+0];
         double y = nodeCoords[idx1*3+1];
 
-        icy::Node &nd = nodes[count];
+        icy::Node &nd = nodes[i];
         nd.Reset();
-        nd.locId = count;
+        nd.locId = i;
         nd.x_initial << x, y;
         nd.intended_position = nd.xt = nd.xn = nd.x_initial;
         if(y==0 || !deformable) nd.pinned=true;
         else freeNodeCount++;
-        mtags[tag] = count;
-        count++;
-    }
-
-    // physical groups of nodes
-    std::vector<std::size_t> nodeTagsGroup;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, group1, nodeTagsGroup, nodeCoords);
-    for(const std::size_t tag : nodeTagsGroup)
-    {
-        int idx = mtags[tag];
-        nodes[idx].group = group1;
-    }
-    gmsh::model::mesh::getNodesForPhysicalGroup(1, group2, nodeTagsGroup, nodeCoords);
-    for(const std::size_t tag : nodeTagsGroup)
-    {
-        int idx = mtags[tag];
-        nodes[idx].group = group2;
     }
 
     // resulting elements array
@@ -194,14 +173,40 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
     }
 
-    std::unordered_set<int> set_nds; // set of boundary nodes
-    boundary_edges.resize(nodeTagsInEdges.size()/2);
+    // BOUNDARIRES - NODES
+    // physical groups of nodes
+    std::vector<std::size_t> nodeTagsGroup;
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, group1, nodeTagsGroup, nodeCoords);
+    boundary_nodes.clear();
+    for(const std::size_t tag : nodeTagsGroup)
+    {
+        unsigned idx = mtags[tag];
+        nodes[idx].group = group1;
+        boundary_nodes.push_back(idx);
+    }
+
+    nodeTagsGroup.clear();
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, group2, nodeTagsGroup, nodeCoords);
+    inner_boundary_nodes.clear();
+    for(const std::size_t tag : nodeTagsGroup)
+    {
+        unsigned idx = mtags[tag];
+        nodes[idx].group = group2;
+        inner_boundary_nodes.push_back(idx);
+    }
+
+    // BOUNDARIRES - EDGES
+
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+
+
+    boundary_edges.clear();
+    inner_boundary_edges.clear();
     for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
     {
         int idx1 = mtags[nodeTagsInEdges[i*2+0]];
         int idx2 = mtags[nodeTagsInEdges[i*2+1]];
-        set_nds.insert(idx1);
-        set_nds.insert(idx2);
         Node *nd1, *nd2;
         if(idx1<idx2)
         {
@@ -213,11 +218,14 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             nd1 = &nodes[idx2];
             nd2 = &nodes[idx1];
         }
-        boundary_edges[i]=std::make_pair(nd1,nd2);
+
+        if(nd1->group == group1 && nd2->group == group1) boundary_edges.emplace_back(nd1,nd2);
+        else if(nd1->group == group2 && nd2->group == group2) inner_boundary_edges.emplace_back(nd1,nd2);
+        else throw std::runtime_error("error when meshing boundaries");
     }
 
-    boundary_nodes.resize(set_nds.size());
-    std::copy(set_nds.begin(), set_nds.end(), boundary_nodes.begin());
+//    boundary_nodes.resize(set_nds.size());
+//    std::copy(set_nds.begin(), set_nds.end(), boundary_nodes.begin());
     gmsh::clear();
 }
 
@@ -438,10 +446,8 @@ void icy::MeshFragment::GetFromGmsh()
 
 void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
 {
-    root_ccd.isLeaf = false;
-    root_ccd.test_self_collision = false;
-    root_contact.isLeaf = false;
-    root_contact.test_self_collision = false;
+    root_ccd.isLeaf = root_contact.isLeaf = false;
+    root_contact.test_self_collision = root_ccd.test_self_collision = false; // this->deformable;
 
     leafs_for_ccd.clear();
     leafs_for_contact.clear();
