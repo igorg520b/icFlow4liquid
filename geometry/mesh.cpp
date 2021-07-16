@@ -84,38 +84,16 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
 {
     allMeshes.clear();
     indenter.GenerateIndenter(CharacteristicLengthMax);
+//    indenter.GenerateSpecialIndenter(CharacteristicLengthMax);
     allMeshes.push_back(&indenter);
-    MeshFragment *mf;
-/*
-    for(int i=0;i<10;i++)
-    {
-        mf = new MeshFragment();
-        mf->GenerateBall(0.06+i*0.06,0.76,0.05,0.025,CharacteristicLengthMax/3);
-        allMeshes.push_back(mf);
-        mf = new MeshFragment();
-        mf->GenerateBall(-i*0.06,0.76,0.05,0.025,CharacteristicLengthMax/3);
-        allMeshes.push_back(mf);
-    }
 
-    for(int i=0;i<5;i++)
-    {
-        mf = new MeshFragment();
-        mf->GenerateBall(0.12+i*0.12,0.883,0.05,0.05,CharacteristicLengthMax/3);
-        allMeshes.push_back(mf);
-        mf = new MeshFragment();
-        mf->GenerateBall(-i*0.12,0.883,0.05,0.05,CharacteristicLengthMax/3);
-        allMeshes.push_back(mf);
-    }
 
-    mf = new MeshFragment();
-    mf->GenerateCup(CharacteristicLengthMax);
-    allMeshes.push_back(mf);
-*/
     MeshFragment *brick = new MeshFragment;
     brick->GenerateSpecialBrick(CharacteristicLengthMax);
 //    brick->GenerateBrick(CharacteristicLengthMax);
     allMeshes.push_back(brick);
 
+    MeshFragment *mf;
     mf = new MeshFragment;
     mf->GenerateContainer(CharacteristicLengthMax, offset);
     allMeshes.push_back(mf);

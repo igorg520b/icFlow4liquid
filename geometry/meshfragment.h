@@ -27,6 +27,7 @@ public:
     void GenerateBrick(double ElementSize);
     void GenerateSpecialBrick(double ElementSize);
     void GenerateIndenter(double ElementSize);
+    void GenerateSpecialIndenter(double ElementSize);
     void GenerateCup(double ElementSize);
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);

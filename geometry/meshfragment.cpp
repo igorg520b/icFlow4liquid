@@ -54,7 +54,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     double width = 2;
     double height = 1;
-    int crazyPointForTesting = gmsh::model::occ::addPoint(0.77, 1e-10, 0, 1.0);
 
     int point1 = gmsh::model::occ::addPoint(-width/2, 1e-10, 0, 1.0);
     int point2 = gmsh::model::occ::addPoint(-width/2, height, 0, 1.0);
@@ -66,12 +65,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     int line3 = gmsh::model::occ::addLine(point3, point4);
     int line4 = gmsh::model::occ::addLine(point4, point1);
 
-    std::vector<int> curveTags1, curveTags2;
-    curveTags1.push_back(line1);
-    curveTags1.push_back(line2);
-    curveTags1.push_back(line3);
-    curveTags1.push_back(line4);
-    int loopTag = gmsh::model::occ::addCurveLoop(curveTags1);
+    int loopTag1 = gmsh::model::occ::addCurveLoop({line1, line2, line3, line4});
 
     double offset = 1.2*ElementSize;
     int point11 = gmsh::model::occ::addPoint(-width/2+offset, offset, 0, 1.0);
@@ -84,27 +78,17 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     int line13 = gmsh::model::occ::addLine(point13, point14);
     int line14 = gmsh::model::occ::addLine(point14, point11);
 
-    curveTags2.push_back(line11);
-    curveTags2.push_back(line12);
-    curveTags2.push_back(line13);
-    curveTags2.push_back(line14);
-    int loopTag2 = gmsh::model::occ::addCurveLoop(curveTags2);
+    int loopTag2 = gmsh::model::occ::addCurveLoop({line11, line12, line13, line14});
 
-    std::vector<int> loops;
-    loops.push_back(loopTag);
-    loops.push_back(loopTag2);
-    int surfaceTag = gmsh::model::occ::addPlaneSurface(loops);
+    int surfaceTag1 = gmsh::model::occ::addPlaneSurface({loopTag1, loopTag2});
+    int surfaceTag2 = gmsh::model::occ::addPlaneSurface({loopTag2});
 
 
     gmsh::model::occ::synchronize();
 
-//    gmsh::model::mesh::embed(1, curveTags2, 2, surfaceTag);
-
     // physical groups
-    std::vector<int> group1Tags1;
-    group1Tags1.push_back(loopTag);
-    int group1 = gmsh::model::addPhysicalGroup(2, group1Tags1);
-    int group2 = gmsh::model::addPhysicalGroup(1, curveTags2);
+    int group1 = gmsh::model::addPhysicalGroup(2, {loopTag1});
+    int group2 = gmsh::model::addPhysicalGroup(2, {loopTag2});
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::model::mesh::generate(2);
@@ -186,7 +170,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     }
 
     nodeTagsGroup.clear();
-    gmsh::model::mesh::getNodesForPhysicalGroup(1, group2, nodeTagsGroup, nodeCoords);
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, group2, nodeTagsGroup, nodeCoords);
     inner_boundary_nodes.clear();
     for(const std::size_t tag : nodeTagsGroup)
     {
@@ -327,6 +311,124 @@ void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
     GetFromGmsh();
+}
+
+void icy::MeshFragment::GenerateSpecialIndenter(double ElementSize)
+{
+    std::cout << "\nGenerateSpecialIndenter\n";
+    deformable = false;
+
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("block1");
+
+    double height = 1;
+    double radius = 0.15;
+//    int point1 = gmsh::model::occ::addPoint(0, height+radius*1.1, 0, 1.0);
+
+    gmsh::model::addDiscreteEntity(0, 1);
+    gmsh::model::addDiscreteEntity(0, 2);
+    gmsh::model::addDiscreteEntity(0, 3);
+
+    gmsh::model::setCoordinates(1, 0, height+0.01, 0);
+    gmsh::model::setCoordinates(2, -radius, height+radius, 0);
+    gmsh::model::setCoordinates(3, radius, height+radius, 0);
+
+    gmsh::model::addDiscreteEntity(1, 1, {1,2});
+    gmsh::model::addDiscreteEntity(1, 2, {2,3});
+    gmsh::model::addDiscreteEntity(1, 3, {3,1});
+
+    gmsh::model::addDiscreteEntity(2, 1, {1,2,3});
+
+    gmsh::model::mesh::createGeometry();
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+
+
+    gmsh::model::mesh::generate(1);
+
+
+    // retrieve the result
+    elems.clear();
+    nodes.clear();
+    boundary_nodes.clear();
+    boundary_edges.clear();
+    freeNodeCount = 0;
+
+
+    // nodes
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords, parametricCoords;
+    gmsh::model::mesh::getNodesByElementType(1, nodeTags, nodeCoords, parametricCoords);
+
+    // boundary
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+
+    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
+    std::map<std::size_t, int> nodeTagsMap1; // nodeTag -> its sequential position in nodeTag
+    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
+
+    // set the size of the resulting nodes array
+    nodes.resize(nodeTags.size());
+    boundary_nodes.resize(nodeTags.size());
+
+    std::map<std::size_t, int> mtags; // nodeTag -> sequential position
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        boundary_nodes[i]=i;
+        std::size_t tag = nodeTags[i];
+        mtags[tag] = i;
+
+        int idx1 = nodeTagsMap1[tag];
+        double x = nodeCoords[idx1*3+0];
+        double y = nodeCoords[idx1*3+1];
+
+        icy::Node &nd = nodes[i];
+        nd.Reset();
+        nd.locId = i;
+        nd.x_initial << x, y;
+        nd.intended_position = nd.xt = nd.xn = nd.x_initial;
+        if(y==0 || !deformable) nd.pinned=true;
+        else freeNodeCount++;
+    }
+
+    boundary_edges.resize(nodeTagsInEdges.size()/2);
+
+    for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
+    {
+        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
+        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+        Node *nd1, *nd2;
+        if(idx1<idx2)
+        {
+            nd1 = &nodes[idx1];
+            nd2 = &nodes[idx2];
+        }
+        else
+        {
+            nd1 = &nodes[idx2];
+            nd2 = &nodes[idx1];
+        }
+        boundary_edges[i]=std::make_pair(nd1,nd2);
+    }
+
+    std::vector<std::pair<int,int>> dimTags;
+    gmsh::model::getEntities(dimTags,-1);
+    std::cout << "PRINTING entities FOR THE INDENTER\n";
+    for(std::pair<int,int> &val : dimTags)
+        std::cout << "DIM " << val.first << "; TAG " << val.second << std::endl;
+
+    std::vector<std::pair<int, int> > boundary_dimtags;
+    gmsh::model::getBoundary({{1, 1}}, boundary_dimtags, false, false);
+    std::vector<int> boundary_tags, complement_tags;
+    std::cout << "PRINTING BOUNDARY_DIMTAGS FOR {1,1}\n";
+      for(auto e : boundary_dimtags) {
+          std::cout << "DIM " << e.first << "; TAG " << e.second << std::endl;
+      }
+
+
+    gmsh::clear();
 }
 
 
