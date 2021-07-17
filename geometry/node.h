@@ -2,6 +2,8 @@
 #ifndef NODE_H
 #define NODE_H
 
+#include <bitset>
+
 #include <Eigen/Core>
 
 #include "equationofmotionsolver.h"
@@ -18,7 +20,7 @@ public:
     int locId, globId, eqId;       // sequential number of a node; identificator in the equation of motion (if not pinned)
     bool pinned;
     double area;        // area that the node "represents", for applying various forces
-    int group;
+    std::bitset<4> group;
 
     Eigen::Vector2d x_initial;  // initial configuration
     Eigen::Vector2d xn, vn;     // position and velocity at step n

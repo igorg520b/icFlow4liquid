@@ -1,6 +1,7 @@
 #include <stdexcept>
 #include <cfloat>
 #include <algorithm>
+#include <iostream>
 #include "bvhn.h"
 
 icy::ConcurrentPool<std::vector<icy::BVHN*>> icy::BVHN::VectorFactory(50);
@@ -15,8 +16,8 @@ void icy::BVHN::Build(std::vector<BVHN*> *bvs, int level_)
     if(level_ > 100) throw std::runtime_error("BVH level is over 100");
     level = level_;
     auto count = bvs->size();
-    if(count == 0) throw new std::runtime_error("bvs->size==0 in BVHN::Initialize");
-    else if(count == 1) throw new std::runtime_error("bvs->size==1 in BVHN::Initialize");
+    if(count == 0) throw std::runtime_error("bvs->size==0 in BVHN::Initialize");
+    else if(count == 1) throw std::runtime_error("bvs->size==1 in BVHN::Initialize");
 
     isLeaf = false;
 
@@ -122,7 +123,7 @@ void icy::BVHN::Build(std::vector<BVHN*> *bvs, int level_)
 void icy::BVHN::Update()
 {
     // assume that leaves are already updated
-    if(isLeaf) throw std::runtime_error("Updated called on BVHN leaf");
+    if(isLeaf) throw std::runtime_error("Update called on BVHN leaf");
     if(!child1->isLeaf) child1->Update();
     if(!child2->isLeaf) child2->Update();
     box.Reset();

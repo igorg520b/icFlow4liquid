@@ -6,6 +6,28 @@
 
 
 
+void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
+{
+    allMeshes.clear();
+    indenter.GenerateIndenter(CharacteristicLengthMax);
+//    indenter.GenerateSpecialIndenter(CharacteristicLengthMax);
+    allMeshes.push_back(&indenter);
+
+
+    MeshFragment *brick = new MeshFragment;
+    brick->GenerateSpecialBrick(CharacteristicLengthMax);
+//    brick->GenerateBrick(CharacteristicLengthMax);
+    allMeshes.push_back(brick);
+
+    MeshFragment *mf;
+    mf = new MeshFragment;
+    mf->GenerateContainer(CharacteristicLengthMax, offset);
+    allMeshes.push_back(mf);
+
+    RegenerateVisualizedGeometry();
+    tree_update_counter=0;
+}
+
 icy::Mesh::Mesh()
 {
     // initialize LUT
@@ -80,27 +102,7 @@ icy::Mesh::Mesh()
 }
 
 
-void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
-{
-    allMeshes.clear();
-    indenter.GenerateIndenter(CharacteristicLengthMax);
-//    indenter.GenerateSpecialIndenter(CharacteristicLengthMax);
-    allMeshes.push_back(&indenter);
 
-
-    MeshFragment *brick = new MeshFragment;
-    brick->GenerateSpecialBrick(CharacteristicLengthMax);
-//    brick->GenerateBrick(CharacteristicLengthMax);
-    allMeshes.push_back(brick);
-
-    MeshFragment *mf;
-    mf = new MeshFragment;
-    mf->GenerateContainer(CharacteristicLengthMax, offset);
-    allMeshes.push_back(mf);
-
-    RegenerateVisualizedGeometry();
-    tree_update_counter=0;
-}
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
@@ -172,6 +174,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 
 void icy::Mesh::UpdateTree(float distance_threshold)
 {
+    qDebug() << "icy::Mesh::UpdateTree(float distance_threshold)";
     // update leafs
     unsigned nLeafs = global_leafs_ccd.size();
 #pragma omp parallel for
@@ -381,7 +384,7 @@ void icy::Mesh::UpdateValues()
 
     case icy::Model::VisOpt::node_group:
         visualized_values->SetNumberOfValues(allNodes.size());
-        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group);
+        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group.to_ulong());
         break;
 
 

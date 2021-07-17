@@ -8,7 +8,7 @@ void icy::Node::Reset()
     area = 0;
     pinned = false;
     spring_attached = 0;
-    group = -1;
+    group.reset();
 }
 
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
