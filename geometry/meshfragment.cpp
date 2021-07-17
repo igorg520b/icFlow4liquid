@@ -9,6 +9,7 @@ icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(50000);
 
 void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 {
+    std::cout << "\nicy::MeshFragment::GenerateSpecialBrick\n";
     deformable = true;
 
     // invoke Gmsh
@@ -109,6 +110,14 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         else freeNodeCount++;
     }
 
+    // physical groups of nodes
+    for(int i=0;i<3;i++)
+    {
+        std::vector<std::size_t> nodeTagsGroup;
+        gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[i], nodeTagsGroup, nodeCoords);
+        for(const std::size_t tag : nodeTagsGroup) nodes[mtags[tag]].group.set(i);
+    }
+
     // resulting elements array
     elems.resize(trisTags.size());
 
@@ -125,22 +134,12 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             if(elem.area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
         }
         for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
-    }
-
-    // BOUNDARIRES - NODES
-    // physical groups of nodes
-    std::vector<std::size_t> nodeTagsGroup;
-    for(int i=0;i<3;i++)
-    {
-        nodeTagsGroup.clear();
-        gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[i], nodeTagsGroup, nodeCoords);
-        for(const std::size_t tag : nodeTagsGroup)
-        {
-            unsigned idx = mtags[tag];
-            nodes[idx].group.set(i);
-        }
+        for(int j=0;j<3;j++)
+            if(elem.nds[0]->group.test(j) && elem.nds[1]->group.test(j) && elem.nds[2]->group.test(j))
+                elem.group=j;
 
     }
+
 
 
     // BOUNDARIRES - EDGES
@@ -212,6 +211,8 @@ void icy::MeshFragment::GenerateBrick(double ElementSize)
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 {
+    std::cout << "\nicy::MeshFragment::GenerateContainer\n";
+
     deformable = false;
 
     gmsh::clear();
@@ -360,6 +361,8 @@ void icy::MeshFragment::GenerateSpecialIndenter(double ElementSize)
 
 void icy::MeshFragment::GenerateIndenter(double ElementSize)
 {
+    std::cout << "\nicy::MeshFragment::GenerateIndenter\n";
+
     deformable = false;
 
     gmsh::clear();
@@ -375,9 +378,7 @@ void icy::MeshFragment::GenerateIndenter(double ElementSize)
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 
-
     gmsh::model::mesh::generate(1);
-
 
     // retrieve the result
     elems.clear();
