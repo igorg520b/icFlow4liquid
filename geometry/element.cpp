@@ -20,7 +20,7 @@ void icy::Element::Reset(void)
     }
     area_initial = 0;
     group = -1;
-    fluid = prestrained = false;
+    fluid = false;
 }
 
 void icy::Element::PrecomputeInitialArea()
@@ -89,6 +89,10 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
     F = Ds*Dm_inv;    // deformation gradient
+    Eigen::Matrix2d multiplier;
+    multiplier << 1, 0, 0, 0.5;
+    if(group==2) F*=multiplier;
+
     double J = F.determinant();     // represents the change of volume in comparison with the reference
     volume_change = J;
     FT = F.transpose();

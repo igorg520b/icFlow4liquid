@@ -46,7 +46,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     int loopTag2 = gmsh::model::occ::addCurveLoop({line11, line12, line13, line14});
 
     double radius = 0.15;
-    int ellipseTag = gmsh::model::occ::addEllipse(0, height/2, 0, radius, radius/2);
+    int ellipseTag = gmsh::model::occ::addEllipse(0, height/2, 0, radius, radius*0.999);
     int loopTag3 = gmsh::model::occ::addCurveLoop({ellipseTag});
 
     int surfaceTag1 = gmsh::model::occ::addPlaneSurface({loopTag1, loopTag2});

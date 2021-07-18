@@ -18,7 +18,6 @@ public:
     icy::Element* adj_elems[3]; // nullptr if no adjacent element
     int group;
     bool fluid;
-    bool prestrained;
     double area_initial;
 
     Element() { Reset();}
