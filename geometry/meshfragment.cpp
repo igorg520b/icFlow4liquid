@@ -57,49 +57,32 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     gmsh::model::occ::synchronize();
 
     // physical groups
-    int groups[3];
-    groups[0] = gmsh::model::addPhysicalGroup(2, {loopTag1});
-    groups[1] = gmsh::model::addPhysicalGroup(2, {loopTag2});
-    groups[2] = gmsh::model::addPhysicalGroup(2, {loopTag3});
+    unsigned nGroups = 1;
+    int groups[nGroups];
+    groups[0] = gmsh::model::addPhysicalGroup(1, {line1, line2, line3, line4});
+//    groups[1] = gmsh::model::addPhysicalGroup(2, {loopTag2});
+//    groups[2] = gmsh::model::addPhysicalGroup(2, {loopTag3});
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::model::mesh::generate(2);
 
 
-    // modified version of GetFromGmsh
 
-    // retrieve the result
-    elems.clear();
-    nodes.clear();
-    boundary_edges.clear();
-    freeNodeCount = 0;
-
-    // nodes
+    // GET NODES
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
     gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
 
-    // elems
-    std::vector<std::size_t> trisTags, nodeTagsInTris;
-    gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
-
-    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
-    std::map<std::size_t, int> nodeTagsMap1; // node tag -> its sequential position in nodeTags vector
-    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
-
     // set the size of the resulting nodes array
     nodes.resize(nodeTags.size());
-
+    freeNodeCount = 0;
     std::map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
-
     for(unsigned i=0;i<nodeTags.size();i++)
     {
         std::size_t tag = nodeTags[i];
         mtags[tag] = i;
-
-        int idx1 = nodeTagsMap1[tag];
-        double x = nodeCoords[idx1*3+0];
-        double y = nodeCoords[idx1*3+1];
+        double x = nodeCoords[i*3+0];
+        double y = nodeCoords[i*3+1];
 
         icy::Node &nd = nodes[i];
         nd.Reset();
@@ -110,34 +93,46 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         else freeNodeCount++;
     }
 
+
     // physical groups of nodes
-    for(int i=0;i<3;i++)
+    for(int i=0;i<nGroups;i++)
     {
         std::vector<std::size_t> nodeTagsGroup;
-        gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[i], nodeTagsGroup, nodeCoords);
+        gmsh::model::mesh::getNodesForPhysicalGroup(1, groups[i], nodeTagsGroup, nodeCoords);
         for(const std::size_t tag : nodeTagsGroup) nodes[mtags[tag]].group.set(i);
     }
 
-    // resulting elements array
-    elems.resize(trisTags.size());
 
-    for(std::size_t i=0;i<trisTags.size();i++)
+    // GET ELEMENTS
+    elems.clear();
+    std::vector<int> surfaces = {surfaceTag1, surfaceTag2, surfaceTag3};
+
+    for(int j=0;j<3;j++)
     {
-        icy::Element &elem = elems[i];
-        for(int j=0;j<3;j++) elem.nds[j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
-        elem.PrecomputeInitialArea();
-        if(elem.area_initial == 0) throw std::runtime_error("icy::Mesh::Reset - element's area is zero");
-        if(elem.area_initial < 0)
-        {
-            for(int j=0;j<3;j++) elem.nds[2-j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
-            elem.PrecomputeInitialArea();
-            if(elem.area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
-        }
-        for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
-        for(int j=0;j<3;j++)
-            if(elem.nds[0]->group.test(j) && elem.nds[1]->group.test(j) && elem.nds[2]->group.test(j))
-                elem.group=j;
+        std::vector<std::size_t> trisTags, nodeTagsInTris;
+//        trisTags.clear();nodeTagsInTris.clear();
+        gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris, surfaces[j]);
 
+        for(std::size_t i=0;i<trisTags.size();i++)
+        {
+            icy::Element elem;// = elems[i];
+            for(int j=0;j<3;j++) elem.nds[j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+            elem.PrecomputeInitialArea();
+            if(elem.area_initial == 0) throw std::runtime_error("icy::Mesh::Reset - element's area is zero");
+            if(elem.area_initial < 0)
+            {
+                for(int j=0;j<3;j++) elem.nds[2-j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+                elem.PrecomputeInitialArea();
+                if(elem.area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
+            }
+            for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
+            //        for(int j=0;j<3;j++)
+            //            if(elem.nds[0]->group.test(j) && elem.nds[1]->group.test(j) && elem.nds[2]->group.test(j))
+            //                elem.group=j;
+            elem.group=j;
+            elems.push_back(elem);
+
+        }
     }
 
 
@@ -146,7 +141,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-
 
     boundary_edges.clear();
     inner_boundary_edges.clear();
@@ -165,7 +159,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             nd1 = &nodes[idx2];
             nd2 = &nodes[idx1];
         }
-        boundary_edges.emplace_back(nd1,nd2);
+        if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
     }
 
     gmsh::clear();
