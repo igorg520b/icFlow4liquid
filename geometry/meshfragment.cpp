@@ -1,15 +1,112 @@
-#include "meshfragment.h"
-#include <gmsh.h>
 #include <unordered_set>
+#include <hdf5.h>
+#include <gmsh.h>
+#include "meshfragment.h"
 
 icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(50000);
 
 
+void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
+{
+    deformable = true;
+
+    // invoke Gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("block1");
+
+    double r1 = 0.5, r2=0.5;
+    int diskTag = gmsh::model::occ::addDisk(0,r1*1.1, 0, r1, r2);
+    gmsh::vectorpair vp;
+    vp.push_back(std::make_pair(2,diskTag));
+    gmsh::model::occ::synchronize();
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+
+    gmsh::model::mesh::generate(2);
+
+    // GET NODES
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords, parametricCoords;
+    gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
+
+    // set the size of the resulting nodes array
+    nodes.resize(nodeTags.size());
+    freeNodeCount = 0;
+    std::map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        std::size_t tag = nodeTags[i];
+        mtags[tag] = i;
+        double x = nodeCoords[i*3+0];
+        double y = nodeCoords[i*3+1];
+
+        icy::Node &nd = nodes[i];
+        nd.Reset();
+        nd.locId = i;
+        nd.x_initial << x, y;
+        nd.intended_position = nd.xt = nd.xn = nd.x_initial;
+        if(y==0 || !deformable) nd.pinned=true;
+        else freeNodeCount++;
+    }
+
+
+
+    // GET ELEMENTS
+    elems.clear();
+
+    std::vector<std::size_t> trisTags, nodeTagsInTris;
+    gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
+
+    for(std::size_t i=0;i<trisTags.size();i++)
+    {
+        icy::Element elem;// = elems[i];
+        for(int j=0;j<3;j++) elem.nds[j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+        elem.PrecomputeInitialArea();
+        if(elem.area_initial == 0) throw std::runtime_error("icy::Mesh::Reset - element's area is zero");
+        if(elem.area_initial < 0)
+        {
+            for(int j=0;j<3;j++) elem.nds[2-j] = &(nodes[mtags[nodeTagsInTris[i*3+j]]]);
+            elem.PrecomputeInitialArea();
+            if(elem.area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
+        }
+        for(int j=0;j<3;j++) elem.nds[j]->area += elem.area_initial/3;
+        elems.push_back(elem);
+
+    }
+
+
+    // BOUNDARIRES - EDGES
+
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+
+    boundary_edges.clear();
+    inner_boundary_edges.clear();
+    for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
+    {
+        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
+        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+        Node *nd1, *nd2;
+        if(idx1<idx2)
+        {
+            nd1 = &nodes[idx1];
+            nd2 = &nodes[idx2];
+        }
+        else
+        {
+            nd1 = &nodes[idx2];
+            nd2 = &nodes[idx1];
+        }
+        boundary_edges.emplace_back(nd1,nd2);
+    }
+
+    gmsh::clear();
+
+}
 
 
 void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 {
-    std::cout << "\nicy::MeshFragment::GenerateSpecialBrick\n";
     deformable = true;
 
     // invoke Gmsh
@@ -160,6 +257,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             nd2 = &nodes[idx1];
         }
         if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
+        else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
 
     gmsh::clear();
@@ -237,120 +335,7 @@ void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
     GetFromGmsh();
 }
 
-void icy::MeshFragment::GenerateSpecialIndenter(double ElementSize)
-{
-    std::cout << "\nGenerateSpecialIndenter\n";
-    deformable = false;
 
-    gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
-    gmsh::model::add("block1");
-
-    double height = 1;
-    double radius = 0.15;
-//    int point1 = gmsh::model::occ::addPoint(0, height+radius*1.1, 0, 1.0);
-
-    gmsh::model::addDiscreteEntity(0, 1);
-    gmsh::model::addDiscreteEntity(0, 2);
-    gmsh::model::addDiscreteEntity(0, 3);
-
-    gmsh::model::setCoordinates(1, 0, height+0.01, 0);
-    gmsh::model::setCoordinates(2, -radius, height+radius, 0);
-    gmsh::model::setCoordinates(3, radius, height+radius, 0);
-
-    gmsh::model::addDiscreteEntity(1, 1, {1,2});
-    gmsh::model::addDiscreteEntity(1, 2, {2,3});
-    gmsh::model::addDiscreteEntity(1, 3, {3,1});
-
-    gmsh::model::addDiscreteEntity(2, 1, {1,2,3});
-
-    gmsh::model::mesh::createGeometry();
-
-    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
-
-
-    gmsh::model::mesh::generate(1);
-
-
-    // retrieve the result
-    elems.clear();
-    nodes.clear();
-    boundary_edges.clear();
-    freeNodeCount = 0;
-
-
-    // nodes
-    std::vector<std::size_t> nodeTags;
-    std::vector<double> nodeCoords, parametricCoords;
-    gmsh::model::mesh::getNodesByElementType(1, nodeTags, nodeCoords, parametricCoords);
-
-    // boundary
-    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
-    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-
-    // nodeTags, nodeCoords, nodeTagsInTris => nodes, elems
-    std::map<std::size_t, int> nodeTagsMap1; // nodeTag -> its sequential position in nodeTag
-    for(std::size_t i=0;i<nodeTags.size();i++) nodeTagsMap1[nodeTags[i]] = i;
-
-    // set the size of the resulting nodes array
-    nodes.resize(nodeTags.size());
-
-    std::map<std::size_t, int> mtags; // nodeTag -> sequential position
-    for(unsigned i=0;i<nodeTags.size();i++)
-    {
-        std::size_t tag = nodeTags[i];
-        mtags[tag] = i;
-
-        int idx1 = nodeTagsMap1[tag];
-        double x = nodeCoords[idx1*3+0];
-        double y = nodeCoords[idx1*3+1];
-
-        icy::Node &nd = nodes[i];
-        nd.Reset();
-        nd.locId = i;
-        nd.x_initial << x, y;
-        nd.intended_position = nd.xt = nd.xn = nd.x_initial;
-        if(y==0 || !deformable) nd.pinned=true;
-        else freeNodeCount++;
-    }
-
-    boundary_edges.resize(nodeTagsInEdges.size()/2);
-
-    for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
-    {
-        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
-        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
-        Node *nd1, *nd2;
-        if(idx1<idx2)
-        {
-            nd1 = &nodes[idx1];
-            nd2 = &nodes[idx2];
-        }
-        else
-        {
-            nd1 = &nodes[idx2];
-            nd2 = &nodes[idx1];
-        }
-        boundary_edges[i]=std::make_pair(nd1,nd2);
-    }
-
-    std::vector<std::pair<int,int>> dimTags;
-    gmsh::model::getEntities(dimTags,-1);
-    std::cout << "PRINTING entities FOR THE INDENTER\n";
-    for(std::pair<int,int> &val : dimTags)
-        std::cout << "DIM " << val.first << "; TAG " << val.second << std::endl;
-
-    std::vector<std::pair<int, int> > boundary_dimtags;
-    gmsh::model::getBoundary({{1, 1}}, boundary_dimtags, false, false);
-    std::vector<int> boundary_tags, complement_tags;
-    std::cout << "PRINTING BOUNDARY_DIMTAGS FOR {1,1}\n";
-      for(auto e : boundary_dimtags) {
-          std::cout << "DIM " << e.first << "; TAG " << e.second << std::endl;
-      }
-
-
-    gmsh::clear();
-}
 
 
 void icy::MeshFragment::GenerateIndenter(double ElementSize)
@@ -751,48 +736,9 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
     qDebug() << "icy::MeshFragment::GenerateLeafs() " << leafs_for_ccd.size() << " " << leafs_for_contact.size();
 }
 
-
-
-
-/*
-
-void MeshFragment::GenerateSelfCollisionTest(double ElementSize)
+void icy::MeshFragment::SaveFragment(std::string fileName)
 {
-    deformable = true;
-
-    // invoke Gmsh
-    gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
-    gmsh::model::add("block1");
-
-    GetFromGmsh();
-}
-
-void MeshFragment::GenerateCircle(double x, double y, double r, double ElementSize)
-{
-    deformable = true;
-
-
-    // invoke Gmsh
-    gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
-    gmsh::model::add("block1");
-
-    GetFromGmsh();
 
 }
 
 
-void MeshFragment::GenerateCup(double ElementSize)
-{
-    deformable = false;
-
-    // invoke Gmsh
-    gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
-    gmsh::model::add("block1");
-
-
-    GetFromGmsh();
-}
-*/

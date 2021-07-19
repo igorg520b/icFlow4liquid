@@ -3,7 +3,7 @@
 
 #include <QMainWindow>
 
-#include <QFileDialog>
+
 #include <QSizePolicy>
 #include <QPushButton>
 #include <QSplitter>
@@ -95,6 +95,10 @@ public:
 
 
 private slots:
+    void background_worker_paused();
+    void updateGUI();   // when simulation is started/stopped or when a step is advanced
+    void render_results();
+
     void sliderValueChanged(int val);
     void comboboxIndexChanged_visualizations(int index);
 
@@ -103,12 +107,7 @@ private slots:
     void on_action_simulation_start_triggered(bool checked);
     void on_action_camera_reset_triggered();
 
-    void updateGUI();   // when simulation is started/stopped or when a step is advanced
-    void render_results();
-
-    void background_worker_paused();
-
-    void on_actionSetup_2_triggered();
+    void on_actionSave_Mesh_triggered();
 
 private:
 //    PreferencesGUI prefsGUI;

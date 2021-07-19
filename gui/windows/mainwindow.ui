@@ -28,7 +28,7 @@
      <string>File</string>
     </property>
     <addaction name="separator"/>
-    <addaction name="separator"/>
+    <addaction name="actionSave_Mesh"/>
     <addaction name="separator"/>
     <addaction name="action_quit"/>
    </widget>
@@ -48,17 +48,9 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
    </widget>
-   <widget class="QMenu" name="menuReset">
-    <property name="title">
-     <string>Reset</string>
-    </property>
-    <addaction name="actionSetup_1"/>
-    <addaction name="actionSetup_2"/>
-   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
    <addaction name="menuTools_2"/>
-   <addaction name="menuReset"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -155,14 +147,12 @@
     <string>Ctrl+1</string>
    </property>
   </action>
-  <action name="actionSetup_1">
+  <action name="actionSave_Mesh">
    <property name="text">
-    <string>Setup 1</string>
+    <string>Save Mesh...</string>
    </property>
-  </action>
-  <action name="actionSetup_2">
-   <property name="text">
-    <string>Setup 2</string>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
    </property>
   </action>
  </widget>

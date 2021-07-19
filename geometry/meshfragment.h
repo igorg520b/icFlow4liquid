@@ -1,10 +1,11 @@
 #ifndef MESHFRAGMENT_H
 #define MESHFRAGMENT_H
 
+#include <vector>
+#include <string>
 #include "element.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
-#include <vector>
 
 namespace icy { class MeshFragment; }
 
@@ -17,18 +18,18 @@ public:
     std::vector<icy::Node> nodes;
     std::vector<icy::Element> elems;
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
-    std::vector<std::pair<icy::Node*,icy::Node*>> inner_boundary_edges; // for the experiments with fluid material
+    std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
     unsigned freeNodeCount;
+    void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize);
     void GenerateSpecialBrick(double ElementSize);
+    void GenerateSpecialBrick2(double ElementSize);
     void GenerateIndenter(double ElementSize);
-    void GenerateSpecialIndenter(double ElementSize);
     void GenerateCup(double ElementSize);
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);
-//    void GenerateSelfCollisionTest(double ElementSize);
 
 private:
     void GetFromGmsh();

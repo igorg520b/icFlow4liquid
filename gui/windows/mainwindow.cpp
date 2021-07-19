@@ -1,3 +1,4 @@
+#include <QFileDialog>
 #include <algorithm>
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
@@ -187,11 +188,7 @@ void MainWindow::background_worker_paused()
     statusLabel->setText("stopped");
 }
 
-void MainWindow::render_results()
-{
-    model.UnsafeUpdateGeometry();
-    renderWindow->Render();
-}
+
 
 
 void MainWindow::on_action_simulation_single_step_triggered()
@@ -228,7 +225,11 @@ void MainWindow::updateGUI()
     render_results();
 }
 
-
+void MainWindow::render_results()
+{
+    model.UnsafeUpdateGeometry();
+    renderWindow->Render();
+}
 
 void MainWindow::comboboxIndexChanged_visualizations(int index)
 {
@@ -247,10 +248,34 @@ void MainWindow::sliderValueChanged(int val)
 }
 
 
-
-
-
-void MainWindow::on_actionSetup_2_triggered()
+void MainWindow::on_actionSave_Mesh_triggered()
 {
-    // reset the mesh - select setup 2
+    qDebug() << "Save mesh";
+
+    QDir outputDirectory;
+    QString outputPathName = "output";
+    outputDirectory.setPath(outputPathName);
+    if(!outputDirectory.exists()) {
+        bool result = QDir::current().mkdir(outputPathName);
+        if(!result) throw std::runtime_error("could not create output directory");
+        outputDirectory.setPath(QDir::current().path() + "/output");
+        if(!outputDirectory.exists()) throw std::runtime_error("could not open output directory");
+    }
+    qDebug() << "output directory: " << outputDirectory.path();
+
+    QFileDialog qfd(this, "Save Mesh", outputDirectory.path(), "HDF5 files (*.h5)");
+    qfd.setDefaultSuffix("h5");
+
+    qfd.setAcceptMode(QFileDialog::AcceptSave);
+    qfd.setFileMode(QFileDialog::AnyFile);
+
+    bool result = qfd.exec();
+    if(!result) return;
+
+    QString fileName = qfd.selectedFiles()[0];
+
+    if (fileName.isEmpty()) return;
+    model.mesh->allMeshes[1]->SaveFragment(fileName.toStdString());
+
 }
+

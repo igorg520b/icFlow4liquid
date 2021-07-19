@@ -10,13 +10,11 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
 {
     allMeshes.clear();
     indenter.GenerateIndenter(CharacteristicLengthMax);
-//    indenter.GenerateSpecialIndenter(CharacteristicLengthMax);
     allMeshes.push_back(&indenter);
 
 
     MeshFragment *brick = new MeshFragment;
-    brick->GenerateSpecialBrick(CharacteristicLengthMax);
-//    brick->GenerateBrick(CharacteristicLengthMax);
+    brick->GenerateSpecialBrick2(CharacteristicLengthMax);
     allMeshes.push_back(brick);
 
     MeshFragment *mf;
@@ -174,7 +172,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 
 void icy::Mesh::UpdateTree(float distance_threshold)
 {
-    qDebug() << "icy::Mesh::UpdateTree(float distance_threshold)";
     // update leafs
     unsigned nLeafs = global_leafs_ccd.size();
 #pragma omp parallel for
@@ -646,28 +643,7 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
             return std::make_pair(true,t);
         }
     }
-
-    // qDebug() << "CCD: false";
     return std::make_pair(false,0);
 }
 
-
-
-
-/*
-    glyph_int_data->SetNumberOfValues(mesh.nodes.size());
-
-    for(std::size_t i=0;i<mesh.nodes.size();i++)
-    {
-        int value = 0;
-        if(mesh.nodes[i].pinned)
-            value = mesh.nodes[i].selected ? 2 : 1;
-        glyph_int_data->SetValue(i,value);
-    }
-    glyph_hueLut->SetTableRange(-0.5,5.5);
-
-    glyph_mapper->SetScalarModeToUsePointData();
-    poly_data->GetPointData()->AddArray(glyph_int_data);
-    poly_data->GetPointData()->SetActiveScalars("glyph_int_data");
-*/
 
