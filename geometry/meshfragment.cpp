@@ -20,8 +20,159 @@ void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
     gmsh::vectorpair vp;
     vp.push_back(std::make_pair(2,diskTag));
     gmsh::model::occ::synchronize();
-    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize*10);
+    gmsh::option::setNumber("Mesh.MeshSizeMin", ElementSize*5);
 
+    std::cout << "\n GenerateSpecialBrick2 meshing 1D\n";
+
+//    gmsh::model::mesh::generate(1);
+
+//    gmsh::model::mesh::clear({{1,1}});
+    gmsh::model::mesh::addNodes(0,1,{1},{0.5001,0.55,0});
+    gmsh::model::mesh::addElements(0,1, {15}, {{1}}, {{1}});
+
+    gmsh::model::mesh::addNodes(1,1,{2,3,4,5,6,7,8,9,10,11,12,13},
+                                {0.3, 0.782362, 0, //2
+                                0.284032, 0.961492, 0,  //3
+                                0.0602683, 1.04635, 0,  //4
+                                -0.177302, 1.01751, 0,  //5
+                                -0.374255, 0.881561, 0,
+                                -0.485471, 0.669658, 0,
+                                -0.485471, 0.430342, 0,
+                                -0.374255, 0.218439, 0,
+                                -0.177302, 0.0824919, 0,    //10
+                                0.0602683, 0.0536456, 0,    //11
+                                0.284032, 0.138508, 0,      //12
+                                0.442728, 0.317638, 0},
+
+                                {0.483322, 0.966644, 1.44997,
+                                1.93329, 2.41661, 2.89993,
+                                3.38325, 3.86658, 4.3499,
+                                4.83322, 5.31654, 5.79986});
+
+    gmsh::model::mesh::addElements(1,1,{1},{{2,3,4,5,6,7,8,9,10,11,12,13,14}},
+                                         {{1,2,
+                                         2,3,
+                                         3,4,
+                                         4,5,
+                                         5,6,
+                                         6,7,
+                                         7,8,
+                                         8,9,
+                                         9,10,
+                                         10,11,
+                                         11,12,
+                                         12,13,
+                                         13,1}});
+
+
+    gmsh::model::mesh::reclassifyNodes();
+    gmsh::model::mesh::createGeometry();
+
+
+    // PRINT OUT
+
+    // Get all the elementary entities in the model, as a vector of (dimension,
+    // tag) pairs:
+    std::vector<std::pair<int, int> > entities;
+    gmsh::model::getEntities(entities);
+
+    for(auto e : entities) {
+        // Dimension and tag of the entity:
+        int dim = e.first, tag = e.second;
+
+        // Mesh data is made of `elements' (points, lines, triangles, ...), defined
+        // by an ordered list of their `nodes'. Elements and nodes are identified by
+        // `tags' as well (strictly positive identification numbers), and are stored
+        // ("classified") in the model entity they discretize. Tags for elements and
+        // nodes are globally unique (and not only per dimension, like entities).
+
+        // A model entity of dimension 0 (a geometrical point) will contain a mesh
+        // element of type point, as well as a mesh node. A model curve will contain
+        // line elements as well as its interior nodes, while its boundary nodes
+        // will be stored in the bounding model points. A model surface will contain
+        // triangular and/or quadrangular elements and all the nodes not classified
+        // on its boundary or on its embedded entities. A model volume will contain
+        // tetrahedra, hexahedra, etc. and all the nodes not classified on its
+        // boundary or on its embedded entities.
+
+        // Get the mesh nodes for the entity (dim, tag):
+        std::vector<std::size_t> nodeTags;
+        std::vector<double> nodeCoords, nodeParams;
+        gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams, dim, tag);
+        std::cout << "nodeCoords.size " << nodeCoords.size() << std::endl;
+        std::cout << "nodeParams.size " << nodeParams.size() << std::endl;
+
+        // Get the mesh elements for the entity (dim, tag):
+        std::vector<int> elemTypes;
+        std::vector<std::vector<std::size_t> > elemTags, elemNodeTags;
+        gmsh::model::mesh::getElements(elemTypes, elemTags, elemNodeTags, dim, tag);
+
+        // Elements can also be obtained by type, by using `getElementTypes()'
+        // followed by `getElementsByType()'.
+
+        // Let's print a summary of the information available on the entity and its
+        // mesh.
+
+        // * Type of the entity:
+        std::string type;
+        gmsh::model::getType(dim, tag, type);
+        std::string name;
+        gmsh::model::getEntityName(dim, tag, name);
+        if(name.size()) name += " ";
+        std::cout << "Entity " << name << "(" << dim << "," << tag << ") of type " << type << "\n";
+
+        // * Number of mesh nodes and elements:
+        int numElem = 0;
+        for(auto &tags : elemTags) numElem += tags.size();
+        std::cout << " - Mesh has " << nodeTags.size() << " nodes and " << numElem
+                  << " elements\n";
+
+
+        std::cout << "Printing nodes" << std::endl;
+        if(nodeParams.size() > 0) {
+        for(unsigned i=0;i<nodeTags.size();i++)
+            std::cout << nodeTags[i] << ": (" << nodeCoords[i*3+0] << ", "
+                << nodeCoords[i*3+1] << ", "<< nodeCoords[i*3+2] << "); ("
+<< nodeParams[i] << ")\n";
+        }
+        else
+        {
+            for(unsigned i=0;i<nodeTags.size();i++)
+                std::cout << nodeTags[i] << ": (" << nodeCoords[i*3+0] << ", "
+                    << nodeCoords[i*3+1] << ", "<< nodeCoords[i*3+2] << ")\n";
+
+        }
+
+
+        // * List all types of elements making up the mesh of the entity:
+        for(unsigned i=0;i<elemTypes.size();i++)
+        {
+            int elemType = elemTypes[i];
+            std::string name;
+            int d, order, numv, numpv;
+            std::vector<double> param;
+            gmsh::model::mesh::getElementProperties(elemType, name, d, order, numv,
+                                                    param, numpv);
+            std::cout << i << ": " << elemType << "; - Element type: " << name << ", order " << order;
+            std::cout << "   with " << numv << " nodes in param coord: (";
+            for(auto p : param) std::cout << p << " ";
+            std::cout << ")\n";
+
+            if(elemType == 1) // lines
+            {
+                std::cout << "Printing lines\n";
+                for(unsigned j=0;j<elemTags[i].size();j++)
+                    std::cout << elemTags[i][j] << ": (" << elemNodeTags[i][j*2+0] << ", " << elemNodeTags[i][j*2+1] << ")\n";
+            }
+        }
+    }
+
+//    gmsh::model::mesh::generate(1);
+//    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+//    gmsh::option::setNumber("Mesh.MeshSizeMin", 1e-10);
+    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary",0);
+    std::cout << "\n GenerateSpecialBrick2 meshing 2D\n";
     gmsh::model::mesh::generate(2);
 
     // GET NODES
@@ -101,6 +252,7 @@ void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
     }
 
     gmsh::clear();
+    std::cout << "\n GenerateSpecialBrick2 done\n" << std::flush;
 
 }
 
@@ -307,8 +459,8 @@ void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 
     deformable = false;
 
+    gmsh::option::setNumber("General.Terminal", 0);
     gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
     gmsh::model::add("block1");
 
     double width = 2;
@@ -344,8 +496,8 @@ void icy::MeshFragment::GenerateIndenter(double ElementSize)
 
     deformable = false;
 
+    gmsh::option::setNumber("General.Terminal", 0);
     gmsh::clear();
-    gmsh::option::setNumber("General.Terminal", 1);
     gmsh::model::add("block1");
 
     double height = 1;
@@ -421,130 +573,7 @@ void icy::MeshFragment::GenerateIndenter(double ElementSize)
         boundary_edges[i]=std::make_pair(nd1,nd2);
     }
 
-    std::vector<std::pair<int,int>> dimTags;
-    gmsh::model::getEntities(dimTags,-1);
-    std::cout << "PRINTING entities FOR THE INDENTER\n";
-    for(std::pair<int,int> &val : dimTags)
-        std::cout << "DIM " << val.first << "; TAG " << val.second << std::endl;
 
-    std::vector<std::pair<int, int> > boundary_dimtags;
-    gmsh::model::getBoundary({{1, 1}}, boundary_dimtags, false, false);
-    std::vector<int> boundary_tags, complement_tags;
-    std::cout << "PRINTING BOUNDARY_DIMTAGS FOR {1,1}\n";
-      for(auto e : boundary_dimtags) {
-          std::cout << "DIM " << e.first << "; TAG " << e.second << std::endl;
-      }
-
-    // PRINT OUT
-
-      // Get all the elementary entities in the model, as a vector of (dimension,
-        // tag) pairs:
-        std::vector<std::pair<int, int> > entities;
-        gmsh::model::getEntities(entities);
-
-        for(auto e : entities) {
-          // Dimension and tag of the entity:
-          int dim = e.first, tag = e.second;
-
-          // Mesh data is made of `elements' (points, lines, triangles, ...), defined
-          // by an ordered list of their `nodes'. Elements and nodes are identified by
-          // `tags' as well (strictly positive identification numbers), and are stored
-          // ("classified") in the model entity they discretize. Tags for elements and
-          // nodes are globally unique (and not only per dimension, like entities).
-
-          // A model entity of dimension 0 (a geometrical point) will contain a mesh
-          // element of type point, as well as a mesh node. A model curve will contain
-          // line elements as well as its interior nodes, while its boundary nodes
-          // will be stored in the bounding model points. A model surface will contain
-          // triangular and/or quadrangular elements and all the nodes not classified
-          // on its boundary or on its embedded entities. A model volume will contain
-          // tetrahedra, hexahedra, etc. and all the nodes not classified on its
-          // boundary or on its embedded entities.
-
-          // Get the mesh nodes for the entity (dim, tag):
-          std::vector<std::size_t> nodeTags;
-          std::vector<double> nodeCoords, nodeParams;
-          gmsh::model::mesh::getNodes(nodeTags, nodeCoords, nodeParams, dim, tag);
-
-          // Get the mesh elements for the entity (dim, tag):
-          std::vector<int> elemTypes;
-          std::vector<std::vector<std::size_t> > elemTags, elemNodeTags;
-          gmsh::model::mesh::getElements(elemTypes, elemTags, elemNodeTags, dim, tag);
-
-          // Elements can also be obtained by type, by using `getElementTypes()'
-          // followed by `getElementsByType()'.
-
-          // Let's print a summary of the information available on the entity and its
-          // mesh.
-
-          // * Type of the entity:
-          std::string type;
-          gmsh::model::getType(dim, tag, type);
-          std::string name;
-          gmsh::model::getEntityName(dim, tag, name);
-          if(name.size()) name += " ";
-          std::cout << "Entity " << name << "(" << dim << "," << tag << ") of type "
-                    << type << "\n";
-
-          // * Number of mesh nodes and elements:
-          int numElem = 0;
-          for(auto &tags : elemTags) numElem += tags.size();
-          std::cout << " - Mesh has " << nodeTags.size() << " nodes and " << numElem
-                    << " elements\n";
-      /*
-          // * Upward and downward adjacencies:
-          std::vector<int> up, down;
-          gmsh::model::getAdjacencies(dim, tag, up, down);
-          if(up.size()) {
-            std::cout << " - Upward adjacencies: ";
-            for(auto e : up) std::cout << e << " ";
-            std::cout << "\n";
-          }
-          if(down.size()) {
-            std::cout << " - Downward adjacencies: ";
-            for(auto e : down) std::cout << e << " ";
-            std::cout << "\n";
-          }
-      */
-          // * Does the entity belong to physical groups?
-          std::vector<int> physicalTags;
-          gmsh::model::getPhysicalGroupsForEntity(dim, tag, physicalTags);
-          if(physicalTags.size()) {
-            std::cout << " - Physical group: ";
-            for(auto physTag : physicalTags) {
-              std::string n;
-              gmsh::model::getPhysicalName(dim, physTag, n);
-              if(n.size()) n += " ";
-              std::cout << n << "(" << dim << ", " << physTag << ") ";
-            }
-            std::cout << "\n";
-          }
-
-          // * Is the entity a partition entity? If so, what is its parent entity?
-          std::vector<int> partitions;
-          gmsh::model::getPartitions(dim, tag, partitions);
-          if(partitions.size()) {
-            std::cout << " - Partition tags:";
-            for(auto part : partitions) std::cout << " " << part;
-            int parentDim, parentTag;
-            gmsh::model::getParent(dim, tag, parentDim, parentTag);
-            std::cout << " - parent entity (" << parentDim << "," << parentTag
-                      << ")\n";
-          }
-
-          // * List all types of elements making up the mesh of the entity:
-          for(auto elemType : elemTypes) {
-            std::string name;
-            int d, order, numv, numpv;
-            std::vector<double> param;
-            gmsh::model::mesh::getElementProperties(elemType, name, d, order, numv,
-                                                    param, numpv);
-            std::cout << " - Element type: " << name << ", order " << order << "\n";
-            std::cout << "   with " << numv << " nodes in param coord: (";
-            for(auto p : param) std::cout << p << " ";
-            std::cout << ")\n";
-          }
-        }
 
 
     gmsh::clear();
