@@ -51,13 +51,17 @@ void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
     gmsh::model::mesh::setTransfiniteCurve(line7,0);
     gmsh::model::mesh::setTransfiniteCurve(line8,0);
 
-    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize*3);
+    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeFromPoints", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", 0);
+
+//    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize*3);
 //    gmsh::option::setNumber("Mesh.MeshSizeMin", ElementSize*5);
 
     std::cout << "\n GenerateSpecialBrick2 meshing 1D\n";
 
 //    gmsh::model::mesh::generate(1);
-
+/*
     //1
     gmsh::model::mesh::addNodes(0,1,{1},{-0.6, 0.1, 0});
     gmsh::model::mesh::addElements(0,1, {15}, {{1}}, {{1}});
@@ -101,48 +105,9 @@ void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
 
     gmsh::model::mesh::reclassifyNodes();
     gmsh::model::mesh::createGeometry();
-
-/*
-    gmsh::model::mesh::clear({{1,1}});
-
-    gmsh::model::mesh::addNodes(1,1,{2,3,4,5,6,7,8,9,10,11,12,13},
-                                {0.3, 0.782362, 0, //2
-                                0.284032, 0.961492, 0,  //3
-                                0.0602683, 1.04635, 0,  //4
-                                -0.177302, 1.01751, 0,  //5
-                                -0.374255, 0.881561, 0,
-                                -0.485471, 0.669658, 0,
-                                -0.485471, 0.430342, 0,
-                                -0.374255, 0.218439, 0,
-                                -0.177302, 0.0824919, 0,    //10
-                                0.0602683, 0.0536456, 0,    //11
-                                0.284032, 0.138508, 0,      //12
-                                0.442728, 0.317638, 0},
-
-                                {0.483322, 0.966644, 1.44997,
-                                1.93329, 2.41661, 2.89993,
-                                3.38325, 3.86658, 4.3499,
-                                4.83322, 5.31654, 5.79986});
-
-    gmsh::model::mesh::addElements(1,1,{1},{{2,3,4,5,6,7,8,9,10,11,12,13,14}},
-                                         {{1,2,
-                                         2,3,
-                                         3,4,
-                                         4,5,
-                                         5,6,
-                                         6,7,
-                                         7,8,
-                                         8,9,
-                                         9,10,
-                                         10,11,
-                                         11,12,
-                                         12,13,
-                                         13,1}});
-
-
-
 */
 
+/*
     // PRINT OUT
 
     // Get all the elementary entities in the model, as a vector of (dimension,
@@ -245,10 +210,9 @@ void icy::MeshFragment::GenerateSpecialBrick2(double ElementSize)
             }
         }
     }
-
-    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize/10);
+*/
+//    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
 //    gmsh::option::setNumber("Mesh.MeshSizeMin", 1e-10);
-//    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary",0);
     std::cout << "\n GenerateSpecialBrick2 meshing 2D\n";
     gmsh::model::mesh::generate(2);
 
