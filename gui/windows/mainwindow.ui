@@ -39,6 +39,7 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
+    <addaction name="actionUse_Initial_State"/>
    </widget>
    <widget class="QMenu" name="menuTools_2">
     <property name="title">
@@ -47,6 +48,7 @@
     <addaction name="action_camera_reset"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
+    <addaction name="actionRemesh"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -153,6 +155,25 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionUse_Initial_State">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Use Initial State</string>
+   </property>
+   <property name="shortcut">
+    <string>F3</string>
+   </property>
+  </action>
+  <action name="actionRemesh">
+   <property name="text">
+    <string>Remesh</string>
+   </property>
+   <property name="shortcut">
+    <string>F4</string>
    </property>
   </action>
  </widget>

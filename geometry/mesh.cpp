@@ -225,15 +225,26 @@ void icy::Mesh::UnsafeUpdateGeometry()
 {
     double x[3]={};
 
-    for(icy::Node *nd : allNodes)
+    if(showInitial)
     {
-        x[0] = nd->xn[0];
-        x[1] = nd->xn[1];
-        points_deformable->SetPoint((vtkIdType)nd->globId, x);
+        for(icy::Node *nd : allNodes)
+        {
+            x[0] = nd->x_initial[0];
+            x[1] = nd->x_initial[1];
+            points_deformable->SetPoint((vtkIdType)nd->globId, x);
+        }
+    }
+    else
+    {
+        for(icy::Node *nd : allNodes)
+        {
+            x[0] = nd->xn[0];
+            x[1] = nd->xn[1];
+            points_deformable->SetPoint((vtkIdType)nd->globId, x);
+        }
     }
     points_deformable->Modified();
 
-    // indenter intended points
     for(icy::Node* nd : indenter.nodes)
     {
         x[0]=nd->intended_position[0];
@@ -248,17 +259,20 @@ void icy::Mesh::UnsafeUpdateGeometry()
     // collisions
     points_collisions->SetNumberOfPoints(collision_interactions.size()*2);
     cellArray_collisions->Reset();
-    for(unsigned i=0;i<collision_interactions.size();i++)
+    if(!showInitial)
     {
-        vtkIdType pts[2] = {2*i, 2*i+1};
-        cellArray_collisions->InsertNextCell(2, pts);
-        Interaction &intr = collision_interactions[i];
-        x[0] = intr.ndP->xt[0];
-        x[1] = intr.ndP->xt[1];
-        points_collisions->SetPoint((vtkIdType)2*i, x);
-        x[0] = intr.D[0];
-        x[1] = intr.D[1];
-        points_collisions->SetPoint((vtkIdType)2*i+1, x);
+        for(unsigned i=0;i<collision_interactions.size();i++)
+        {
+            vtkIdType pts[2] = {2*i, 2*i+1};
+            cellArray_collisions->InsertNextCell(2, pts);
+            Interaction &intr = collision_interactions[i];
+            x[0] = intr.ndP->xt[0];
+            x[1] = intr.ndP->xt[1];
+            points_collisions->SetPoint((vtkIdType)2*i, x);
+            x[0] = intr.D[0];
+            x[1] = intr.D[1];
+            points_collisions->SetPoint((vtkIdType)2*i+1, x);
+        }
     }
     points_indenter_intended->Modified();
     ugrid_collisions->SetCells(VTK_LINE, cellArray_collisions);

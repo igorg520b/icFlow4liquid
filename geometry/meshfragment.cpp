@@ -111,9 +111,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     }
 
 
-//    nodeTags.clear();
-//    nodeCoords.clear();
-
     // mark the "outer" and "inner" boundaries
     for(int i=0;i<2;i++)
     {
@@ -432,6 +429,11 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
 void icy::MeshFragment::SaveFragment(std::string fileName)
 {
 
+}
+
+void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
+{
+    std::cout << "\nicy::MeshFragment::RemeshSpecialBrick(double ElementSize)" << std::endl;
 }
 
 

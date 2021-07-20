@@ -109,6 +109,10 @@ private slots:
 
     void on_actionSave_Mesh_triggered();
 
+    void on_actionUse_Initial_State_toggled(bool arg1);
+
+    void on_actionRemesh_triggered();
+
 private:
 //    PreferencesGUI prefsGUI;
     icy::Model model;

@@ -30,6 +30,8 @@ public:
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);
 
+    void RemeshSpecialBrick(double ElementSize);
+
 private:
     unsigned nFirstGroupElems, nFirstGroupNodes;
     std::vector<icy::Node*> nodes_tmp;  // for remeshing

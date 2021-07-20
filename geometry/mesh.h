@@ -49,7 +49,7 @@ public:
     Mesh();
     void Reset(double CharacteristicLengthMax, double offset);
 
-
+    bool showInitial = false;
 private:
     void UpdateValues();
     void UnsafeUpdateGeometry();

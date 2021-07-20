@@ -279,3 +279,18 @@ void MainWindow::on_actionSave_Mesh_triggered()
 
 }
 
+
+void MainWindow::on_actionUse_Initial_State_toggled(bool arg1)
+{
+    model.mesh->showInitial = arg1;
+    render_results();
+}
+
+
+void MainWindow::on_actionRemesh_triggered()
+{
+    qDebug() << "Remesh!";
+    model.mesh->allMeshes[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
+    render_results();
+}
+
