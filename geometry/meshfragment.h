@@ -15,8 +15,9 @@ class icy::MeshFragment
 
 public:
     bool deformable;
-    std::vector<icy::Node> nodes;
-    std::vector<icy::Element> elems;
+    std::vector<icy::Node*> nodes;
+    std::vector<icy::Element*> elems;
+
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
@@ -25,14 +26,16 @@ public:
 
     void GenerateBrick(double ElementSize);
     void GenerateSpecialBrick(double ElementSize);
-    void GenerateSpecialBrick2(double ElementSize);
     void GenerateIndenter(double ElementSize);
-    void GenerateCup(double ElementSize);
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);
 
 private:
+    std::vector<icy::Node*> nodes_tmp;  // for remeshing
+    std::vector<icy::Element*> elems_tmp;// for remeshing
     void GetFromGmsh();
+    static ConcurrentPool<Node> NodeFactory;
+    static ConcurrentPool<Element> ElementFactory;
 
 // BROAD PHASE
 
@@ -42,7 +45,6 @@ public:
     void GenerateLeafs(unsigned edge_idx);
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
-
 
 };
 

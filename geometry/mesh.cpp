@@ -14,7 +14,7 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
 
 
     MeshFragment *brick = new MeshFragment;
-    brick->GenerateSpecialBrick2(CharacteristicLengthMax);
+    brick->GenerateSpecialBrick(CharacteristicLengthMax);
     allMeshes.push_back(brick);
 
     MeshFragment *mf;
@@ -119,7 +119,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     {
         for(unsigned i=0;i<mf->nodes.size();i++)
         {
-            Node *nd = &mf->nodes[i];
+            Node *nd = mf->nodes[i];
             nd->globId = count++;
             if(nd->pinned) nd->eqId=-1;
             else nd->eqId=freeNodeCount++;
@@ -127,7 +127,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         }
         mf->GenerateLeafs(allBoundaryEdges.size());
 
-        for(unsigned i=0;i<mf->elems.size();i++) allElems.push_back(&mf->elems[i]);
+        for(unsigned i=0;i<mf->elems.size();i++) allElems.push_back(mf->elems[i]);
         allBoundaryEdges.insert(allBoundaryEdges.end(), mf->boundary_edges.begin(), mf->boundary_edges.end());
         global_leafs_ccd.insert(global_leafs_ccd.end(), mf->leafs_for_ccd.begin(), mf->leafs_for_ccd.end());
         global_leafs_contact.insert(global_leafs_contact.end(),mf->leafs_for_contact.begin(), mf->leafs_for_contact.end());
@@ -234,11 +234,11 @@ void icy::Mesh::UnsafeUpdateGeometry()
     points_deformable->Modified();
 
     // indenter intended points
-    for(icy::Node &nd : indenter.nodes)
+    for(icy::Node* nd : indenter.nodes)
     {
-        x[0]=nd.intended_position[0];
-        x[1]=nd.intended_position[1];
-        points_indenter_intended->SetPoint((vtkIdType)nd.locId, x);
+        x[0]=nd->intended_position[0];
+        x[1]=nd->intended_position[1];
+        points_indenter_intended->SetPoint((vtkIdType)nd->locId, x);
     }
     points_indenter_intended->Modified();
 

@@ -15,7 +15,6 @@ class icy::Element
 public:
 
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
-    icy::Element* adj_elems[3]; // nullptr if no adjacent element
     int group;
     bool fluid;
     double area_initial;

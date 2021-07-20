@@ -14,10 +14,7 @@
 
 void icy::Element::Reset(void)
 {
-    for(int i=0;i<3;i++) {
-        nds[i] = nullptr;
-        adj_elems[i] = nullptr;
-    }
+    nds[0] = nds[1] = nds[2] = nullptr;
     area_initial = 0;
     group = -1;
     fluid = false;
@@ -29,6 +26,7 @@ void icy::Element::PrecomputeInitialArea()
     J << nds[0]->x_initial.x()-nds[2]->x_initial.x(), nds[1]->x_initial.x()-nds[2]->x_initial.x(),
             nds[0]->x_initial.y()-nds[2]->x_initial.y(), nds[1]->x_initial.y()-nds[2]->x_initial.y();
     area_initial = J.determinant()/2;
+    if(area_initial==0) throw std::runtime_error("element's initial area is zero");
 }
 
 

@@ -129,8 +129,8 @@ void icy::Model::PositionIndenter(double offset)
     Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.0);
     for(unsigned i=0;i<n;i++)
     {
-        icy::Node &nd = mesh->indenter.nodes[i];
-        nd.intended_position = nd.x_initial + offset*y_direction;
+        icy::Node* nd = mesh->indenter.nodes[i];
+        nd->intended_position = nd->x_initial + offset*y_direction;
     }
     vtk_update_mutex.unlock();
 }
