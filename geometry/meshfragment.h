@@ -31,6 +31,7 @@ public:
     void GenerateContainer(double ElementSize, double offset);
 
 private:
+    unsigned nFirstGroupElems, nFirstGroupNodes;
     std::vector<icy::Node*> nodes_tmp;  // for remeshing
     std::vector<icy::Element*> elems_tmp;// for remeshing
     void GetFromGmsh();

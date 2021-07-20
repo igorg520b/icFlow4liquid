@@ -11,6 +11,19 @@ void icy::Node::Reset()
     group.reset();
 }
 
+void icy::Node::Reset(int locId_, double x, double y)
+{
+    locId = locId_;
+    x_initial << x,y;
+    intended_position = xt = xn = x_initial;
+    eqId = globId = -1;
+    area = 0;
+    pinned = false;
+    spring_attached = 0;
+    group.reset();
+}
+
+
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
 {
     if(this->eqId<0) return;
