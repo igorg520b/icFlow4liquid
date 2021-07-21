@@ -31,9 +31,10 @@ public:
     void GenerateContainer(double ElementSize, double offset);
 
     void RemeshSpecialBrick(double ElementSize);
+    void Swap();
 
 private:
-    unsigned nFirstGroupElems, nFirstGroupNodes;
+    unsigned nFirstGroupElems, nFirstGroupNodes, nInnerBoundaryNodes;
     std::vector<icy::Node*> nodes_tmp;  // for remeshing
     std::vector<icy::Element*> elems_tmp;// for remeshing
     void GetFromGmsh();

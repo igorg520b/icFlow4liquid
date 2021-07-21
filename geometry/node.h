@@ -3,9 +3,7 @@
 #define NODE_H
 
 #include <bitset>
-
 #include <Eigen/Core>
-
 #include "equationofmotionsolver.h"
 #include "parameters_sim.h"
 
@@ -17,6 +15,7 @@ public:
     Node(){ Reset();}
     void Reset();
     void Reset(int locId, double x, double y);
+    void Reset(Node *other) { Reset(other->locId, other->x_initial.x(), other->x_initial.y()); }
 
     int locId, globId, eqId;       // sequential number of a node; identificator in the equation of motion (if not pinned)
     bool pinned;

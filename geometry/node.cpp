@@ -24,6 +24,7 @@ void icy::Node::Reset(int locId_, double x, double y)
 }
 
 
+
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
 {
     if(this->eqId<0) return;

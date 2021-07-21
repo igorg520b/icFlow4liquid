@@ -17,8 +17,8 @@ public:
     ConcurrentPool(int initialSize);
     ~ConcurrentPool();
     T* take();
-    void release(T* p);
-    void release(std::vector<T*> vec);
+    void release(T* p) {available.push(p);}
+    void release(std::vector<T*> &vec);
     void releaseAll();
     void printout(); // for testing
 
@@ -64,17 +64,18 @@ void icy::ConcurrentPool<T>::releaseAll()
     available.clear();
     for(unsigned i=0;i<registry.size();i++) available.push(registry[i]);
 }
-
+/*
 template<class T>
 void icy::ConcurrentPool<T>::release(T* p)
 {
     available.push(p);
 }
-
+*/
 template<class T>
-void icy::ConcurrentPool<T>::release(std::vector<T*> vec)
+void icy::ConcurrentPool<T>::release(std::vector<T*> &vec)
 {
     for(T* p : vec) available.push(p);
+    vec.clear();
 }
 
 

@@ -1,4 +1,4 @@
-#include <unordered_set>
+#include <unordered_map>
 #include <hdf5.h>
 #include <gmsh.h>
 #include "meshfragment.h"
@@ -71,36 +71,52 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
 
     // GET NODES
+    freeNodeCount = 0;
+    std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords;
-//    std::vector<double> parametricCoords;
-//    gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
 
-    // first, get the nodes of the "outer layer"
-
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[2], nodeTags, nodeCoords);
-    nFirstGroupNodes = nodeTags.size();
-
-    // set the size of the resulting nodes array
-    freeNodeCount = 0;
-    std::map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
+    // nodes of the "inner boundary" are placed first
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, groups[1], nodeTags, nodeCoords);
+    nInnerBoundaryNodes = nodeTags.size();
     for(unsigned i=0;i<nodeTags.size();i++)
     {
-        mtags[nodeTags[i]] = i;
+        std::size_t tag = nodeTags[i];
+        if(mtags.count(tag)) continue;  // node was already added
+        int sequential_id = nodes.size();
+        mtags[tag] = sequential_id;
         icy::Node* nd = NodeFactory.take();
-        nd->Reset(i, nodeCoords[i*3+0], nodeCoords[i*3+1]);
+        nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
+        nodes.push_back(nd);
+        freeNodeCount++;
+    }
+
+    // place the rest of the nodes of the "first group", i.e. elastic layer
+    nodeTags.clear();
+    nodeCoords.clear();
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[2], nodeTags, nodeCoords);
+    nFirstGroupNodes = nodeTags.size();
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        std::size_t tag = nodeTags[i];
+        if(mtags.count(tag)) continue;  // node was already added
+        int sequential_id = nodes.size();
+        mtags[tag] = sequential_id;
+        icy::Node* nd = NodeFactory.take();
+        nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nodes.push_back(nd);
         freeNodeCount++;
     }
     std::cout << "\nStep1 nodes added:" << nodes.size() << std::endl;
 
+    // place the rest of the nodes
     nodeTags.clear();
     nodeCoords.clear();
     gmsh::model::mesh::getNodesForPhysicalGroup(2, groups[3], nodeTags, nodeCoords);
     for(unsigned i=0;i<nodeTags.size();i++)
     {
         std::size_t tag = nodeTags[i];
-        if(mtags.count(tag)) continue;  // belongs to "inner" boundary and was already added
+        if(mtags.count(tag)) continue;  // node was already added
 
         int sequential_id = nodes.size();
         mtags[tag] = sequential_id;
@@ -305,7 +321,7 @@ void icy::MeshFragment::GetFromGmsh()
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
-    std::map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
+    std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
 
     if(deformable)
     {
@@ -434,7 +450,63 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
 void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 {
     std::cout << "\nicy::MeshFragment::RemeshSpecialBrick(double ElementSize)" << std::endl;
+    NodeFactory.release(nodes_tmp);
+    ElementFactory.release(elems_tmp);
+
+    for(unsigned i=0;i<nFirstGroupNodes;i++)
+    {
+        Node *nd = NodeFactory.take();
+        nd->Reset(nodes[i]);
+        nodes_tmp.push_back(nd);
+    }
+
+    for(unsigned i=0;i<nFirstGroupElems;i++)
+    {
+        Element *elem = ElementFactory.take();
+        elem->Reset();
+        elem->group=1;
+        for(int j=0;j<3;j++) elem->nds[j]=nodes_tmp[elems[i]->nds[j]->locId];
+    }
+
+    // re-create the boundary in gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("submesh1");
+
+    std::unordered_map<int, unsigned> btags; // gmsh tag -> index in nodes_tmp
+    for(unsigned i=0;i<nInnerBoundaryNodes;i++)
+    {
+        int tag = gmsh::model::occ::addPoint(nodes_tmp[i]->x_initial.x(), nodes_tmp[i]->x_initial.y(), 0, 0, i+1);
+        if(tag != i+1) throw std::runtime_error("tag != i+1");
+        btags[tag] = i;
+    }
+
+    std::vector<int> ltags; // tags of boundary lines
+    for(auto edge : inner_boundary_edges)
+    {
+        if(edge.first >= nInnerBoundaryNodes || edge.second >= nInnerBoundaryNodes) throw std::out_of_range("inner boudnary");
+        int lineTag = gmsh::model::occ::addLine(edge.first+1,edge.second+1);
+        ltags.push_back(lineTag);
+    }
+
+    int innerLoopTag = gmsh::model::occ::addCurveLoop(ltags);
+    int surfaceTag = gmsh::model::occ::addPlaneSurface({innerLoopTag});
+    gmsh::model::occ::synchronize();
+
+    for(int lineTag : ltags) gmsh::model::mesh::setTransfiniteCurve(lineTag,0);
+
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    gmsh::model::mesh::generate(2);
+    gmsh::fltk::run();
+    // gmsh::clear();
+
+}
+
+void icy::MeshFragment::Swap()
+{
+
 }
 
 
-//    gmsh::model::mesh::setTransfiniteCurve(line1,0);
+//
