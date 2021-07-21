@@ -289,9 +289,15 @@ void MainWindow::on_actionUse_Initial_State_toggled(bool arg1)
 
 void MainWindow::on_actionRemesh_triggered()
 {
-    qDebug() << "Remesh!";
     model.mesh->allMeshes[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
-    qDebug() << "RegenerateVisualizedGeometry()";
+    model.mesh->RegenerateVisualizedGeometry();
+    render_results();
+}
+
+
+void MainWindow::on_actionSwap_Buffers_triggered()
+{
+    model.mesh->allMeshes[1]->Swap();
     model.mesh->RegenerateVisualizedGeometry();
     render_results();
 }

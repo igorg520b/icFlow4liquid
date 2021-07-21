@@ -460,6 +460,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         elem->Reset();
         elem->group=1;
         for(int j=0;j<3;j++) elem->nds[j]=nodes_tmp[elems[i]->nds[j]->locId];
+        elems_tmp.push_back(elem);
     }
 
     // re-create the boundary in gmsh
@@ -497,51 +498,55 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
-    std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
-
+    std::unordered_map<std::size_t, unsigned> mtags; // nodeTag -> sequential position in nodes[]
 
     // GET NODES
     gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
-
-    std::cout << "GET NODES" << std::endl;
     // set the size of the resulting nodes array
-    nodes.resize(nodeTags.size());
     for(unsigned i=0;i<nodeTags.size();i++)
     {
         std::size_t tag = nodeTags[i];
-        mtags[tag] = i;
-
         double x = nodeCoords[i*3+0];
         double y = nodeCoords[i*3+1];
-        if(!btags.count(tag))
+
+        if(btags.count(tag))
         {
-            icy::Node* nd = NodeFactory.take();
-            nd->Reset(i, x, y);
-            nodes_tmp.push_back(nd);
+            // node already exists in nodes_tmp
+            unsigned idx = btags.at(tag);
+            icy::Node* nd = nodes_tmp[btags.at(tag)];
+            mtags[tag] = idx;
+            if(nd->x_initial.x()!=x || nd->x_initial.y()!=y) throw std::runtime_error("some tags don't match after remeshing");
         }
         else
         {
-            // node already exists in nodes_tmp
-            icy::Node* nd = nodes_tmp[btags.at(tag)];
-            if(nd->x_initial.x()!=x || nd->x_initial.y()!=y) throw std::runtime_error("some tags don't match after remeshing");
+            icy::Node* nd = NodeFactory.take();
+            nd->Reset(i, x, y);
+            unsigned idx = nodes_tmp.size();
+            mtags[tag] = idx;
+            nodes_tmp.push_back(nd);
         }
 
     }
 
     freeNodeCount = nodes_tmp.size();
 
-    std::cout << "GET ELEMENTS" << std::endl;
     // GET ELEMENTS
     std::vector<std::size_t> trisTags, nodeTagsInTris;
     gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
 
     for(std::size_t i=0;i<trisTags.size();i++)
     {
-        std::cout << "elem" << i << std::endl;
 
         icy::Element *elem = ElementFactory.take();
         elem->Reset();
-        for(int j=0;j<3;j++) elem->nds[j] = nodes_tmp[mtags[nodeTagsInTris[i*3+j]]];
+        for(int j=0;j<3;j++)
+        {
+            unsigned idx0 = nodeTagsInTris[i*3+j];
+            unsigned idx = mtags.at(idx0);
+//            std::cout << "idx " << idx << " of " << nodes_tmp.size() << std::endl;
+            if(idx>=nodes_tmp.size()) throw std::runtime_error("index error");
+            elem->nds[j] = nodes_tmp[idx];
+        }
         elem->PrecomputeInitialArea();
         if(elem->area_initial < 0)
         {

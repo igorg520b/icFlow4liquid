@@ -49,6 +49,7 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="actionRemesh"/>
+    <addaction name="actionSwap_Buffers"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -174,6 +175,11 @@
    </property>
    <property name="shortcut">
     <string>F4</string>
+   </property>
+  </action>
+  <action name="actionSwap_Buffers">
+   <property name="text">
+    <string>Swap Buffers</string>
    </property>
   </action>
  </widget>
