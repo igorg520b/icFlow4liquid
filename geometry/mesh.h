@@ -48,12 +48,12 @@ public:
 
     Mesh();
     void Reset(double CharacteristicLengthMax, double offset);
+    void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
 
     bool showInitial = false;
 private:
     void UpdateValues();
     void UnsafeUpdateGeometry();
-    void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
 
     // Collision detection
 public:

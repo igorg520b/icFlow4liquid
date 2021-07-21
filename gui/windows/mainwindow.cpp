@@ -291,6 +291,8 @@ void MainWindow::on_actionRemesh_triggered()
 {
     qDebug() << "Remesh!";
     model.mesh->allMeshes[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
+    qDebug() << "RegenerateVisualizedGeometry()";
+    model.mesh->RegenerateVisualizedGeometry();
     render_results();
 }
 
