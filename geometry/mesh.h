@@ -63,7 +63,7 @@ public:
 
 private:
     BVHN root_ccd, root_contact;
-    std::vector<BVHN*> global_leafs_ccd, global_leafs_contact, fragmentRoots_ccd, fragmentRoots_contact;
+    std::vector<BVHN*> global_leaves_ccd, global_leaves_contact, fragmentRoots_ccd, fragmentRoots_contact;
     std::vector<unsigned> broadlist_ccd, broadlist_contact; // indices of potentially colliding edges
     tbb::concurrent_unordered_set<long long> narrow_list_contact;
     tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list

@@ -104,14 +104,15 @@ icy::Mesh::Mesh()
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
+    tree_update_counter = 0;
     allNodes.clear();
     allElems.clear();
     allBoundaryEdges.clear();
     unsigned count = 0;
     freeNodeCount = 0;
 
-    global_leafs_ccd.clear();
-    global_leafs_contact.clear();
+    global_leaves_ccd.clear();
+    global_leaves_contact.clear();
     fragmentRoots_ccd.clear();
     fragmentRoots_contact.clear();
 
@@ -129,8 +130,8 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 
         for(unsigned i=0;i<mf->elems.size();i++) allElems.push_back(mf->elems[i]);
         allBoundaryEdges.insert(allBoundaryEdges.end(), mf->boundary_edges.begin(), mf->boundary_edges.end());
-        global_leafs_ccd.insert(global_leafs_ccd.end(), mf->leafs_for_ccd.begin(), mf->leafs_for_ccd.end());
-        global_leafs_contact.insert(global_leafs_contact.end(),mf->leafs_for_contact.begin(), mf->leafs_for_contact.end());
+        global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());
+        global_leaves_contact.insert(global_leaves_contact.end(),mf->leaves_for_contact.begin(), mf->leaves_for_contact.end());
         fragmentRoots_ccd.push_back(&mf->root_ccd);
         fragmentRoots_contact.push_back(&mf->root_contact);
     }
@@ -173,11 +174,11 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 void icy::Mesh::UpdateTree(float distance_threshold)
 {
     // update leafs
-    unsigned nLeafs = global_leafs_ccd.size();
+    unsigned nLeafs = global_leaves_ccd.size();
 #pragma omp parallel for
     for(unsigned i=0;i<nLeafs;i++)
     {
-        BVHN *leaf_ccd = global_leafs_ccd[i];
+        BVHN *leaf_ccd = global_leaves_ccd[i];
         Node *nd1, *nd2;
         std::tie(nd1,nd2) = allBoundaryEdges[leaf_ccd->feature_idx];
         kDOP8 &box_ccd = leaf_ccd->box;
@@ -187,7 +188,7 @@ void icy::Mesh::UpdateTree(float distance_threshold)
         box_ccd.Expand(nd1->xt.x(), nd1->xt.y());
         box_ccd.Expand(nd2->xt.x(), nd2->xt.y());
 
-        BVHN *leaf_contact = global_leafs_contact[i];
+        BVHN *leaf_contact = global_leaves_contact[i];
         std::tie(nd1,nd2) = allBoundaryEdges[leaf_contact->feature_idx];
 
         kDOP8 &box_contact = leaf_contact->box;
@@ -209,8 +210,8 @@ void icy::Mesh::UpdateTree(float distance_threshold)
         BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
         for(MeshFragment *mf : allMeshes)
         {
-            mf->root_ccd.Build(&mf->leafs_for_ccd,0);
-            mf->root_contact.Build(&mf->leafs_for_contact,0);
+            mf->root_ccd.Build(&mf->leaves_for_ccd,0);
+            mf->root_contact.Build(&mf->leaves_for_contact,0);
         }
         root_ccd.Build(&fragmentRoots_ccd,0);
         root_contact.Build(&fragmentRoots_contact,0);

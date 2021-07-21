@@ -8,6 +8,17 @@ icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(50000);
 icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(50000);
 
 
+icy::MeshFragment::~MeshFragment()
+{
+    // release objects back to their pools
+    BVHNLeafFactory.release(leaves_for_ccd);
+    BVHNLeafFactory.release(leaves_for_contact);
+    NodeFactory.release(nodes);
+    NodeFactory.release(nodes_tmp);
+    ElementFactory.release(elems);
+    ElementFactory.release(elems_tmp);
+}
+
 void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 {
     deformable = true;
@@ -71,7 +82,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
 
     // GET NODES
-    freeNodeCount = 0;
+//    freeNodeCount = 0;
     std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords;
@@ -88,7 +99,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         icy::Node* nd = NodeFactory.take();
         nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nodes.push_back(nd);
-        freeNodeCount++;
+//        freeNodeCount++;
     }
 
     // place the rest of the nodes of the "first group", i.e. elastic layer
@@ -105,7 +116,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         icy::Node* nd = NodeFactory.take();
         nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nodes.push_back(nd);
-        freeNodeCount++;
+//        freeNodeCount++;
     }
     std::cout << "\nStep1 nodes added:" << nodes.size() << std::endl;
 
@@ -123,7 +134,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         icy::Node* nd = NodeFactory.take();
         nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nodes.push_back(nd);
-        freeNodeCount++;
+//        freeNodeCount++;
     }
 
 
@@ -317,7 +328,7 @@ void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, d
 void icy::MeshFragment::GetFromGmsh()
 {
     if(elems.size() || nodes.size() || boundary_edges.size()) throw std::runtime_error("GetFromGmsh(): elem/node/edge arrays not empty");
-    freeNodeCount = 0;
+//    freeNodeCount = 0;
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
@@ -343,7 +354,7 @@ void icy::MeshFragment::GetFromGmsh()
             nodes[i] = nd;
             nd->Reset(i, nodeCoords[i*3+0], nodeCoords[i*3+1]);
             if(y==0 || !deformable) nd->pinned=true;
-            else freeNodeCount++;
+//            else freeNodeCount++;
         }
 
         // GET ELEMENTS
@@ -414,10 +425,11 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
     root_ccd.isLeaf = root_contact.isLeaf = false;
     root_contact.test_self_collision = root_ccd.test_self_collision = false; // this->deformable;
 
-    leafs_for_ccd.clear();
-    leafs_for_contact.clear();
-    leafs_for_ccd.reserve(boundary_edges.size());
-    leafs_for_contact.reserve(boundary_edges.size());
+    BVHNLeafFactory.release(leaves_for_ccd);
+    BVHNLeafFactory.release(leaves_for_contact);
+
+    leaves_for_ccd.reserve(boundary_edges.size());
+    leaves_for_contact.reserve(boundary_edges.size());
 
     for(auto edge : boundary_edges)
     {
@@ -430,16 +442,13 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
         leaf_contact->test_self_collision = leaf_ccd->test_self_collision = false;
         leaf_contact->isLeaf = leaf_ccd->isLeaf = true;
 
-        leafs_for_ccd.push_back(leaf_ccd);
-        leafs_for_contact.push_back(leaf_contact);
+        leaves_for_ccd.push_back(leaf_ccd);
+        leaves_for_contact.push_back(leaf_contact);
     }
-    qDebug() << "icy::MeshFragment::GenerateLeafs() " << leafs_for_ccd.size() << " " << leafs_for_contact.size();
+    qDebug() << "icy::MeshFragment::GenerateLeafs() " << leaves_for_ccd.size() << " " << leaves_for_contact.size();
 }
 
-void icy::MeshFragment::SaveFragment(std::string fileName)
-{
 
-}
 
 void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 {
@@ -528,7 +537,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 
     }
 
-    freeNodeCount = nodes_tmp.size();
+//    freeNodeCount = nodes_tmp.size();
 
     // GET ELEMENTS
     std::vector<std::size_t> trisTags, nodeTagsInTris;
@@ -558,6 +567,9 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         elems_tmp.push_back(elem);
     }
 
+    boundary_edges_tmp.clear();
+    for(unsigned i=0;i<boundary_edges.size();i++)
+        boundary_edges_tmp.emplace_back(nodes_tmp[boundary_edges[i].first->locId],nodes_tmp[boundary_edges[i].second->locId]);
 
     //gmsh::fltk::run();
     gmsh::clear();
@@ -578,7 +590,18 @@ void icy::MeshFragment::Swap()
     elems_tmp.resize(e_tmp.size());
     std::copy(n_tmp.begin(),n_tmp.end(),nodes_tmp.begin());
     std::copy(e_tmp.begin(),e_tmp.end(),elems_tmp.begin());
+
+    std::vector<std::pair<icy::Node*,icy::Node*>> be_tmp(boundary_edges);
+    boundary_edges.resize(boundary_edges_tmp.size());
+    std::copy(boundary_edges_tmp.begin(),boundary_edges_tmp.end(),boundary_edges.begin());
+    boundary_edges_tmp.resize(be_tmp.size());
+    std::copy(be_tmp.begin(),be_tmp.end(),boundary_edges_tmp.begin());
+
 }
 
+void icy::MeshFragment::SaveFragment(std::string fileName)
+{
+
+}
 
 //

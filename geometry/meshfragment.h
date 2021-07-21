@@ -11,9 +11,9 @@ namespace icy { class MeshFragment; }
 
 class icy::MeshFragment
 {    
-    // TODO: destructor to allow removal of the fragments (release BVHNs)
-
 public:
+    ~MeshFragment();
+
     bool deformable;
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
@@ -21,7 +21,7 @@ public:
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
-    unsigned freeNodeCount;
+//    unsigned freeNodeCount;
     void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize);
@@ -37,6 +37,7 @@ private:
     unsigned nFirstGroupElems, nFirstGroupNodes, nInnerBoundaryNodes;
     std::vector<icy::Node*> nodes_tmp;  // for remeshing
     std::vector<icy::Element*> elems_tmp;// for remeshing
+    std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges_tmp;
     void GetFromGmsh();
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
@@ -45,7 +46,7 @@ private:
 
 public:
     BVHN root_ccd, root_contact;
-    std::vector<BVHN*> leafs_for_ccd, leafs_for_contact;
+    std::vector<BVHN*> leaves_for_ccd, leaves_for_contact;
     void GenerateLeafs(unsigned edge_idx);
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
