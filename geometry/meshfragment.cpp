@@ -1,5 +1,6 @@
 #include <unordered_map>
-#include <hdf5.h>
+//#include <hdf5.h>
+#include <H5Cpp.h>
 #include <gmsh.h>
 #include "meshfragment.h"
 
@@ -169,6 +170,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             }
             for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elem->group=k;
+            if(k==2) elem->PiMultiplier << 1, 0, 0, 0.5;
             elems.push_back(elem);
 
         }
@@ -601,7 +603,46 @@ void icy::MeshFragment::Swap()
 
 void icy::MeshFragment::SaveFragment(std::string fileName)
 {
+    H5::H5File file(fileName, H5F_ACC_TRUNC);
+
+    hsize_t dimsf_nodes[2] = {nodes.size(), 6};
+    H5::DataSpace dataspace_nodes(2, dimsf_nodes);
+    double *nodes_buffer = new double[nodes.size()*6];
+
+    H5::FloatType datatype_double(H5::PredType::NATIVE_DOUBLE);
+    H5::DataSet dataset = file.createDataSet("Nodes", datatype_double, dataspace_nodes);
+
+    for(unsigned i=0;i<nodes.size();i++)
+    {
+        Node* nd = nodes[i];
+        nodes_buffer[i*6+0] = nd->x_initial.x();
+        nodes_buffer[i*6+1] = nd->x_initial.y();
+        nodes_buffer[i*6+2] = nd->xn.x();
+        nodes_buffer[i*6+3] = nd->xn.y();
+        nodes_buffer[i*6+4] = nd->vn.x();
+        nodes_buffer[i*6+5] = nd->vn.y();
+    }
+    dataset.write(nodes_buffer, H5::PredType::NATIVE_DOUBLE);
+    delete[] nodes_buffer;
+
+    constexpr unsigned ElemDataFields = 4;
+    hsize_t dimsf_elems[2] = {elems.size(), ElemDataFields};
+    H5::DataSpace dataspace_elems(2, dimsf_elems);
+    double *elems_buffer = new double[elems.size()*ElemDataFields];
+
+    H5::DataSet dataset_elems = file.createDataSet("Elements", datatype_double, dataspace_elems);
+
+    for(unsigned i=0;i<elems.size();i++)
+    {
+        Element* e = elems[i];
+        elems_buffer[i*ElemDataFields+0] = e->nds[0]->locId;
+        elems_buffer[i*ElemDataFields+1] = e->nds[1]->locId;
+        elems_buffer[i*ElemDataFields+2] = e->nds[2]->locId;
+        elems_buffer[i*ElemDataFields+3] = e->hydrostatic_stress;
+    }
+    dataset_elems.write(elems_buffer, H5::PredType::NATIVE_DOUBLE);
+    delete[] elems_buffer;
 
 }
 
-//
+

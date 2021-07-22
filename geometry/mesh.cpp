@@ -350,7 +350,7 @@ void icy::Mesh::UpdateValues()
 
     case icy::Model::VisOpt::stress_hydrostatic:
         visualized_values->SetNumberOfValues(allElems.size());
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress.trace()/2);
+        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->hydrostatic_stress);
         break;
 
     case icy::Model::VisOpt::non_symm_measure:
@@ -412,12 +412,18 @@ void icy::Mesh::UpdateValues()
     {
         double range = minmax[1]-minmax[0];
         hueLut->SetTableRange(1-range*0.75,1+range*0.75);
-    } else if(VisualizingVariable == icy::Model::VisOpt::velocity_div)
+    }
+    else if(VisualizingVariable == icy::Model::VisOpt::velocity_div)
     {
         double upper_boundary = std::max(10.0, minmax[1]);
         double lower_boundary = std::min(-10.0, minmax[0]);
         double boundary = std::max(upper_boundary, std::abs(lower_boundary));
         hueLut->SetTableRange(-boundary, boundary);
+    }
+    else if(VisualizingVariable == icy::Model::VisOpt::stress_hydrostatic)
+    {
+        double absVal = std::max(std::abs(minmax[0]), std::abs(minmax[1]));
+        hueLut->SetTableRange(-absVal, absVal);
     }
     else
     {

@@ -18,6 +18,7 @@ void icy::Element::Reset(void)
     area_initial = 0;
     group = -1;
     fluid = false;
+    PiMultiplier = Eigen::Matrix2d::Identity();
 }
 
 void icy::Element::PrecomputeInitialArea()
@@ -87,9 +88,7 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
     F = Ds*Dm_inv;    // deformation gradient
-    Eigen::Matrix2d multiplier;
-    multiplier << 1, 0, 0, 0.5;
-    if(group==2) F*=multiplier;
+    F*=PiMultiplier;
 
     double J = F.determinant();     // represents the change of volume in comparison with the reference
     volume_change = J;
@@ -158,15 +157,18 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
 
 
     // Cauchy stress
-    CauchyStress = F*P.transpose()/J;
+    CauchyStress = F*P.transpose()/J;   // symmetric up to roundoff error
+//    CauchyStress = (CauchyStress+CauchyStress.transpose())*0.5; // symmetrize anyway
 
     double sx = CauchyStress(0,0);
     double sy = CauchyStress(1,1);
     double tauxy = (CauchyStress(0,1)+CauchyStress(1,0))/2;
+    CauchyStress(0,1) = CauchyStress(1,0) = tauxy;
+
     max_shear_stress = sqrt((sx-sy)*(sx-sy)/4 + tauxy*tauxy);
     principal_stress1 = (sx+sy)/2 + max_shear_stress;
     principal_stress2 = (sx+sy)/2 - max_shear_stress;
-
+    hydrostatic_stress = CauchyStress.trace()/2;
     return true;
 }
 
@@ -236,9 +238,7 @@ void icy::Element::EvaluateVelocityDivergence()
     // velocity matrix
     DDot << vx2-vx1, vx3-vx1, vy2-vy1, vy3-vy1;
 
-
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
-
 }
 
 

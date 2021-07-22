@@ -15,6 +15,7 @@ class icy::Element
 public:
 
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
+    Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
     int group;
     bool fluid;
     double area_initial;
@@ -33,7 +34,7 @@ public:
     Eigen::Matrix<double, 6, 6> HE; // energy hessian
 
     Eigen::Matrix2d CauchyStress;
-    double principal_stress1, principal_stress2, max_shear_stress;
+    double principal_stress1, principal_stress2, max_shear_stress, hydrostatic_stress;
     double volume_change, velocity_divergence;
 
 private:

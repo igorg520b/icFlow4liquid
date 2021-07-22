@@ -10,7 +10,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(HDF5 REQUIRED COMPONENTS C)
+find_package(HDF5 REQUIRED COMPONENTS CXX)
 #find_package(Boost REQUIRED)
 
 find_package(VTK 9.0 REQUIRED COMPONENTS
@@ -107,7 +107,8 @@ target_link_libraries(fl4liquid PRIVATE ${VTK_LIBRARIES})
 target_link_libraries(fl4liquid PUBLIC gmsh)
 target_link_libraries(fl4liquid PUBLIC tbb)
 target_link_libraries(fl4liquid PUBLIC gomp pthread m dl)
-target_link_libraries(fl4liquid PUBLIC ${HDF5_C_LIBRARIES})
+#target_link_libraries(fl4liquid PUBLIC ${HDF5_C_LIBRARIES})
+target_link_libraries(fl4liquid PUBLIC ${HDF5_LIBRARIES})
 target_link_libraries(fl4liquid PUBLIC Eigen3::Eigen)
 
 #MOSEK
