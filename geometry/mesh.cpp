@@ -12,18 +12,17 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
     indenter.GenerateIndenter(CharacteristicLengthMax);
     allMeshes.push_back(&indenter);
 
-
     MeshFragment *brick = new MeshFragment;
     brick->GenerateSpecialBrick(CharacteristicLengthMax);
     allMeshes.push_back(brick);
 
-    MeshFragment *mf;
-    mf = new MeshFragment;
+    MeshFragment *mf = new MeshFragment;
     mf->GenerateContainer(CharacteristicLengthMax, offset);
     allMeshes.push_back(mf);
 
     RegenerateVisualizedGeometry();
     tree_update_counter=0;
+
 }
 
 icy::Mesh::Mesh()

@@ -68,7 +68,7 @@ public:
     {
         lambda = (YoungsModulus*PoissonsRatio)/((1.0+PoissonsRatio)*(1.0-2.0*PoissonsRatio)); // Lamé's first parameter
         mu = YoungsModulus/(2*(1+PoissonsRatio));                 // Lamé's second parameter - shear modulus
-        Kappa = 0.1*lambda/CharacteristicLength;
+        Kappa = 0.3*lambda/CharacteristicLength;
         emit propertyChanged();
     }
 
