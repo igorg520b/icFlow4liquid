@@ -13,6 +13,7 @@ void icy::Node::Reset()
 
 void icy::Node::Reset(int locId_, double x, double y)
 {
+    vn = Eigen::Vector2d::Zero();
     locId = locId_;
     x_initial << x,y;
     intended_position = xt = xn = x_initial;

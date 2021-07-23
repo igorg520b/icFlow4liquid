@@ -1,4 +1,5 @@
 #include <unordered_map>
+#include <unordered_set>
 //#include <hdf5.h>
 #include <H5Cpp.h>
 #include <gmsh.h>
@@ -582,6 +583,13 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
     gmsh::clear();
     Swap();
 
+    // double-check
+
+    std::unordered_set<Node*> connected_nds;
+    for(Element *e : elems)
+        for(unsigned j=0;j<3;j++) connected_nds.insert(e->nds[j]);
+
+    if(connected_nds.size() != nodes.size()) throw std::runtime_error("remeshing error");
 }
 
 void icy::MeshFragment::Swap()
