@@ -52,7 +52,9 @@ bool icy::Model::Step()
             ccd_result = mesh->EnsureNoIntersectionViaCCD();
             ccd_res = ccd_result.first;
 
-            double ratio = iter == 0 ? 0 : eqOfMotion.solution_norm/eqOfMotion.solution_norm_prev;
+            double ratio;
+            if(iter == 0 || eqOfMotion.solution_norm_prev < prms.ConvergenceCutoff) ratio = 0;
+            else ratio = eqOfMotion.solution_norm/eqOfMotion.solution_norm_prev;
             converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff || ratio < prms.ConvergenceEpsilon);
 
             std::cout << "IT "<< std::left << std::setw(2) << iter;

@@ -140,7 +140,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     for(int i=0;i<2;i++)
     {
         gmsh::model::mesh::getNodesForPhysicalGroup(1, groups[i], nodeTags, nodeCoords);
-        for(const std::size_t tag : nodeTags) nodes[mtags[tag]]->group.set(i);
+        for(const std::size_t tag : nodeTags) nodes[mtags.at(tag)]->group.set(i);
     }
 
     std::cout << "special brick: pricessing elements" << std::endl;
@@ -185,8 +185,8 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     inner_boundary_edges.clear();
     for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
     {
-        int idx1 = mtags[nodeTagsInEdges[i*2+0]];
-        int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+        int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
+        int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
         Node *nd1, *nd2;
         if(idx1<idx2)
         {
@@ -365,7 +365,7 @@ void icy::MeshFragment::GetFromGmsh()
         {
             icy::Element *elem = ElementFactory.take();
             elem->Reset();
-            for(int j=0;j<3;j++) elem->nds[j] = nodes[mtags[nodeTagsInTris[i*3+j]]];
+            for(int j=0;j<3;j++) elem->nds[j] = nodes[mtags.at(nodeTagsInTris[i*3+j])];
             elem->PrecomputeInitialArea();
             if(elem->area_initial < 0)
             {
@@ -409,8 +409,8 @@ void icy::MeshFragment::GetFromGmsh()
 
         for(std::size_t i=0;i<edgeTags.size();i++)
         {
-            int idx1 = mtags[nodeTagsInEdges[i*2+0]];
-            int idx2 = mtags[nodeTagsInEdges[i*2+1]];
+            int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
+            int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
             if(idx1<idx2)
                 boundary_edges.emplace_back(nodes[idx1],nodes[idx2]);
             else
@@ -540,6 +540,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         }
 
     }
+    for(Node *nd : nodes_tmp) nd->area = 0;
     std::cout << "\n node count after remeshing " << nodes_tmp.size() << std::endl;
     std::cout << "\n nodeTags " << nodeTags.size() << std::endl;
 
@@ -552,11 +553,11 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 
         icy::Element *elem = ElementFactory.take();
         elem->Reset();
+        elem->group = 2;
         for(int j=0;j<3;j++)
         {
             unsigned idx0 = nodeTagsInTris[i*3+j];
             unsigned idx = mtags.at(idx0);
-//            std::cout << "idx " << idx << " of " << nodes_tmp.size() << std::endl;
             if(idx>=nodes_tmp.size()) throw std::runtime_error("index error");
             elem->nds[j] = nodes_tmp[idx];
         }
