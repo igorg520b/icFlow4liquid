@@ -618,7 +618,7 @@ void icy::MeshFragment::Swap()
 
 void icy::MeshFragment::SaveFragment(std::string fileName)
 {
-    constexpr unsigned ElemDataFields = 1;
+    constexpr unsigned ElemDataFields = 4;
     H5::IntType datatype_int(H5::PredType::NATIVE_INT);
     H5::FloatType datatype_double(H5::PredType::NATIVE_DOUBLE);
 
@@ -688,8 +688,10 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
         elems_buffer_nodes[i*3+1] = e->nds[1]->locId;
         elems_buffer_nodes[i*3+2] = e->nds[2]->locId;
         elems_buffer_data[i*ElemDataFields+0] = e->hydrostatic_stress;
+        elems_buffer_data[i*ElemDataFields+1] = e->GreenStrain(0,0);
+        elems_buffer_data[i*ElemDataFields+2] = e->GreenStrain(1,1);
+        elems_buffer_data[i*ElemDataFields+3] = e->GreenStrain(1,0);
     }
-
 
     hsize_t dimsf_elems_nodes_old[2] = {elems_tmp.size(), 3};
     hsize_t dimsf_elems_data_old[2] = {elems_tmp.size(), ElemDataFields};
