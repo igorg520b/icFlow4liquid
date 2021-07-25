@@ -9,8 +9,6 @@
 #include <utility>
 #include <cmath>
 
-// #include <QtDebug>
-
 
 void icy::Element::Reset(void)
 {
@@ -42,6 +40,7 @@ void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq)
 
 bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
 {
+    if(area_initial<1e-9) throw std::runtime_error("element's area is zero");
     return NeoHookeanElasticity(eq, prms, timeStep);
 
     // for testing
@@ -87,8 +86,8 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     Ds << x1-x3, x2-x3, y1-y3, y2-y3;
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
-    F = Ds*Dm_inv;    // deformation gradient
-    F*=PiMultiplier;
+    F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
+    GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())*0.5;
 
     double J = F.determinant();     // represents the change of volume in comparison with the reference
     volume_change = J;
@@ -104,7 +103,6 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     DDs[3] << 0, 0, 0, 1;   // y2
     DDs[4] << -1, -1, 0, 0; // x3
     DDs[5] << 0, 0, -1, -1; // y3
-
 
     double log_J = log(J);
     strain_energy_density = (mu/2.0)*((F*FT).trace()-2.0)-mu*log_J+(lambda/2.0)*log_J*log_J;
@@ -156,9 +154,7 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     eq.AddToConstTerm(strain_energy_density*W*hsq);
 
 
-    // Cauchy stress
     CauchyStress = F*P.transpose()/J;   // symmetric up to roundoff error
-//    CauchyStress = (CauchyStress+CauchyStress.transpose())*0.5; // symmetrize anyway
 
     double sx = CauchyStress(0,0);
     double sy = CauchyStress(1,1);

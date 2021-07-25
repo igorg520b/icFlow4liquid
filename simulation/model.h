@@ -62,8 +62,9 @@ signals:
 
     // VTK visualization
 public:
-    enum VisOpt { none, elem_area, energy_density, stress_xx, stress_yy, stress_hydrostatic, non_symm_measure,
-                ps1, ps2, shear_stress, volume_change, velocity_div, elem_group, node_group};
+    enum VisOpt { none, elem_area, energy_density, stress_xx, stress_yy, stress_hydrostatic,
+                ps1, ps2, shear_stress, volume_change, velocity_div, elem_group, node_group,
+                vel_mag, Green_strain_xx, Green_strain_yy, Green_strain_xy};
     Q_ENUM(VisOpt)
     void ChangeVisualizationOption(icy::Model::VisOpt option);
 private:

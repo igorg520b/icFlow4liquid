@@ -302,3 +302,8 @@ void MainWindow::on_actionSwap_Buffers_triggered()
     render_results();
 }
 
+
+void MainWindow::on_actionClear_Velocity_triggered()
+{
+    for(icy::Node *nd : model.mesh->allNodes) nd->vn = Eigen::Vector2d::Zero();
+}

@@ -115,6 +115,8 @@ private slots:
 
     void on_actionSwap_Buffers_triggered();
 
+    void on_actionClear_Velocity_triggered();
+
 private:
 //    PreferencesGUI prefsGUI;
     icy::Model model;

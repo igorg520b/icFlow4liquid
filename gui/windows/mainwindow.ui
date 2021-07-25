@@ -50,6 +50,8 @@
     <addaction name="separator"/>
     <addaction name="actionRemesh"/>
     <addaction name="actionSwap_Buffers"/>
+    <addaction name="separator"/>
+    <addaction name="actionClear_Velocity"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
@@ -180,6 +182,11 @@
   <action name="actionSwap_Buffers">
    <property name="text">
     <string>Swap Buffers</string>
+   </property>
+  </action>
+  <action name="actionClear_Velocity">
+   <property name="text">
+    <string>Clear Velocity</string>
    </property>
   </action>
  </widget>

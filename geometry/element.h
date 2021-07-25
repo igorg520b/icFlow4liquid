@@ -33,7 +33,7 @@ public:
     Eigen::Matrix<double, 6, 1> DE;    // energy gradient
     Eigen::Matrix<double, 6, 6> HE; // energy hessian
 
-    Eigen::Matrix2d CauchyStress;
+    Eigen::Matrix2d CauchyStress, GreenStrain;
     double principal_stress1, principal_stress2, max_shear_stress, hydrostatic_stress;
     double volume_change, velocity_divergence;
 

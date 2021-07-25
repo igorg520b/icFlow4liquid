@@ -472,6 +472,8 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         elem->Reset();
         elem->group=1;
         for(int j=0;j<3;j++) elem->nds[j]=nodes_tmp[elems[i]->nds[j]->locId];
+        elem->PrecomputeInitialArea();
+        for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
         elems_tmp.push_back(elem);
     }
 
@@ -537,11 +539,10 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
             nd->Reset(idx, x, y);
             mtags[tag] = idx;
             nodes_tmp.push_back(nd);
-            if(x==0 && y==0) std::cout << "something is wrong with node " << i << "; tag " << tag << std::endl;
         }
 
     }
-    for(Node *nd : nodes_tmp) nd->area = 0;
+//    for(Node *nd : nodes_tmp) nd->area = 0;
     std::cout << "\n node count after remeshing " << nodes_tmp.size() << std::endl;
     std::cout << "\n nodeTags " << nodeTags.size() << std::endl;
 

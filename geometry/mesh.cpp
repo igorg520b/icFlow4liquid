@@ -296,7 +296,8 @@ void icy::Mesh::ChangeVisualizationOption(int option)
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         return;
     }
-    else if(VisualizingVariable == (int)icy::Model::VisOpt::node_group)
+    else if(VisualizingVariable == (int)icy::Model::VisOpt::node_group
+            || VisualizingVariable == (int)icy::Model::VisOpt::vel_mag)
     {
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
@@ -352,17 +353,6 @@ void icy::Mesh::UpdateValues()
         for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->hydrostatic_stress);
         break;
 
-    case icy::Model::VisOpt::non_symm_measure:
-        visualized_values->SetNumberOfValues(allElems.size());
-        for(size_t i=0;i<allElems.size();i++)
-        {
-            Element *elem = allElems[i];
-            double value1 = elem->CauchyStress(0,1)-elem->CauchyStress(1,0);
-            double value = value1*value1;
-            visualized_values->SetValue(i, value);
-        }
-        break;
-
     case icy::Model::VisOpt::ps1:
         visualized_values->SetNumberOfValues(allElems.size());
         for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->principal_stress1);
@@ -398,6 +388,25 @@ void icy::Mesh::UpdateValues()
         for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group.to_ulong());
         break;
 
+    case icy::Model::VisOpt::vel_mag:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->vn.norm());
+        break;
+
+    case icy::Model::VisOpt::Green_strain_xx:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,0));
+        break;
+
+    case icy::Model::VisOpt::Green_strain_yy:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(1,1));
+        break;
+
+    case icy::Model::VisOpt::Green_strain_xy:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,1));
+        break;
 
     default:
         break;
