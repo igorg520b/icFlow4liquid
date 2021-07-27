@@ -32,6 +32,9 @@ class icy::SimParams : public QObject
     Q_PROPERTY(double p_PoissonsRatio READ getPoissonsRatio WRITE setPoissonsRatio)
     Q_PROPERTY(double p_Kappa READ getKappa)
 
+    Q_PROPERTY(double p_PlasticYieldThreshold MEMBER PlasticYieldThreshold NOTIFY propertyChanged)
+    Q_PROPERTY(double p_PlasticFlowRate MEMBER PlasticFlowRate NOTIFY propertyChanged)
+
     Q_PROPERTY(double p_Thickness MEMBER Thickness NOTIFY propertyChanged)
     Q_PROPERTY(double p_InteractionDistance MEMBER InteractionDistance NOTIFY propertyChanged)
 

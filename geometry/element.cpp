@@ -22,8 +22,9 @@ void icy::Element::Reset(void)
 void icy::Element::PrecomputeInitialArea()
 {
     Eigen::Matrix2d J;
-    J << nds[0]->x_initial.x()-nds[2]->x_initial.x(), nds[1]->x_initial.x()-nds[2]->x_initial.x(),
-            nds[0]->x_initial.y()-nds[2]->x_initial.y(), nds[1]->x_initial.y()-nds[2]->x_initial.y();
+//    J << nds[0]->x_initial.x()-nds[2]->x_initial.x(), nds[1]->x_initial.x()-nds[2]->x_initial.x(),
+//            nds[0]->x_initial.y()-nds[2]->x_initial.y(), nds[1]->x_initial.y()-nds[2]->x_initial.y();
+    J << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
     area_initial = J.determinant()/2;
     if(area_initial==0) throw std::runtime_error("element's initial area is zero");
 }
@@ -51,39 +52,18 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
 
 bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &prms, double h)
 {
-//    double E = prms.YoungsModulus;
-//    double nu = prms.PoissonsRatio;
-//    double lambda = (E*nu)/((1.0+nu)*(1.0-2.0*nu)); // Lamé's first parameter
-//    double mu = E/(2*(1+nu));                 // Lamé's second parameter - shear modulus
-
     double lambda = prms.lambda;
     double mu = prms.mu;
-
-    // initial positions of the vertices
-    double X1 = nds[0]->x_initial.x();
-    double X2 = nds[1]->x_initial.x();
-    double X3 = nds[2]->x_initial.x();
-    double Y1 = nds[0]->x_initial.y();
-    double Y2 = nds[1]->x_initial.y();
-    double Y3 = nds[2]->x_initial.y();
-
-    // current positions of the verticies
-    double x1 = nds[0]->xt.x();
-    double x2 = nds[1]->xt.x();
-    double x3 = nds[2]->xt.x();
-    double y1 = nds[0]->xt.y();
-    double y2 = nds[1]->xt.y();
-    double y3 = nds[2]->xt.y();
 
     Eigen::Matrix2d Dm, Dm_inv, Ds, F, Finv, FT, FinvT;
 
     // reference shape matrix
-    Dm << X1-X3, X2-X3, Y1-Y3, Y2-Y3;
+    Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
     double W = prms.Thickness*Dm.determinant()/2;   // element's initial "volume"
     Dm_inv = Dm.inverse();
 
     // deformed shape matrix
-    Ds << x1-x3, x2-x3, y1-y3, y2-y3;
+    Ds << nds[0]->xt-nds[2]->xt, nds[1]->xt-nds[2]->xt;
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
     F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
@@ -211,35 +191,46 @@ void icy::Element::SpringModel(EquationOfMotionSolver &eq, SimParams &prms, doub
 
 void icy::Element::EvaluateVelocityDivergence()
 {
-    // current positions of the verticies
-    double x1 = nds[0]->xn.x();
-    double x2 = nds[1]->xn.x();
-    double x3 = nds[2]->xn.x();
-    double y1 = nds[0]->xn.y();
-    double y2 = nds[1]->xn.y();
-    double y3 = nds[2]->xn.y();
-
-    double vx1 = nds[0]->vn.x();
-    double vx2 = nds[1]->vn.x();
-    double vx3 = nds[2]->vn.x();
-    double vy1 = nds[0]->vn.y();
-    double vy2 = nds[1]->vn.y();
-    double vy3 = nds[2]->vn.y();
-
     Eigen::Matrix2d D, DinvT, DDot;
 
     // deformed shape matrix
-    D << x2-x1, x3-x1, y2-y1, y3-y1;
+    D << nds[1]->xn-nds[0]->xn, nds[2]->xn-nds[0]->xn;
     DinvT = D.inverse().transpose();
 
     // velocity matrix
-    DDot << vx2-vx1, vx3-vx1, vy2-vy1, vy3-vy1;
+    DDot << nds[1]->vn-nds[0]->vn, nds[2]->vn-nds[0]->vn;
 
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
 }
 
 void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 {
+    Eigen::Matrix2d Dm, Dm_inv, Ds, F, V, S_hat;
+
+    // reference shape matrix
+    Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
+    Dm_inv = Dm.inverse();
+
+    // deformed shape matrix
+    Ds << nds[0]->xn-nds[2]->xn, nds[1]->xn-nds[2]->xn;
+    if(Ds.determinant()<=0) throw std::runtime_error("PlasticDeformation: inverted mesh");
+
+    F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
+    Eigen::JacobiSVD<Eigen::Matrix2d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+    double stressNorm = CauchyStress.norm();
+    double tau = prms.PlasticYieldThreshold;
+    double gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
+    gamma = std::clamp(gamma, 0.0, 1.0);
+
+    Eigen::Vector2d SVDvals = svd.singularValues();
+    double detS_sqRoot = sqrt(SVDvals[0]*SVDvals[1]);
+    double val1 = std::pow(SVDvals[0]/detS_sqRoot,-gamma);
+    double val2 = std::pow(SVDvals[1]/detS_sqRoot,-gamma);
+    S_hat << val1, 0, 0, val2;
+    V = svd.matrixV();
+    PiMultiplier *= V*S_hat*V.transpose();
+
 
 }
 

@@ -246,6 +246,11 @@ void icy::Model::AcceptTentativeValues(double timeStep)
         nd->xn = nd->xt;
     }
     vtk_update_mutex.unlock();
+
+    // plastic behavior
+    unsigned nElems = mesh->allElems.size();
+#pragma omp parallel for
+    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->PlasticDeformation(prms, timeStep);
 }
 
 
