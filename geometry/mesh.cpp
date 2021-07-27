@@ -408,6 +408,12 @@ void icy::Mesh::UpdateValues()
         for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,1));
         break;
 
+    case icy::Model::VisOpt::plasticity_norm:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
+        break;
+
     default:
         break;
     }
@@ -432,6 +438,10 @@ void icy::Mesh::UpdateValues()
     {
         double absVal = std::max(std::abs(minmax[0]), std::abs(minmax[1]));
         hueLut->SetTableRange(-absVal, absVal);
+    }
+    else if(VisualizingVariable == icy::Model::VisOpt::plasticity_norm)
+    {
+        hueLut->SetTableRange(0, 0.5);
     }
     else
     {

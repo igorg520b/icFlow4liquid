@@ -168,7 +168,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             }
             for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elem->group=k;
-            if(k==2) elem->PiMultiplier << 1, 0, 0, 0.5;
+//            if(k==2) elem->PiMultiplier << 1, 0, 0, 0.5;
             elems.push_back(elem);
 
         }

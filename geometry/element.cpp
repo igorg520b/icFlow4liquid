@@ -205,6 +205,12 @@ void icy::Element::EvaluateVelocityDivergence()
 
 void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 {
+    double stressNorm = CauchyStress.norm();
+    double tau = prms.PlasticYieldThreshold;
+    double gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
+    gamma = std::clamp(gamma, 0.0, 1.0);
+    if(gamma < 1e-10) return;
+
     Eigen::Matrix2d Dm, Dm_inv, Ds, F, V, S_hat;
 
     // reference shape matrix
@@ -218,11 +224,6 @@ void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
     F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
     Eigen::JacobiSVD<Eigen::Matrix2d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-    double stressNorm = CauchyStress.norm();
-    double tau = prms.PlasticYieldThreshold;
-    double gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
-    gamma = std::clamp(gamma, 0.0, 1.0);
-
     Eigen::Vector2d SVDvals = svd.singularValues();
     double detS_sqRoot = sqrt(SVDvals[0]*SVDvals[1]);
     double val1 = std::pow(SVDvals[0]/detS_sqRoot,-gamma);
@@ -230,8 +231,6 @@ void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
     S_hat << val1, 0, 0, val2;
     V = svd.matrixV();
     PiMultiplier *= V*S_hat*V.transpose();
-
-
 }
 
 
