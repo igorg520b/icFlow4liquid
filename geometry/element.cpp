@@ -87,7 +87,6 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
     F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
-    GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())*0.5;
 
     double J = F.determinant();     // represents the change of volume in comparison with the reference
     volume_change = J;
@@ -165,6 +164,8 @@ bool icy::Element::NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &p
     principal_stress1 = (sx+sy)/2 + max_shear_stress;
     principal_stress2 = (sx+sy)/2 - max_shear_stress;
     hydrostatic_stress = CauchyStress.trace()/2;
+    GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())*0.5;
+
     return true;
 }
 
@@ -237,5 +238,9 @@ void icy::Element::EvaluateVelocityDivergence()
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
 }
 
+void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
+{
+
+}
 
 

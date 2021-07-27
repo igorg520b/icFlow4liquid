@@ -28,6 +28,7 @@ public:
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
     void EvaluateVelocityDivergence();
+    void PlasticDeformation(SimParams &prms, double timeStep);
 
     double strain_energy_density;   // (not multiplied by volume!)
     Eigen::Matrix<double, 6, 1> DE;    // energy gradient

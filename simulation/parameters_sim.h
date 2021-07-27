@@ -42,6 +42,7 @@ public:
     int MaxSteps, MinIter, MaxIter;
     double InitialTimeStep;
     double Gravity, Density, PoissonsRatio, YoungsModulus, Thickness;
+    double PlasticYieldThreshold, PlasticFlowRate;
     double CharacteristicLength;
 
     double ConvergenceEpsilon, ConvergenceCutoff;
@@ -96,6 +97,9 @@ public:
         MinIter = 3;
         MaxIter = 10;
         RecomputeLamdaMuAndKappa();
+
+        PlasticYieldThreshold = 1;
+        PlasticFlowRate = 1;
     }
 
 
