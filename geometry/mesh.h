@@ -51,6 +51,7 @@ public:
     void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
 
     bool showInitial = false;
+    double area_initial, area_current;
 private:
     void UpdateValues();
     void UnsafeUpdateGeometry();

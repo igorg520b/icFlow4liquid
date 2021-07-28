@@ -18,7 +18,6 @@ public:
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
     int group;
     bool fluid;
-    double area_initial;
 
     Element() { Reset();}
     void Reset(void);
@@ -30,18 +29,16 @@ public:
     void EvaluateVelocityDivergence();
     void PlasticDeformation(SimParams &prms, double timeStep);
 
-    double strain_energy_density;   // (not multiplied by volume!)
-    Eigen::Matrix<double, 6, 1> DE;    // energy gradient
-    Eigen::Matrix<double, 6, 6> HE; // energy hessian
+    double strain_energy_density;   // (not multiplied by the volume)
 
     Eigen::Matrix2d CauchyStress, GreenStrain;
     double principal_stress1, principal_stress2, max_shear_stress, hydrostatic_stress;
     double volume_change, velocity_divergence;
+    double area_initial, area_current;
 
 private:
-    void SpringModel(EquationOfMotionSolver &eq, SimParams &prms, double timeStep, Node *nd1, Node *nd2);
-    bool NeoHookeanElasticity(EquationOfMotionSolver &eq, SimParams &prms, double h);
-
+    // constant derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
+    static Eigen::Matrix2d DDs[6];
 };
 
 #endif // ELEMENT123_H

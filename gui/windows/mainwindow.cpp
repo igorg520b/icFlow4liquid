@@ -71,7 +71,8 @@ MainWindow::MainWindow(QWidget *parent)
     // statusbar
     statusLabel = new QLabel("-");
     statusLabelStepFactor = new QLabel(" --- ");
-    labelAvgSeparationDistance = new QLabel(" --- ");
+    labelVolumeChange = new QLabel(" --- ");
+    labelElapsedTime = new QLabel(" --- ");
 
     QSizePolicy sp;
     sp.setHorizontalPolicy(QSizePolicy::Fixed);
@@ -79,13 +80,16 @@ MainWindow::MainWindow(QWidget *parent)
     statusLabelStepFactor->setFixedWidth(100);
     labelStepCount->setSizePolicy(sp);
     labelStepCount->setFixedWidth(100);
-    labelAvgSeparationDistance->setSizePolicy(sp);
-    labelAvgSeparationDistance->setFixedWidth(100);
+    labelVolumeChange->setSizePolicy(sp);
+    labelVolumeChange->setFixedWidth(100);
+    labelElapsedTime->setSizePolicy(sp);
+    labelElapsedTime->setFixedWidth(100);
 
     ui->statusbar->addWidget(statusLabel);
-    ui->statusbar->addPermanentWidget(statusLabelStepFactor);
+    ui->statusbar->addPermanentWidget(labelElapsedTime);
     ui->statusbar->addPermanentWidget(labelStepCount);
-    ui->statusbar->addPermanentWidget(labelAvgSeparationDistance);
+    ui->statusbar->addPermanentWidget(statusLabelStepFactor);
+    ui->statusbar->addPermanentWidget(labelVolumeChange);
 
     // read/restore saved settings
     QSettings settings(m_sSettingsFile);
@@ -220,7 +224,8 @@ void MainWindow::updateGUI()
 
     labelStepCount->setText(QString{"step: %1"}.arg(model.currentStep));
     statusLabelStepFactor->setText(QString{"%1"}.arg(model.timeStepFactor, 6, 'f', 3, '0'));
-    labelAvgSeparationDistance->setText(QString{"%1"}.arg(model.avgSeparationDistance, 6, 'f', 3, '0'));
+    labelElapsedTime->setText(QString{"%1"}.arg(model.simulationTime, 5, 'f', 3, '0'));
+    labelVolumeChange->setText(QString{"%1%"}.arg((model.mesh->area_current/model.mesh->area_initial)*100, 6, 'f', 3, '0'));
 
     render_results();
 }

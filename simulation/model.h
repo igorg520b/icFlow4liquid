@@ -40,9 +40,8 @@ public:
     icy::Mesh *mesh;
     EquationOfMotionSolver eqOfMotion;
 
-    double avgSeparationDistance = -1;
-    int currentStep = 0;
-    double timeStepFactor = 1;
+    int currentStep;
+    double timeStepFactor, simulationTime;
 
     Model();
     ~Model();

@@ -21,7 +21,13 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
     allMeshes.push_back(mf);
 
     RegenerateVisualizedGeometry();
+
     tree_update_counter=0;
+    area_initial = area_current = std::accumulate(allElems.begin(),
+                                                  allElems.end(),0.0,
+                                                  [](double a, Element* m){return a+m->area_initial;});
+
+
 
 }
 

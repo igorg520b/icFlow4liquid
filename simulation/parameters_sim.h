@@ -90,7 +90,7 @@ public:
         Thickness = 0.1;
 
         PoissonsRatio = 0.3;
-        YoungsModulus = 500;
+        YoungsModulus = 1000;
         InteractionDistance = 0.01;
 
         CharacteristicLength = 0.06;
@@ -101,7 +101,7 @@ public:
         MaxIter = 10;
         RecomputeLamdaMuAndKappa();
 
-        PlasticYieldThreshold = 20;
+        PlasticYieldThreshold = 100;
         PlasticFlowRate = 1;
     }
 

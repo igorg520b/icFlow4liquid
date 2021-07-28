@@ -18,6 +18,9 @@ void icy::Model::Reset(SimParams &prms)
 {
     mesh->Reset(prms.CharacteristicLength, prms.InteractionDistance);
     UnsafeUpdateGeometry();
+    currentStep = 0;
+    timeStepFactor = 1;
+    simulationTime = 0;
 }
 
 void icy::Model::Prepare()
@@ -224,11 +227,7 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
         }
     }
 
-    // for visualization
-    vtk_update_mutex.lock();
-#pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->EvaluateVelocityDivergence();
-    vtk_update_mutex.unlock();
+
 
     return true;
 }
@@ -250,7 +249,17 @@ void icy::Model::AcceptTentativeValues(double timeStep)
     // plastic behavior
     unsigned nElems = mesh->allElems.size();
 #pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->PlasticDeformation(prms, timeStep);
+    for(unsigned i=0;i<nElems;i++)
+    {
+        icy::Element *elem = mesh->allElems[i];
+        elem->PlasticDeformation(prms, timeStep);
+        elem->EvaluateVelocityDivergence();
+    }
+
+    simulationTime+=timeStep;
+
+    mesh->area_current = std::accumulate(mesh->allElems.begin(), mesh->allElems.end(),0.0,
+                                         [](double a, Element* m){return a+m->area_current;});
 }
 
 
