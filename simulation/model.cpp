@@ -257,9 +257,23 @@ void icy::Model::AcceptTentativeValues(double timeStep)
     }
 
     simulationTime+=timeStep;
-
     mesh->area_current = std::accumulate(mesh->allElems.begin(), mesh->allElems.end(),0.0,
                                          [](double a, Element* m){return a+m->area_current;});
+}
+
+void icy::Model::GetNewMaterialPosition()
+{
+    qDebug() << "icy::Model::GetNewMaterialPosition()";
+
+    // initial coordinates -> tentative
+
+    // assemble elements, but not nodal masses or collisions
+
+    // solve
+
+    // infer new PiMultipliers
+
+    // tentative -> initial
 }
 
 

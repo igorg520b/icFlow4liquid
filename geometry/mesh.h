@@ -50,7 +50,6 @@ public:
     void Reset(double CharacteristicLengthMax, double offset);
     void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
 
-    bool showInitial = false;
     double area_initial, area_current;
 private:
     void UpdateValues();
@@ -85,6 +84,9 @@ public:
     vtkNew<vtkActor> actor_mesh_deformable;
     vtkNew<vtkActor> actor_boundary_all;
     vtkNew<vtkActor> actor_boundary_intended_indenter;
+
+    enum ShowDeformationOption { initial, material, current };
+    ShowDeformationOption showDeformation = ShowDeformationOption::current;
 
 private:
 

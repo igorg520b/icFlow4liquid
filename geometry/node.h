@@ -26,6 +26,7 @@ public:
     Eigen::Vector2d xn, vn;     // position and velocity at step n
     Eigen::Vector2d xt;         // tentative coordinates
     Eigen::Vector2d x_hat;
+    Eigen::Vector2d x_material;
 
     Eigen::Vector2d intended_position; // when manipulating via GUI during a running simulation
 

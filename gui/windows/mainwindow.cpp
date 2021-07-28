@@ -285,11 +285,7 @@ void MainWindow::on_actionSave_Mesh_triggered()
 }
 
 
-void MainWindow::on_actionUse_Initial_State_toggled(bool arg1)
-{
-    model.mesh->showInitial = arg1;
-    render_results();
-}
+
 
 
 void MainWindow::on_actionRemesh_triggered()
@@ -312,3 +308,29 @@ void MainWindow::on_actionClear_Velocity_triggered()
 {
     for(icy::Node *nd : model.mesh->allNodes) nd->vn = Eigen::Vector2d::Zero();
 }
+
+void MainWindow::on_actionMaterial_State_triggered()
+{
+    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::material;
+    render_results();
+}
+
+void MainWindow::on_actionUse_Initial_State_triggered()
+{
+    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::initial;
+    render_results();
+}
+
+void MainWindow::on_actionCurrent_Space_triggered()
+{
+    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::current;
+    render_results();
+}
+
+
+void MainWindow::on_actionMaterial_Space_triggered()
+{
+    model.GetNewMaterialPosition();
+    render_results();
+}
+

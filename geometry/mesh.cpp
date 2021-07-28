@@ -27,6 +27,8 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
                                                   allElems.end(),0.0,
                                                   [](double a, Element* m){return a+m->area_initial;});
 
+    showDeformation = ShowDeformationOption::current;
+
 
 
 }
@@ -231,7 +233,7 @@ void icy::Mesh::UnsafeUpdateGeometry()
 {
     double x[3]={};
 
-    if(showInitial)
+    if(showDeformation == ShowDeformationOption::initial)
     {
         for(icy::Node *nd : allNodes)
         {
@@ -240,12 +242,21 @@ void icy::Mesh::UnsafeUpdateGeometry()
             points_deformable->SetPoint((vtkIdType)nd->globId, x);
         }
     }
-    else
+    else if(showDeformation == ShowDeformationOption::current)
     {
         for(icy::Node *nd : allNodes)
         {
             x[0] = nd->xn[0];
             x[1] = nd->xn[1];
+            points_deformable->SetPoint((vtkIdType)nd->globId, x);
+        }
+    }
+    else if(showDeformation == ShowDeformationOption::material)
+    {
+        for(icy::Node *nd : allNodes)
+        {
+            x[0] = nd->x_material[0];
+            x[1] = nd->x_material[1];
             points_deformable->SetPoint((vtkIdType)nd->globId, x);
         }
     }
@@ -265,7 +276,7 @@ void icy::Mesh::UnsafeUpdateGeometry()
     // collisions
     points_collisions->SetNumberOfPoints(collision_interactions.size()*2);
     cellArray_collisions->Reset();
-    if(!showInitial)
+    if(showDeformation == ShowDeformationOption::current)
     {
         for(unsigned i=0;i<collision_interactions.size();i++)
         {

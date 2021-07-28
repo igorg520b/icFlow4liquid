@@ -49,6 +49,8 @@ public:
     void InitialGuess(SimParams &prms, double timeStep, double timeStepFactor);
     bool AssembleAndSolve(SimParams &prms, double timeStep);    // true if solved; false -> parameter is time step mult
     void AcceptTentativeValues(double timeStep);
+    void GetNewMaterialPosition();
+
     void UnsafeUpdateGeometry();
     void PositionIndenter(double offset);
 
