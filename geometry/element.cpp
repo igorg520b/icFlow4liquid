@@ -99,23 +99,24 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
         HE(5,i) = -dH(1,0)-dH(1,1);
     }
 
-
     // assemble the equation of motion
     double hsq = h*h;
+    DE*=hsq;
+    HE*=hsq;
+
     for(int i=0;i<3;i++)
     {
         int row = nds[i]->eqId;
-        Eigen::Vector2d locDE = DE.block(i*2,0,2,1)*hsq;
+        Eigen::Vector2d locDE = DE.block(i*2,0,2,1);
         eq.AddToC(row, locDE);
         for(int j=0;j<3;j++)
         {
             int col = nds[j]->eqId;
-            Eigen::Matrix2d locHE = HE.block(i*2,j*2,2,2)*hsq;
+            Eigen::Matrix2d locHE = HE.block(i*2,j*2,2,2);
             eq.AddToQ(row, col, locHE);
         }
     }
     eq.AddToConstTerm(strain_energy_density*W*hsq);
-
 
     // compute various variables, mostly for visualization
     CauchyStress = F*P.transpose()/J;   // symmetric up to roundoff error
@@ -132,8 +133,6 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())*0.5;
 
     return true;
-
-
 }
 
 
