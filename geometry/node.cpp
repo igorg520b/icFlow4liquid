@@ -31,7 +31,7 @@ void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &pr
     if(this->eqId<0) return;
 
     double mass = area * prms.Density * prms.Thickness;
-    if(mass<1e-15) throw std::runtime_error("node's mass is zero");
+    //if(mass<1e-15) throw std::runtime_error("node's mass is zero");
 
     // for nodes that are not pinned, add the lumped mass matrix to the quadratic term of the equation
     Eigen::Matrix2d M_nd = Eigen::Matrix2d::Identity()*mass;

@@ -100,10 +100,7 @@ bool icy::Model::Step()
     return(currentStep < prms.MaxSteps);
 }
 
-void icy::Model::RequestAbort(void)
-{
-    abortRequested = true;
-}
+void icy::Model::RequestAbort(void) { abortRequested = true; }
 
 void icy::Model::Aborting()
 {
@@ -264,12 +261,62 @@ void icy::Model::AcceptTentativeValues(double timeStep)
 void icy::Model::GetNewMaterialPosition()
 {
     qDebug() << "icy::Model::GetNewMaterialPosition()";
+    mesh->collision_interactions.clear(); // for debugging
 
     // initial coordinates -> tentative
+    std::size_t nNodes = mesh->allNodes.size();
+#pragma omp parallel for
+    for(std::size_t i=0;i<nNodes;i++)
+    {
+        icy::Node *nd = mesh->allNodes[i];
+        if(!nd->pinned) nd->xt = nd->x_hat = nd->x_initial;
+    }
 
     // assemble elements, but not nodal masses or collisions
+    unsigned nElems = mesh->allElems.size();
+    eqOfMotion.ClearAndResize(mesh->freeNodeCount);
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->AddToSparsityStructure(eqOfMotion);
+
+    eqOfMotion.CreateStructure();
+
+
+    // assemble
+    bool mesh_iversion_detected = false;
+    double timeStep = prms.InitialTimeStep*10;
+#pragma omp parallel for
+    for(unsigned i=0;i<nElems;i++)
+    {
+        bool elem_entry_ok = mesh->allElems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+        if(!elem_entry_ok) mesh_iversion_detected = true;
+    }
+    if(mesh_iversion_detected) throw std::runtime_error("mesh inversion in GetNewMaterialPosition()"); // mesh inversion
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nNodes;i++)
+    {
+        Node *nd = mesh->allNodes[i];
+        nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+    }
 
     // solve
+    bool solve_result = eqOfMotion.Solve();
+    if(!solve_result) throw std::runtime_error("solve error in GetNewMaterialPosition()");
+
+    // pull
+#pragma omp parallel for
+    for(std::size_t i=0;i<nNodes;i++)
+    {
+        icy::Node *nd = mesh->allNodes[i];
+        Eigen::Vector2d delta_x;
+        if(!nd->pinned)
+        {
+            eqOfMotion.GetTentativeResult(nd->eqId, delta_x);
+            nd->xt+=delta_x;
+            nd->x_material = nd->xt;
+        }
+    }
 
     // infer new PiMultipliers
 
