@@ -45,9 +45,6 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     DDp*=k;
     Node* nds[3] = {ndA, ndB, ndP};
 
-    // distribute
-
-
     // assemble the equation of motion
     for(int i=0;i<3;i++)
     {
@@ -87,7 +84,8 @@ void icy::Interaction::potential(double dHat, double d, Eigen::Matrix<double,6,1
 }
 
 
-void icy::Interaction::distance(Eigen::Vector2d (&p)[4], double &d, double &t, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd)
+void icy::Interaction::distance(Eigen::Vector2d (&p)[4], double &d, double &t,
+    Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd)
 {
     double x0 = p[0].x();
     double y0 = p[0].y();

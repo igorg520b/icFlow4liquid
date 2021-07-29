@@ -26,26 +26,25 @@ void icy::Model::Reset(SimParams &prms)
 void icy::Model::Prepare()
 {
     abortRequested = false;
-//    timeStepFactor = 1;
 }
 
 bool icy::Model::Step()
 {
     mesh->UpdateTree(prms.InteractionDistance);
 
-    int iter, attempt = 0;
+    int attempt = 0;
     bool converges=false;
     bool sln_res, ccd_res; // false if matrix is not PSD
     double h;
     do
     {
-        iter = 0;
+        int iter = 0;
         h = prms.InitialTimeStep*timeStepFactor; // time step
         InitialGuess(prms, h, timeStepFactor);
         std::pair<bool, double> ccd_result = mesh->EnsureNoIntersectionViaCCD();
         ccd_res = ccd_result.first;
         std::cout << std::scientific << std::setprecision(1);
-        std::cout << "\nSTEP: " << currentStep << "-" << attempt << " TCF " << timeStepFactor << std::endl;
+        std::cout << "STEP: " << currentStep << "-" << attempt << " TCF " << timeStepFactor << std::endl;
         sln_res=true;
 
         while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
@@ -65,29 +64,30 @@ bool icy::Model::Step()
             std::cout << " sln " << std::setw(10) << eqOfMotion.solution_norm;
             if(iter) std::cout << " ra " << std::setw(10) << ratio;
             else std::cout << "tsf " << std::setw(20) << timeStepFactor;
-            std::cout << std::endl;
+            std::cout << '\n';
             iter++;
         }
 
         if(!ccd_res)
         {
-            qDebug() << "intersection detected";
+            std::cout << "intersection detected - discarding this attempt\n";
             attempt++;
             timeStepFactor*=(ccd_result.second*0.8);
         }
         else if(!sln_res)
         {
-            qDebug() << "could not solve";
+            std::cout << "could not solve - discarding this attempt\n";
             attempt++;
             timeStepFactor*=0.5;
         }
         else if(!converges)
         {
-            qDebug() << "sln did not converge";
+            std::cout << "did not converge - discarding this attempt\n";
             attempt++;
             timeStepFactor*=0.5;
         }
         if(attempt > 20) throw std::runtime_error("could not solve");
+        std::cout << std::endl;
     } while (!ccd_res || !sln_res || !converges);
 
     if(timeStepFactor < 1) timeStepFactor *= 1.2;
@@ -284,7 +284,7 @@ void icy::Model::GetNewMaterialPosition()
 
     // assemble
     bool mesh_iversion_detected = false;
-    double timeStep = prms.InitialTimeStep*10;
+    double timeStep = prms.InitialTimeStep*1;
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
@@ -319,8 +319,35 @@ void icy::Model::GetNewMaterialPosition()
     }
 
     // infer new PiMultipliers
-
+#pragma omp parallel for
+    for(unsigned i=0;i<nElems;i++)
+    {
+        icy::Element *elem = mesh->allElems[i];
+        Eigen::Matrix2d DmPrime, Dm;
+        DmPrime << elem->nds[0]->x_material-elem->nds[2]->x_material, elem->nds[1]->x_material-elem->nds[2]->x_material;
+        Dm << elem->nds[0]->x_initial-elem->nds[2]->x_initial, elem->nds[1]->x_initial-elem->nds[2]->x_initial;
+        elem->PiMultiplier = DmPrime*Dm.inverse()*elem->PiMultiplier;
+    }
     // tentative -> initial
+#pragma omp parallel for
+    for(std::size_t i=0;i<nNodes;i++)
+    {
+        icy::Node *nd = mesh->allNodes[i];
+        if(!nd->pinned)
+        {
+//            Eigen::Vector2d dx = nd->xn - nd->x_material;
+            nd->x_initial = nd->x_material;
+            nd->area = 0;
+        }
+    }
+
+    for(unsigned i=0;i<nElems;i++)
+    {
+        icy::Element *elem = mesh->allElems[i];
+        elem->PrecomputeInitialArea();
+        for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
+    }
+
 }
 
 

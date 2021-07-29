@@ -57,7 +57,8 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
 
     // reference shape matrix
     Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
-    double W = prms.Thickness*Dm.determinant()/2;   // element's initial "volume"
+//    double W = prms.Thickness*Dm.determinant()/2;   // element's initial "volume"
+    double W = prms.Thickness*area_initial;   // element's initial "volume"
     Dm_inv = Dm.inverse();
 
     // deformed shape matrix
@@ -130,7 +131,7 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     principal_stress1 = (sx+sy)/2 + max_shear_stress;
     principal_stress2 = (sx+sy)/2 - max_shear_stress;
     hydrostatic_stress = CauchyStress.trace()/2;
-    GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())*0.5;
+    GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())/2;
 
     return true;
 }

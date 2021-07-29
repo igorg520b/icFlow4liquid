@@ -563,7 +563,7 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     {
         // find the smallest t; Model will discard the step
         auto iter = std::min_element(ccd_results.begin(), ccd_results.end());
-        qDebug() << "ccd_results.size " << ccd_results.size() << "; min " << *iter;
+        std::cout << "CCD algorithm detected intersection;" << ccd_results.size() << "; min " << *iter << std::endl;
         return std::make_pair(false, *iter);
     }
     else if(final_state_contains_edge_intersection)
