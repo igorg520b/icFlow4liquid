@@ -335,7 +335,6 @@ void icy::Model::GetNewMaterialPosition()
         icy::Node *nd = mesh->allNodes[i];
         if(!nd->pinned)
         {
-//            Eigen::Vector2d dx = nd->xn - nd->x_material;
             nd->x_initial = nd->x_material;
             nd->area = 0;
         }

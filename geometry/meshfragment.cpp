@@ -35,7 +35,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
     int point1 = gmsh::model::occ::addPoint(-width/2, 1e-10, 0, 1.0);
     int point2 = gmsh::model::occ::addPoint(-width/2, height, 0, 1.0);
-    int point3 = gmsh::model::occ::addPoint(width/2, height*1.1, 0, 1.0);
+    int point3 = gmsh::model::occ::addPoint(width/2, height*1.0, 0, 1.0);
     int point4 = gmsh::model::occ::addPoint(width/2, 1e-10, 0, 1.0);
 
     int line1 = gmsh::model::occ::addLine(point1, point2);
