@@ -111,7 +111,6 @@ private slots:
     void on_actionRemesh_triggered();
     void on_actionSwap_Buffers_triggered();
     void on_actionClear_Velocity_triggered();
-    void on_actionMaterial_State_triggered();
     void on_actionUse_Initial_State_triggered();
     void on_actionCurrent_Space_triggered();
 

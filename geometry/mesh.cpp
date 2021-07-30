@@ -8,17 +8,17 @@
 
 void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
 {
-    allMeshes.clear();
+    allFragments.clear();
     indenter.GenerateIndenter(CharacteristicLengthMax);
-    allMeshes.push_back(&indenter);
+    allFragments.push_back(&indenter);
 
     MeshFragment *brick = new MeshFragment;
     brick->GenerateSpecialBrick(CharacteristicLengthMax);
-    allMeshes.push_back(brick);
+    allFragments.push_back(brick);
 
     MeshFragment *mf = new MeshFragment;
     mf->GenerateContainer(CharacteristicLengthMax, offset);
-    allMeshes.push_back(mf);
+    allFragments.push_back(mf);
 
     RegenerateVisualizedGeometry();
 
@@ -28,9 +28,6 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
                                                   [](double a, Element* m){return a+m->area_initial;});
 
     showDeformation = ShowDeformationOption::current;
-
-
-
 }
 
 icy::Mesh::Mesh()
@@ -123,7 +120,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     fragmentRoots_ccd.clear();
     fragmentRoots_contact.clear();
 
-    for(MeshFragment *mf : allMeshes)
+    for(MeshFragment *mf : allFragments)
     {
         for(unsigned i=0;i<mf->nodes.size();i++)
         {
@@ -215,7 +212,7 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     else
     {
         BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
-        for(MeshFragment *mf : allMeshes)
+        for(MeshFragment *mf : allFragments)
         {
             mf->root_ccd.Build(&mf->leaves_for_ccd,0);
             mf->root_contact.Build(&mf->leaves_for_contact,0);

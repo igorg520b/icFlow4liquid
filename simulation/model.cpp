@@ -90,11 +90,13 @@ bool icy::Model::Step()
         std::cout << std::endl;
     } while (!ccd_res || !sln_res || !converges);
 
-    if(timeStepFactor < 1) timeStepFactor *= 1.2;
-    if(timeStepFactor > 1) timeStepFactor=1;
     // accept step
     AcceptTentativeValues(h);
     currentStep++;
+
+    // gradually increase the time step
+    if(timeStepFactor < 1) timeStepFactor *= 1.2;
+    if(timeStepFactor > 1) timeStepFactor=1;
 
     emit stepCompleted();
     return(currentStep < prms.MaxSteps);
@@ -261,19 +263,96 @@ void icy::Model::AcceptTentativeValues(double timeStep)
 void icy::Model::GetNewMaterialPosition()
 {
     qDebug() << "icy::Model::GetNewMaterialPosition()";
-    mesh->collision_interactions.clear(); // for debugging
 
-    // initial coordinates -> tentative
-    std::size_t nNodes = mesh->allNodes.size();
-#pragma omp parallel for
-    for(std::size_t i=0;i<nNodes;i++)
+    // relax each mesh fragment separately
+    for(MeshFragment *mf : mesh->allFragments)
     {
-        icy::Node *nd = mesh->allNodes[i];
-        if(!nd->pinned) nd->xt = nd->x_hat = nd->x_initial;
+        if(!mf->deformable) continue;
+
+        unsigned freeNodes = 0;
+        for(Node *nd : mf->nodes)
+        {
+            if(nd->pinned) nd->eqId = -1;
+            else nd->eqId = freeNodes++;
+        }
+
+        unsigned nNodes = mf->nodes.size();
+        unsigned nElems = mf->elems.size();
+
+
+        // solve the equation iteratively (as usual, but without collisions)
+
+        int attempt = 0;
+        bool converges=false;
+        bool sln_res, ccd_res; // false if matrix is not PSD
+        double h = prms.InitialTimeStep*timeStepFactor;;
+        do
+        {
+            int iter = 0;
+            h = prms.InitialTimeStep*timeStepFactor; // time step
+
+            // initial coordinates -> tentative
+        #pragma omp parallel for
+            for(std::size_t i=0;i<nNodes;i++)
+            {
+                icy::Node *nd = mf->nodes[i];
+                nd->xt = nd->x_hat = nd->x_initial;
+            }
+
+
+            std::pair<bool, double> ccd_result = mesh->EnsureNoIntersectionViaCCD();
+            ccd_res = ccd_result.first;
+            std::cout << std::scientific << std::setprecision(1);
+            std::cout << "RELAXING STEP: " << attempt << " TCF " << timeStepFactor << std::endl;
+            sln_res=true;
+
+            while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
+            {
+                sln_res = AssembleAndSolve(prms, h);
+                ccd_result = mesh->EnsureNoIntersectionViaCCD();
+                ccd_res = ccd_result.first;
+
+                double ratio;
+                if(iter == 0 || eqOfMotion.solution_norm_prev < prms.ConvergenceCutoff) ratio = 0;
+                else ratio = eqOfMotion.solution_norm/eqOfMotion.solution_norm_prev;
+                converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff || ratio < prms.ConvergenceEpsilon);
+
+                std::cout << "IT "<< std::left << std::setw(2) << iter;
+                std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;
+                std::cout << " sln " << std::setw(10) << eqOfMotion.solution_norm;
+                if(iter) std::cout << " ra " << std::setw(10) << ratio;
+                else std::cout << "tsf " << std::setw(20) << timeStepFactor;
+                std::cout << '\n';
+                iter++;
+            }
+
+            if(!ccd_res)
+            {
+                std::cout << "intersection detected - discarding this attempt\n";
+                attempt++;
+                timeStepFactor*=(ccd_result.second*0.8);
+            }
+            else if(!sln_res)
+            {
+                std::cout << "could not solve - discarding this attempt\n";
+                attempt++;
+                timeStepFactor*=0.5;
+            }
+            else if(!converges)
+            {
+                std::cout << "did not converge - discarding this attempt\n";
+                attempt++;
+                timeStepFactor*=0.5;
+            }
+            if(attempt > 20) throw std::runtime_error("could not solve");
+            std::cout << std::endl;
+        } while (!ccd_res || !sln_res || !converges);
+
+
     }
 
-    // assemble elements, but not nodal masses or collisions
-    unsigned nElems = mesh->allElems.size();
+
+
     eqOfMotion.ClearAndResize(mesh->freeNodeCount);
 
 #pragma omp parallel for

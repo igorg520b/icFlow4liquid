@@ -280,7 +280,7 @@ void MainWindow::on_actionSave_Mesh_triggered()
     QString fileName = qfd.selectedFiles()[0];
 
     if (fileName.isEmpty()) return;
-    model.mesh->allMeshes[1]->SaveFragment(fileName.toStdString());
+    model.mesh->allFragments[1]->SaveFragment(fileName.toStdString());
 
 }
 
@@ -290,7 +290,7 @@ void MainWindow::on_actionSave_Mesh_triggered()
 
 void MainWindow::on_actionRemesh_triggered()
 {
-    model.mesh->allMeshes[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
+    model.mesh->allFragments[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
     model.mesh->RegenerateVisualizedGeometry();
     render_results();
 }
@@ -298,7 +298,7 @@ void MainWindow::on_actionRemesh_triggered()
 
 void MainWindow::on_actionSwap_Buffers_triggered()
 {
-    model.mesh->allMeshes[1]->Swap();
+    model.mesh->allFragments[1]->Swap();
     model.mesh->RegenerateVisualizedGeometry();
     render_results();
 }
@@ -307,12 +307,6 @@ void MainWindow::on_actionSwap_Buffers_triggered()
 void MainWindow::on_actionClear_Velocity_triggered()
 {
     for(icy::Node *nd : model.mesh->allNodes) nd->vn = Eigen::Vector2d::Zero();
-}
-
-void MainWindow::on_actionMaterial_State_triggered()
-{
-    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::material;
-    render_results();
 }
 
 void MainWindow::on_actionUse_Initial_State_triggered()

@@ -40,7 +40,7 @@ class icy::Mesh
 {
 public:
     MeshFragment indenter;
-    std::vector<MeshFragment*> allMeshes;   // including the indenter
+    std::vector<MeshFragment*> allFragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
     std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
@@ -85,7 +85,7 @@ public:
     vtkNew<vtkActor> actor_boundary_all;
     vtkNew<vtkActor> actor_boundary_intended_indenter;
 
-    enum ShowDeformationOption { initial, material, current };
+    enum ShowDeformationOption { initial, current };
     ShowDeformationOption showDeformation = ShowDeformationOption::current;
 
 private:

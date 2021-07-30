@@ -40,7 +40,6 @@
     <addaction name="separator"/>
     <addaction name="separator"/>
     <addaction name="actionUse_Initial_State"/>
-    <addaction name="actionMaterial_State"/>
     <addaction name="actionCurrent_Space"/>
    </widget>
    <widget class="QMenu" name="menuTools_2">
@@ -184,11 +183,6 @@
   <action name="actionClear_Velocity">
    <property name="text">
     <string>Clear Velocity</string>
-   </property>
-  </action>
-  <action name="actionMaterial_State">
-   <property name="text">
-    <string>Material Space</string>
    </property>
   </action>
   <action name="actionCurrent_Space">
