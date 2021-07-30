@@ -157,18 +157,11 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         for(std::size_t i=0;i<trisTags.size();i++)
         {
             icy::Element *elem = ElementFactory.take();
-            elem->Reset();
-            for(int j=0;j<3;j++) elem->nds[j] = nodes[mtags.at(nodeTagsInTris[i*3+j])];
-            elem->PrecomputeInitialArea();
-            if(elem->area_initial < 0)
-            {
-                std::swap(elem->nds[0], elem->nds[1]);
-                elem->PrecomputeInitialArea();
-                if(elem->area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
-            }
+            elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+                    nodes[mtags.at(nodeTagsInTris[i*3+1])],
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
             for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elem->group=k;
-//            if(k==2) elem->PiMultiplier << 1, 0, 0, 0.5;
             elems.push_back(elem);
 
         }
@@ -365,15 +358,9 @@ void icy::MeshFragment::GetFromGmsh()
         for(std::size_t i=0;i<trisTags.size();i++)
         {
             icy::Element *elem = ElementFactory.take();
-            elem->Reset();
-            for(int j=0;j<3;j++) elem->nds[j] = nodes[mtags.at(nodeTagsInTris[i*3+j])];
-            elem->PrecomputeInitialArea();
-            if(elem->area_initial < 0)
-            {
-                std::swap(elem->nds[0], elem->nds[1]);
-                elem->PrecomputeInitialArea();
-                if(elem->area_initial < 0) throw std::runtime_error("icy::Mesh::Reset - error");
-            }
+            elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+                    nodes[mtags.at(nodeTagsInTris[i*3+1])],
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
             for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elems.push_back(elem);
         }
@@ -469,10 +456,9 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
     for(unsigned i=0;i<nFirstGroupElems;i++)
     {
         Element *elem = ElementFactory.take();
-        elem->Reset();
-        elem->group=1;
-        for(int j=0;j<3;j++) elem->nds[j]=nodes_tmp[elems[i]->nds[j]->locId];
-        elem->PrecomputeInitialArea();
+        elem->Reset(nodes_tmp[elems[i]->nds[0]->locId],
+                nodes_tmp[elems[i]->nds[1]->locId],
+                nodes_tmp[elems[i]->nds[2]->locId]);
         for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
         elems_tmp.push_back(elem);
     }
@@ -554,22 +540,10 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
     {
 
         icy::Element *elem = ElementFactory.take();
-        elem->Reset();
+        elem->Reset(nodes_tmp[mtags.at(nodeTagsInTris[i*3+0])],
+                nodes_tmp[mtags.at(nodeTagsInTris[i*3+1])],
+                nodes_tmp[mtags.at(nodeTagsInTris[i*3+2])]);
         elem->group = 2;
-        for(int j=0;j<3;j++)
-        {
-            unsigned idx0 = nodeTagsInTris[i*3+j];
-            unsigned idx = mtags.at(idx0);
-            if(idx>=nodes_tmp.size()) throw std::runtime_error("index error");
-            elem->nds[j] = nodes_tmp[idx];
-        }
-        elem->PrecomputeInitialArea();
-        if(elem->area_initial < 0)
-        {
-            std::swap(elem->nds[0], elem->nds[1]);
-            elem->PrecomputeInitialArea();
-            if(elem->area_initial <= 0) throw std::runtime_error("icy::Mesh::Reset - error");
-        }
         for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
         elems_tmp.push_back(elem);
     }

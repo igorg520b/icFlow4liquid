@@ -20,9 +20,8 @@ public:
     void CreateStructure();
 
     // creating the values array
-    void AddToQ(const int row, const int column, const Eigen::Matrix2d &mat);
-    void AddToC(const int idx, const Eigen::Vector2d &vec);
-    void AddToConstTerm(const double c);
+    void AddToEquation(double constTerm, Eigen::Matrix<double,6,1> &linearTerm, Eigen::Matrix<double,6,6> quadraticTerm, int (&ids)[3]);
+    void AddToEquation(double constTerm, Eigen::Vector2d &linearTerm, Eigen::Matrix2d quadraticTerm, int id);
 
     bool Solve();   // true if successful
     void TestSolve(); // test solve using sample data
@@ -54,6 +53,9 @@ private:
     static void MSKAPI printstr(void *, const char str[]);
     void ResizeRows();
 
+    void AddToQ(const int row, const int column, const Eigen::Matrix2d mat);
+    void AddToC(const int idx, const Eigen::Vector2d vec);
+    void AddToConstTerm(const double c);
 };
 
 #endif // EQUATIONOFMOTIONSOLVER_H

@@ -17,16 +17,15 @@ public:
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
     int group;
-    bool fluid;
 
     Element() { Reset();}
     void Reset(void);
-    
+    void Reset(Node *nd0, Node *nd1, Node *nd2);
     void PrecomputeInitialArea();
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
-    void EvaluateVelocityDivergence();
+    void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
     void PlasticDeformation(SimParams &prms, double timeStep);
 
     double strain_energy_density;   // (not multiplied by the volume)
@@ -37,8 +36,11 @@ public:
     double area_initial, area_current;
 
 private:
-    // constant derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
-    static Eigen::Matrix2d DDs[6];
+    static Eigen::Matrix2d DDs[6]; // derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
+
+    Eigen::Matrix2d Dm, DmInv;  // reference shape matrix
+    Eigen::Matrix2d F;  // deformation gradient
+    Eigen::Matrix2d P;  // First Piola-Kirchhoff stress tensor
 };
 
 #endif // ELEMENT123_H

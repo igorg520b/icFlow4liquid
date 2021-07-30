@@ -152,7 +152,7 @@ void EquationOfMotionSolver::CreateStructure()
 }
 
 // creating the values array
-void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen::Matrix2d &mat)
+void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen::Matrix2d mat)
 {
     if (row < 0 || column < 0 || row < column) return;
     else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
@@ -193,7 +193,7 @@ void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen
     }
 }
 
-void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d &vec)
+void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d vec)
 {
     if(idx < 0) return;
     if((unsigned)idx >= N) throw std::runtime_error("AddToC: index out of range");
@@ -209,6 +209,34 @@ void EquationOfMotionSolver::AddToConstTerm(const double c)
 #pragma omp atomic
     cfix+=c;
 }
+
+void EquationOfMotionSolver::AddToEquation(double constTerm,
+                                           Eigen::Matrix<double,6,1> &linearTerm,
+                                           Eigen::Matrix<double,6,6> quadraticTerm, int (&ids)[3])
+{
+    AddToConstTerm(constTerm);
+
+    for(int i=0;i<3;i++)
+    {
+        int row = ids[i];
+        if(row < 0) continue;
+        AddToC(row, linearTerm.block(i*2,0,2,1));
+        for(int j=0;j<3;j++)
+        {
+            int col = ids[j];
+            if(col < 0) continue;
+            AddToQ(row, col, quadraticTerm.block(i*2,j*2,2,2));
+        }
+    }
+}
+
+void EquationOfMotionSolver::AddToEquation(double constTerm, Eigen::Vector2d &linearTerm, Eigen::Matrix2d quadraticTerm, int id)
+{
+    AddToConstTerm(constTerm);
+    AddToC(id, linearTerm);
+    AddToQ(id, id, quadraticTerm);
+}
+
 
 bool EquationOfMotionSolver::Solve()
 {

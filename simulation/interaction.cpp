@@ -43,22 +43,10 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     p*=k;
     Dp*=k;
     DDp*=k;
-    Node* nds[3] = {ndA, ndB, ndP};
 
     // assemble the equation of motion
-    for(int i=0;i<3;i++)
-    {
-        int row = nds[i]->eqId;
-        Eigen::Vector2d locDE = Dp.block(i*2,0,2,1);
-        eq.AddToC(row, locDE);
-        for(int j=0;j<3;j++)
-        {
-            int col = nds[j]->eqId;
-            Eigen::Matrix2d locHE = DDp.block(i*2,j*2,2,2);
-            eq.AddToQ(row, col, locHE);
-        }
-    }
-    eq.AddToConstTerm(p);
+    int ids[3] = {ndA->eqId,ndB->eqId,ndP->eqId};
+    eq.AddToEquation(p, Dp, DDp, ids);
 }
 
 void icy::Interaction::potential(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,

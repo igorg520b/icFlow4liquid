@@ -25,15 +25,31 @@ void icy::Element::Reset(void)
     nds[0] = nds[1] = nds[2] = nullptr;
     area_initial = area_current = 0;
     group = -1;
-    fluid = false;
     PiMultiplier = Eigen::Matrix2d::Identity();
 }
 
+void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2)
+{
+    nds[0] = nd0;
+    nds[1] = nd1;
+    nds[2] = nd2;
+    group = -1;
+    PiMultiplier = Eigen::Matrix2d::Identity();
+    PrecomputeInitialArea();
+    if(area_initial < 0)
+    {
+        std::swap(nds[0],nds[1]);
+        PrecomputeInitialArea();
+    }
+}
+
+
 void icy::Element::PrecomputeInitialArea()
 {
-    Eigen::Matrix2d J;
-    J << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
-    area_initial = area_current = J.determinant()/2;
+    // reference shape matrix
+    Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
+    DmInv = Dm.inverse();
+    area_initial = area_current = Dm.determinant()/2;
     if(area_initial==0) throw std::runtime_error("element's initial area is zero");
 }
 
@@ -53,34 +69,29 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     double lambda = prms.lambda;
     double mu = prms.mu;
 
-    Eigen::Matrix2d Dm, Dm_inv, Ds, F, Finv, FT, FinvT;
+    Eigen::Matrix2d Ds, Finv, FT, FinvT;
 
-    // reference shape matrix
-    Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
-//    double W = prms.Thickness*Dm.determinant()/2;   // element's initial "volume"
     double W = prms.Thickness*area_initial;   // element's initial "volume"
-    Dm_inv = Dm.inverse();
 
     // deformed shape matrix
     Ds << nds[0]->xt-nds[2]->xt, nds[1]->xt-nds[2]->xt;
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
-    F = Ds*Dm_inv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
-
-    double J = F.determinant();     // represents the change of volume in comparison with the reference
-    volume_change = J;
+    F = Ds*DmInv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
     FT = F.transpose();
     Finv = F.inverse();
     FinvT = Finv.transpose();
+    double J = F.determinant();     // represents the change of volume in comparison with the reference
+    volume_change = J;
 
     double log_J = log(J);
     strain_energy_density = (mu/2.0)*((F*FT).trace()-2.0)-mu*log_J+(lambda/2.0)*log_J*log_J;
 
     // First Piola-Kirchhoff stress tensor
-    Eigen::Matrix2d P = F*mu + FinvT*(lambda*log_J-mu);
+    P = F*mu + FinvT*(lambda*log_J-mu);
 
     // forces on nodes 1 and 2 (inverted sign)
-    Eigen::Matrix2d H = W*P*Dm_inv.transpose();
+    Eigen::Matrix2d H = W*P*DmInv.transpose();
 
     // energy gradient with respect to x1,y1,x2,y2,x3,y3
     Eigen::Matrix<double, 6, 1> DE;    // energy gradient
@@ -89,9 +100,9 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     Eigen::Matrix<double, 6, 6> HE; // energy Hessian, 6x6 symmetric
     for(int i=0;i<6;i++)
     {
-        Eigen::Matrix2d DF_i = DDs[i]*Dm_inv; // derivative of F with respect to x_i
+        Eigen::Matrix2d DF_i = DDs[i]*DmInv; // derivative of F with respect to x_i
         Eigen::Matrix2d dP = mu*DF_i + (mu-lambda*log_J)*FinvT*DF_i.transpose()*FinvT + lambda*(Finv*DF_i).trace()*FinvT;
-        Eigen::Matrix2d dH = W*dP*Dm_inv.transpose();
+        Eigen::Matrix2d dH = W*dP*DmInv.transpose();
         HE(0,i) = dH(0,0);
         HE(1,i) = dH(1,0);
         HE(2,i) = dH(0,1);
@@ -104,23 +115,19 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     double hsq = h*h;
     DE*=hsq;
     HE*=hsq;
+    double constTerm = strain_energy_density*W*hsq;
 
-    for(int i=0;i<3;i++)
-    {
-        int row = nds[i]->eqId;
-        Eigen::Vector2d locDE = DE.block(i*2,0,2,1);
-        eq.AddToC(row, locDE);
-        for(int j=0;j<3;j++)
-        {
-            int col = nds[j]->eqId;
-            Eigen::Matrix2d locHE = HE.block(i*2,j*2,2,2);
-            eq.AddToQ(row, col, locHE);
-        }
-    }
-    eq.AddToConstTerm(strain_energy_density*W*hsq);
 
+    int ids[3] = {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId};
+    eq.AddToEquation(constTerm, DE, HE, ids);
+
+    return true;
+}
+
+void icy::Element::ComputeVisualizedVariables()
+{
     // compute various variables, mostly for visualization
-    CauchyStress = F*P.transpose()/J;   // symmetric up to roundoff error
+    CauchyStress = F*P.transpose()/volume_change;   // symmetric up to the roundoff error
 
     double sx = CauchyStress(0,0);
     double sy = CauchyStress(1,1);
@@ -133,14 +140,7 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     hydrostatic_stress = CauchyStress.trace()/2;
     GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())/2;
 
-    return true;
-}
-
-
-
-
-void icy::Element::EvaluateVelocityDivergence()
-{
+    // velocity divergence
     Eigen::Matrix2d D, DinvT, DDot;
 
     // deformed shape matrix
@@ -151,6 +151,8 @@ void icy::Element::EvaluateVelocityDivergence()
     DDot << nds[1]->vn-nds[0]->vn, nds[2]->vn-nds[0]->vn;
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
 }
+
+
 
 void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 {

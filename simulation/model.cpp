@@ -250,7 +250,7 @@ void icy::Model::AcceptTentativeValues(double timeStep)
     {
         icy::Element *elem = mesh->allElems[i];
         elem->PlasticDeformation(prms, timeStep);
-        elem->EvaluateVelocityDivergence();
+        elem->ComputeVisualizedVariables();
     }
 
     simulationTime+=timeStep;
