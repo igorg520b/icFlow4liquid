@@ -47,7 +47,7 @@ public:
     ~Model();
     void Reset(SimParams &prms);
     void InitialGuess(SimParams &prms, double timeStep, double timeStepFactor);
-    bool AssembleAndSolve(SimParams &prms, double timeStep);    // true if solved; false -> parameter is time step mult
+    bool AssembleAndSolve(SimParams &prms, double timeStep, bool restShape = false);  // return true if solved
     void AcceptTentativeValues(double timeStep);
     void GetNewMaterialPosition();
 

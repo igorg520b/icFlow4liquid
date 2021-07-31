@@ -248,15 +248,6 @@ void icy::Mesh::UnsafeUpdateGeometry()
             points_deformable->SetPoint((vtkIdType)nd->globId, x);
         }
     }
-    else if(showDeformation == ShowDeformationOption::material)
-    {
-        for(icy::Node *nd : allNodes)
-        {
-            x[0] = nd->x_material[0];
-            x[1] = nd->x_material[1];
-            points_deformable->SetPoint((vtkIdType)nd->globId, x);
-        }
-    }
     points_deformable->Modified();
 
     for(icy::Node* nd : indenter.nodes)
@@ -280,8 +271,8 @@ void icy::Mesh::UnsafeUpdateGeometry()
             vtkIdType pts[2] = {2*i, 2*i+1};
             cellArray_collisions->InsertNextCell(2, pts);
             Interaction &intr = collision_interactions[i];
-            x[0] = intr.ndP->xt[0];
-            x[1] = intr.ndP->xt[1];
+            x[0] = intr.ndP->xn[0];
+            x[1] = intr.ndP->xn[1];
             points_collisions->SetPoint((vtkIdType)2*i, x);
             x[0] = intr.D[0];
             x[1] = intr.D[1];

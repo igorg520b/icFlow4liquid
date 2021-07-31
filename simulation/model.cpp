@@ -92,6 +92,7 @@ bool icy::Model::Step()
 
     // accept step
     AcceptTentativeValues(h);
+    GetNewMaterialPosition();
     currentStep++;
 
     // gradually increase the time step
@@ -163,7 +164,7 @@ void icy::Model::InitialGuess(SimParams &prms, double timeStep, double timeStepF
 }
 
 
-bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
+bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restShape)
 {
     eqOfMotion.ClearAndResize(mesh->freeNodeCount);
 
@@ -173,16 +174,18 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->AddToSparsityStructure(eqOfMotion);
 
-    mesh->UpdateTree(prms.InteractionDistance);
-    vtk_update_mutex.lock();
-    mesh->DetectContactPairs(prms.InteractionDistance);
-    vtk_update_mutex.unlock();
-
-    unsigned nInteractions = mesh->collision_interactions.size();
+    unsigned nInteractions;
+    if(!restShape)
+    {
+        mesh->UpdateTree(prms.InteractionDistance);
+        vtk_update_mutex.lock();
+        mesh->DetectContactPairs(prms.InteractionDistance);
+        vtk_update_mutex.unlock();
+        nInteractions = mesh->collision_interactions.size();
 
 #pragma omp parallel for
-    for(unsigned i=0;i<nInteractions;i++)
-        mesh->collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+        for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+    }
 
     eqOfMotion.CreateStructure();
 
@@ -203,11 +206,22 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
     {
         Node *nd = mesh->allNodes[i];
         nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-        nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
     }
 
+    if(!restShape)
+    {
 #pragma omp parallel for
-    for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+        for(unsigned i=0;i<nNodes;i++)
+        {
+            Node *nd = mesh->allNodes[i];
+            nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
+        }
+
+#pragma omp parallel for
+        for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+    }
+
+
 
     // solve
     bool solve_result = eqOfMotion.Solve();
@@ -225,8 +239,6 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep)
             nd->xt+=delta_x;
         }
     }
-
-
 
     return true;
 }
@@ -284,7 +296,7 @@ void icy::Model::GetNewMaterialPosition()
 
         int attempt = 0;
         bool converges=false;
-        bool sln_res, ccd_res; // false if matrix is not PSD
+        bool sln_res; // false if matrix is not PSD
         double h = prms.InitialTimeStep*timeStepFactor;;
         do
         {
@@ -292,25 +304,20 @@ void icy::Model::GetNewMaterialPosition()
             h = prms.InitialTimeStep*timeStepFactor; // time step
 
             // initial coordinates -> tentative
-        #pragma omp parallel for
+#pragma omp parallel for
             for(std::size_t i=0;i<nNodes;i++)
             {
                 icy::Node *nd = mf->nodes[i];
                 nd->xt = nd->x_hat = nd->x_initial;
             }
 
-
-            std::pair<bool, double> ccd_result = mesh->EnsureNoIntersectionViaCCD();
-            ccd_res = ccd_result.first;
             std::cout << std::scientific << std::setprecision(1);
-            std::cout << "RELAXING STEP: " << attempt << " TCF " << timeStepFactor << std::endl;
+            std::cout << "\nRELAXING STEP: " << attempt << " h " << h << std::endl;
             sln_res=true;
 
-            while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
+            while(sln_res && iter < prms.MaxIter*5 && (iter < prms.MinIter || !converges))
             {
-                sln_res = AssembleAndSolve(prms, h);
-                ccd_result = mesh->EnsureNoIntersectionViaCCD();
-                ccd_res = ccd_result.first;
+                sln_res = AssembleAndSolve(prms, h, true);
 
                 double ratio;
                 if(iter == 0 || eqOfMotion.solution_norm_prev < prms.ConvergenceCutoff) ratio = 0;
@@ -321,111 +328,78 @@ void icy::Model::GetNewMaterialPosition()
                 std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;
                 std::cout << " sln " << std::setw(10) << eqOfMotion.solution_norm;
                 if(iter) std::cout << " ra " << std::setw(10) << ratio;
-                else std::cout << "tsf " << std::setw(20) << timeStepFactor;
+                else std::cout << "h " << std::setw(20) << h;
                 std::cout << '\n';
                 iter++;
             }
 
-            if(!ccd_res)
-            {
-                std::cout << "intersection detected - discarding this attempt\n";
-                attempt++;
-                timeStepFactor*=(ccd_result.second*0.8);
-            }
-            else if(!sln_res)
+            if(!sln_res)
             {
                 std::cout << "could not solve - discarding this attempt\n";
                 attempt++;
-                timeStepFactor*=0.5;
+                h*=0.5;
             }
             else if(!converges)
             {
                 std::cout << "did not converge - discarding this attempt\n";
                 attempt++;
-                timeStepFactor*=0.5;
+                h*=0.5;
             }
-            if(attempt > 20) throw std::runtime_error("could not solve");
+            if(attempt > 20) throw std::runtime_error("relaxation step: could not solve");
             std::cout << std::endl;
-        } while (!ccd_res || !sln_res || !converges);
+        } while (!sln_res || !converges);
 
 
-    }
-
-
-
-    eqOfMotion.ClearAndResize(mesh->freeNodeCount);
-
+        // pull
 #pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->AddToSparsityStructure(eqOfMotion);
-
-    eqOfMotion.CreateStructure();
-
-
-    // assemble
-    bool mesh_iversion_detected = false;
-    double timeStep = prms.InitialTimeStep*1;
-#pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++)
-    {
-        bool elem_entry_ok = mesh->allElems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-        if(!elem_entry_ok) mesh_iversion_detected = true;
-    }
-    if(mesh_iversion_detected) throw std::runtime_error("mesh inversion in GetNewMaterialPosition()"); // mesh inversion
-
-#pragma omp parallel for
-    for(unsigned i=0;i<nNodes;i++)
-    {
-        Node *nd = mesh->allNodes[i];
-        nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-    }
-
-    // solve
-    bool solve_result = eqOfMotion.Solve();
-    if(!solve_result) throw std::runtime_error("solve error in GetNewMaterialPosition()");
-
-    // pull
-#pragma omp parallel for
-    for(std::size_t i=0;i<nNodes;i++)
-    {
-        icy::Node *nd = mesh->allNodes[i];
-        Eigen::Vector2d delta_x;
-        if(!nd->pinned)
+        for(std::size_t i=0;i<nNodes;i++)
         {
-            eqOfMotion.GetTentativeResult(nd->eqId, delta_x);
-            nd->xt+=delta_x;
-            nd->x_material = nd->xt;
+            icy::Node *nd = mf->nodes[i];
+            Eigen::Vector2d delta_x;
+            if(!nd->pinned)
+            {
+                eqOfMotion.GetTentativeResult(nd->eqId, delta_x);
+                nd->xt+=delta_x;
+            }
         }
-    }
 
-    // infer new PiMultipliers
+        // infer new PiMultipliers
 #pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++)
-    {
-        icy::Element *elem = mesh->allElems[i];
-        Eigen::Matrix2d DmPrime, Dm;
-        DmPrime << elem->nds[0]->x_material-elem->nds[2]->x_material, elem->nds[1]->x_material-elem->nds[2]->x_material;
-        Dm << elem->nds[0]->x_initial-elem->nds[2]->x_initial, elem->nds[1]->x_initial-elem->nds[2]->x_initial;
-        elem->PiMultiplier = DmPrime*Dm.inverse()*elem->PiMultiplier;
-    }
-    // tentative -> initial
-#pragma omp parallel for
-    for(std::size_t i=0;i<nNodes;i++)
-    {
-        icy::Node *nd = mesh->allNodes[i];
-        if(!nd->pinned)
+        for(unsigned i=0;i<nElems;i++)
         {
-            nd->x_initial = nd->x_material;
+            icy::Element *elem = mf->elems[i];
+            Eigen::Matrix2d DmPrime, Dm;
+            DmPrime << elem->nds[0]->xt-elem->nds[2]->xt, elem->nds[1]->xt-elem->nds[2]->xt;
+            Dm << elem->nds[0]->x_initial-elem->nds[2]->x_initial, elem->nds[1]->x_initial-elem->nds[2]->x_initial;
+            elem->PiMultiplier = DmPrime*Dm.inverse()*elem->PiMultiplier;
+        }
+        // tentative -> initial
+#pragma omp parallel for
+        for(std::size_t i=0;i<nNodes;i++)
+        {
+            icy::Node *nd = mf->nodes[i];
+            if(!nd->pinned)
+            {
+                nd->x_initial = nd->xt;
+            }
             nd->area = 0;
         }
+
+        for(unsigned i=0;i<nElems;i++)
+        {
+            icy::Element *elem = mf->elems[i];
+            elem->PrecomputeInitialArea();
+            for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
+        }
     }
 
-    for(unsigned i=0;i<nElems;i++)
+    mesh->freeNodeCount=0;
+    for(unsigned i=0;i<mesh->allNodes.size();i++)
     {
-        icy::Element *elem = mesh->allElems[i];
-        elem->PrecomputeInitialArea();
-        for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
+        Node *nd = mesh->allNodes[i];
+        if(nd->pinned) nd->eqId=-1;
+        else nd->eqId=mesh->freeNodeCount++;
     }
-
 }
 
 

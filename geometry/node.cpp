@@ -3,7 +3,7 @@
 
 void icy::Node::Reset()
 {
-    x_material = x_initial = xn = vn = xt = Eigen::Vector2d::Zero();
+    x_initial = xn = vn = xt = Eigen::Vector2d::Zero();
     eqId = locId = globId = -1;
     area = 0;
     pinned = false;
@@ -16,7 +16,7 @@ void icy::Node::Reset(int locId_, double x, double y)
     vn = Eigen::Vector2d::Zero();
     locId = locId_;
     x_initial << x,y;
-    x_material = intended_position = xt = xn = x_initial;
+    intended_position = xt = xn = x_initial;
     eqId = globId = -1;
     area = 0;
     pinned = false;

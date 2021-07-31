@@ -17,16 +17,15 @@ public:
     void Reset(int locId, double x, double y);
     void Reset(Node *other) { Reset(other->locId, other->x_initial.x(), other->x_initial.y()); }
 
-    int locId, globId, eqId;       // sequential number of a node; identificator in the equation of motion (if not pinned)
+    int locId, globId, eqId;    // sequential number of a node; identificator in the equation of motion (if not pinned)
     bool pinned;
-    double area;        // area that the node "represents", for applying various forces
-    std::bitset<6> group;
+    double area;                // area that the node represents, for applying body forces
+    std::bitset<6> group;       // for meshing/initialization
 
     Eigen::Vector2d x_initial;  // initial configuration
     Eigen::Vector2d xn, vn;     // position and velocity at step n
     Eigen::Vector2d xt;         // tentative coordinates
     Eigen::Vector2d x_hat;
-    Eigen::Vector2d x_material;
 
     Eigen::Vector2d intended_position; // when manipulating via GUI during a running simulation
 
@@ -35,7 +34,6 @@ public:
 
     double spring_attached;
     Eigen::Vector2d spring_attachment_position;
-
 };
 
 #endif // NODE_H
