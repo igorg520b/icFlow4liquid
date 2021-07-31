@@ -48,7 +48,7 @@ public:
     void Reset(SimParams &prms);
     void InitialGuess(SimParams &prms, double timeStep, double timeStepFactor);
     bool AssembleAndSolve(SimParams &prms, double timeStep, bool restShape = false);  // return true if solved
-    void AcceptTentativeValues(double timeStep);
+    bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
     void GetNewMaterialPosition();
 
     void UnsafeUpdateGeometry();

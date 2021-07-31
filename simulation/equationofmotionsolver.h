@@ -29,7 +29,7 @@ public:
     void GetTentativeResult(int idx, Eigen::Vector2d &vec);  // solution => convenient vector form
 
     MSKrealt objective_value;    // value of the optimized expression (should be near zero)
-    double solution_norm, solution_norm_prev=1;
+    double solution_norm;
 
 private:
     MSKenv_t     env  = NULL;

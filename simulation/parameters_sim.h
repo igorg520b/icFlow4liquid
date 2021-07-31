@@ -98,7 +98,7 @@ public:
         ConvergenceCutoff = 1e-7;
 
         MinIter = 3;
-        MaxIter = 10;
+        MaxIter = 6;
         RecomputeLamdaMuAndKappa();
 
         PlasticYieldThreshold = 100;

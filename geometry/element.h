@@ -26,7 +26,7 @@ public:
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
     void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
-    void PlasticDeformation(SimParams &prms, double timeStep);
+    bool PlasticDeformation(SimParams &prms, double timeStep);  // true if plastic deformation occurred
 
     double strain_energy_density;   // (not multiplied by the volume)
 
@@ -37,6 +37,7 @@ public:
 
 private:
     static Eigen::Matrix2d DDs[6]; // derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
+    static Eigen::Matrix<double,6,6> consistentMassMatrix;
 
     Eigen::Matrix2d Dm, DmInv;  // reference shape matrix
     Eigen::Matrix2d F;  // deformation gradient

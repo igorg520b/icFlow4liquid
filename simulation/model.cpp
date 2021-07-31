@@ -46,6 +46,7 @@ bool icy::Model::Step()
         std::cout << std::scientific << std::setprecision(1);
         std::cout << "STEP: " << currentStep << "-" << attempt << " TCF " << timeStepFactor << std::endl;
         sln_res=true;
+        double first_solution_norm = 0;
 
         while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
@@ -54,10 +55,11 @@ bool icy::Model::Step()
             ccd_result = mesh->EnsureNoIntersectionViaCCD();
             ccd_res = ccd_result.first;
 
-            double ratio;
-            if(iter == 0 || eqOfMotion.solution_norm_prev < prms.ConvergenceCutoff) ratio = 0;
-            else ratio = eqOfMotion.solution_norm/eqOfMotion.solution_norm_prev;
-            converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff || ratio < prms.ConvergenceEpsilon);
+            double ratio = 0;
+            if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
+            else if(first_solution_norm > prms.ConvergenceCutoff) ratio = eqOfMotion.solution_norm/first_solution_norm;
+            converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff ||
+                         (ratio > 0 && ratio < prms.ConvergenceEpsilon));
 
             std::cout << "IT "<< std::left << std::setw(2) << iter;
             std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;
@@ -91,8 +93,8 @@ bool icy::Model::Step()
     } while (!ccd_res || !sln_res || !converges);
 
     // accept step
-    AcceptTentativeValues(h);
-    GetNewMaterialPosition();
+    bool plasticDeformation = AcceptTentativeValues(h);
+    if(plasticDeformation) GetNewMaterialPosition();
     currentStep++;
 
     // gradually increase the time step
@@ -200,14 +202,14 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
     }
 
     if(mesh_iversion_detected) return false; // mesh inversion
-
+/*
 #pragma omp parallel for
     for(unsigned i=0;i<nNodes;i++)
     {
         Node *nd = mesh->allNodes[i];
         nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
     }
-
+*/
     if(!restShape)
     {
 #pragma omp parallel for
@@ -243,7 +245,7 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
     return true;
 }
 
-void icy::Model::AcceptTentativeValues(double timeStep)
+bool icy::Model::AcceptTentativeValues(double timeStep)
 {
     vtk_update_mutex.lock();
     unsigned nNodes = mesh->allNodes.size();
@@ -259,23 +261,24 @@ void icy::Model::AcceptTentativeValues(double timeStep)
 
     // plastic behavior
     unsigned nElems = mesh->allElems.size();
+    bool plasticDeformation = false;
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
         icy::Element *elem = mesh->allElems[i];
-        elem->PlasticDeformation(prms, timeStep);
+        bool result = elem->PlasticDeformation(prms, timeStep);
+        if(result) plasticDeformation = true;
         elem->ComputeVisualizedVariables();
     }
 
     simulationTime+=timeStep;
     mesh->area_current = std::accumulate(mesh->allElems.begin(), mesh->allElems.end(),0.0,
                                          [](double a, Element* m){return a+m->area_current;});
+    return plasticDeformation;
 }
 
 void icy::Model::GetNewMaterialPosition()
 {
-    qDebug() << "icy::Model::GetNewMaterialPosition()";
-
     // relax each mesh fragment separately
     for(MeshFragment *mf : mesh->allFragments)
     {
@@ -314,15 +317,17 @@ void icy::Model::GetNewMaterialPosition()
             std::cout << std::scientific << std::setprecision(1);
             std::cout << "\nRELAXING STEP: " << attempt << " h " << h << std::endl;
             sln_res=true;
+            double first_solution_norm = 0;
 
             while(sln_res && iter < prms.MaxIter*5 && (iter < prms.MinIter || !converges))
             {
                 sln_res = AssembleAndSolve(prms, h, true);
 
-                double ratio;
-                if(iter == 0 || eqOfMotion.solution_norm_prev < prms.ConvergenceCutoff) ratio = 0;
-                else ratio = eqOfMotion.solution_norm/eqOfMotion.solution_norm_prev;
-                converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff || ratio < prms.ConvergenceEpsilon);
+                double ratio = 0;
+                if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
+                else if(first_solution_norm > prms.ConvergenceCutoff) ratio = eqOfMotion.solution_norm/first_solution_norm;
+                converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff ||
+                             (ratio > 0 && ratio < prms.ConvergenceEpsilon));
 
                 std::cout << "IT "<< std::left << std::setw(2) << iter;
                 std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;

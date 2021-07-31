@@ -304,8 +304,6 @@ bool EquationOfMotionSolver::Solve()
     r = MSK_deletetask(&task);
     if (r != MSK_RES_OK) std::cout << "MSK_deletetask error" << std::endl;
 
-    // calculate solution norm
-    solution_norm_prev = solution_norm;
     solution_norm = 0;
 #pragma omp parallel for reduction(+:solution_norm)
     for(int i=0;i<N*DOFS;i++) solution_norm+=(double)(sln[i]*sln[i]);

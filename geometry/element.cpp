@@ -19,6 +19,16 @@ Eigen::Matrix2d icy::Element::DDs[6] = {
     (Eigen::Matrix2d() << 0, 0, -1, -1).finished(),
 };
 
+Eigen::Matrix<double,6,6> icy::Element::consistentMassMatrix =
+        (Eigen::Matrix<double,6,6>() <<
+         2,0,1,0,1,0,
+         0,2,0,1,0,1,
+         1,0,2,0,1,0,
+         0,1,0,2,0,1,
+         1,0,1,0,2,0,
+         0,1,0,1,0,2
+         ).finished()*(1.0/12.0);
+
 
 void icy::Element::Reset(void)
 {
@@ -111,13 +121,27 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
         HE(5,i) = -dH(1,0)-dH(1,1);
     }
 
-    // assemble the equation of motion
-    double hsq = h*h;
+    double hsq = h*h;   // squared time step
     DE*=hsq;
     HE*=hsq;
     double constTerm = strain_energy_density*W*hsq;
 
+    // Apply body forces via consistent mass matrix
+    double massMatrixMultiplier = area_initial * prms.Density * prms.Thickness;
+    Eigen::Matrix<double,6,6> massMatrix = consistentMassMatrix*massMatrixMultiplier;
+    HE += massMatrix;
 
+    Eigen::Matrix<double,6,1> xt, x_hat, lambda_n, linear_term_mass;
+    xt << nds[0]->xt[0],nds[0]->xt[1],nds[1]->xt[0],nds[1]->xt[1],nds[2]->xt[0],nds[2]->xt[1];
+    x_hat << nds[0]->x_hat[0],nds[0]->x_hat[1],nds[1]->x_hat[0],nds[1]->x_hat[1],nds[2]->x_hat[0],nds[2]->x_hat[1];
+    lambda_n = xt-x_hat;
+    linear_term_mass = massMatrix*lambda_n;
+    DE+=linear_term_mass;
+
+    double const_term_mass = lambda_n.dot(massMatrix*lambda_n)/2;
+    constTerm += const_term_mass;
+
+    // distribute to the equation of motion
     int ids[3] = {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId};
     eq.AddToEquation(constTerm, DE, HE, ids);
 
@@ -154,13 +178,14 @@ void icy::Element::ComputeVisualizedVariables()
 
 
 
-void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
+bool icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 {
+    constexpr double epsilon = 1e-5;
     double stressNorm = CauchyStress.norm();
     double tau = prms.PlasticYieldThreshold;
     double gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
     gamma = std::clamp(gamma, 0.0, 1.0);
-    if(gamma < 1e-10) return;
+    if(gamma < epsilon) return false;
 
     Eigen::Matrix2d Dm, Dm_inv, Ds, F, V, S_hat;
 
@@ -184,6 +209,7 @@ void icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
     S_hat << val1/sqRoot, 0, 0, val2/sqRoot;
     V = svd.matrixV();
     PiMultiplier *= V*S_hat*V.transpose();
+    return true;
 }
 
 

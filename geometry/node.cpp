@@ -25,7 +25,7 @@ void icy::Node::Reset(int locId_, double x, double y)
 }
 
 
-
+/*
 void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
 {
     if(this->eqId<0) return;
@@ -42,6 +42,7 @@ void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &pr
     double const_term = lambda_n.dot(M_nd*lambda_n)/2;
     eq.AddToEquation(const_term, linear_term, M_nd, eqId);
 }
+*/
 
 void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double h, Eigen::Vector2d &spring)
 {
