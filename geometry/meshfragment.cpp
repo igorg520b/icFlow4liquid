@@ -705,6 +705,34 @@ void icy::MeshFragment::PostMeshingEvaluations()
             nd->area += elem->area_initial/3;
             nd->adj_elems.push_back(i);
         }
+        elem->adj_elems.clear();
+    }
+
+    // all adjacent elems per nodes are copied to elements (repetitions may occur)
+    for(unsigned i=0;i<nNodes;i++)
+    {
+        icy::Node *nd = nodes[i];
+        for(unsigned j : nd->adj_elems)
+        {
+            icy::Element *elem = elems[j];
+            std::copy(nd->adj_elems.begin(),nd->adj_elems.end(),std::back_inserter(elem->adj_elems));
+        }
+    }
+
+    // repetitions and self-references are eliminated
+    for(unsigned i=0;i<nElems;i++)
+    {
+        icy::Element *elem = elems[i];
+        std::sort(elem->adj_elems.begin(),elem->adj_elems.end());
+        auto unique_res = std::unique(elem->adj_elems.begin(),elem->adj_elems.end());
+        unsigned newSize = std::distance(elem->adj_elems.begin(),unique_res);
+        elem->adj_elems.resize(newSize);
+        elem->adj_elems.erase(std::remove(elem->adj_elems.begin(), elem->adj_elems.end(), i), elem->adj_elems.end());
     }
 
 }
+
+
+
+
+

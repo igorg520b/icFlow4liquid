@@ -294,16 +294,16 @@ void icy::Mesh::ChangeVisualizationOption(int option)
     if(VisualizingVariable == option) return; // option did not change
     VisualizingVariable = option;
 
-    if(VisualizingVariable == (int)icy::Model::VisOpt::none)
+    if(VisualizingVariable == icy::Model::VisOpt::none)
     {
         dataSetMapper_deformable->ScalarVisibilityOff();
         ugrid_deformable->GetPointData()->RemoveArray("visualized_values");
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         return;
     }
-    else if(VisualizingVariable == (int)icy::Model::VisOpt::node_group
-            || VisualizingVariable == (int)icy::Model::VisOpt::vel_mag
-            || VisualizingVariable == (int)icy::Model::VisOpt::adj_elems_count)
+    else if(VisualizingVariable == icy::Model::VisOpt::node_group ||
+            VisualizingVariable == icy::Model::VisOpt::vel_mag ||
+            VisualizingVariable == icy::Model::VisOpt::adj_elems_count_nd)
     {
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
@@ -420,10 +420,23 @@ void icy::Mesh::UpdateValues()
             visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
         break;
 
-    case icy::Model::VisOpt::adj_elems_count:
+    case icy::Model::VisOpt::adj_elems_count_nd:
         visualized_values->SetNumberOfValues(allNodes.size());
         for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->adj_elems.size());
         break;
+
+    case icy::Model::VisOpt::adj_elems_count_elem:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, allElems[i]->adj_elems.size());
+        break;
+
+    case icy::Model::VisOpt::QM1:
+        visualized_values->SetNumberOfValues(allElems.size());
+        for(size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, -allElems[i]->quality_measure_Wicke);
+        break;
+
 
     default:
         break;
@@ -454,7 +467,7 @@ void icy::Mesh::UpdateValues()
     {
         hueLut->SetTableRange(0, 0.5);
     }
-    else if(VisualizingVariable == icy::Model::VisOpt::adj_elems_count)
+    else if(VisualizingVariable == icy::Model::VisOpt::adj_elems_count_nd)
     {
         hueLut->SetTableRange(4, minmax[1]);
     }

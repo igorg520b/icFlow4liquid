@@ -178,7 +178,18 @@ void icy::Element::ComputeVisualizedVariables()
 
 
     //  quality measures
-    // quality_measure_Wicke;
+    constexpr double coeff = 8.48528137424; // 6*sqrt(2)
+    double V = D.determinant()/2;
+    double e0sq = (nds[1]->xn-nds[2]->xn).squaredNorm();
+    double e1sq = (nds[0]->xn-nds[2]->xn).squaredNorm();
+    double e2sq = (nds[1]->xn-nds[0]->xn).squaredNorm();
+    double e0 = sqrt(e0sq);
+    double e1 = sqrt(e1sq);
+    double e2 = sqrt(e2sq);
+    double l_harm = 3.0/(1.0/e0 + 1.0/e1 + 1.0/e2);
+    double l_rms_sq = (1.0/3.0)*(e0sq+e1sq+e2sq);
+
+    quality_measure_Wicke = coeff*V*l_harm/(l_rms_sq*l_rms_sq);
     // leftCauchyGreenDeformationTensor, qualityMetricTensor;
 
 }

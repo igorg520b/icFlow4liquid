@@ -37,6 +37,8 @@ public:
     double quality_measure_Wicke;
     Eigen::Matrix2d leftCauchyGreenDeformationTensor, qualityMetricTensor;
 
+    boost::container::small_vector<unsigned, 22> adj_elems;
+
 private:
     static Eigen::Matrix2d DDs[6]; // derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
     static Eigen::Matrix<double,6,6> consistentMassMatrix;
