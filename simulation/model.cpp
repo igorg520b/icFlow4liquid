@@ -383,19 +383,11 @@ void icy::Model::GetNewMaterialPosition()
         for(std::size_t i=0;i<nNodes;i++)
         {
             icy::Node *nd = mf->nodes[i];
-            if(!nd->pinned)
-            {
-                nd->x_initial = nd->xt;
-            }
-            nd->area = 0;
+            if(!nd->pinned) nd->x_initial = nd->xt;
         }
 
-        for(unsigned i=0;i<nElems;i++)
-        {
-            icy::Element *elem = mf->elems[i];
-            elem->PrecomputeInitialArea();
-            for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
-        }
+
+        mf->PostMeshingEvaluations();
     }
 
     mesh->freeNodeCount=0;

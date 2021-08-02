@@ -160,7 +160,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
                     nodes[mtags.at(nodeTagsInTris[i*3+2])]);
-            for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elem->group=k;
             elems.push_back(elem);
 
@@ -195,6 +194,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
         else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
+    PostMeshingEvaluations();
 
     gmsh::clear();
 
@@ -361,7 +361,6 @@ void icy::MeshFragment::GetFromGmsh()
             elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
                     nodes[mtags.at(nodeTagsInTris[i*3+2])]);
-            for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
             elems.push_back(elem);
         }
 
@@ -405,6 +404,7 @@ void icy::MeshFragment::GetFromGmsh()
                 boundary_edges.emplace_back(nodes[idx2],nodes[idx1]);
         }
     }
+    PostMeshingEvaluations();
 
     gmsh::clear();
 }
@@ -459,7 +459,6 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         elem->Reset(nodes_tmp[elems[i]->nds[0]->locId],
                 nodes_tmp[elems[i]->nds[1]->locId],
                 nodes_tmp[elems[i]->nds[2]->locId]);
-        for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
         elems_tmp.push_back(elem);
     }
 
@@ -544,7 +543,6 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
                 nodes_tmp[mtags.at(nodeTagsInTris[i*3+1])],
                 nodes_tmp[mtags.at(nodeTagsInTris[i*3+2])]);
         elem->group = 2;
-        for(int j=0;j<3;j++) elem->nds[j]->area += elem->area_initial/3;
         elems_tmp.push_back(elem);
     }
 
@@ -557,14 +555,12 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
     //gmsh::fltk::run();
     gmsh::clear();
     Swap();
+    PostMeshingEvaluations();
 
     // double-check
-
-    std::unordered_set<Node*> connected_nds;
-    for(Element *e : elems)
-        for(unsigned j=0;j<3;j++) connected_nds.insert(e->nds[j]);
-
-    if(connected_nds.size() != nodes.size()) throw std::runtime_error("remeshing error");
+//    std::unordered_set<Node*> connected_nds;
+//    for(Element *e : elems) for(unsigned j=0;j<3;j++) connected_nds.insert(e->nds[j]);
+//    if(connected_nds.size() != nodes.size()) throw std::runtime_error("remeshing error");
 }
 
 void icy::MeshFragment::Swap()
@@ -681,7 +677,34 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
     delete[] nodes_buffer;
     delete[] elems_buffer_nodes;
     delete[] elems_buffer_data;
-
 }
 
 
+void icy::MeshFragment::PostMeshingEvaluations()
+{
+    unsigned nElems = elems.size();
+    unsigned nNodes = nodes.size();
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nElems;i++) elems[i]->PrecomputeInitialArea();
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nNodes;i++)
+    {
+        icy::Node *nd = nodes[i];
+        nd->area = 0;
+        nd->adj_elems.clear();
+    }
+
+    for(unsigned i=0;i<nElems;i++)
+    {
+        icy::Element *elem = elems[i];
+        for(int j=0;j<3;j++)
+        {
+            icy::Node *nd = elem->nds[j];
+            nd->area += elem->area_initial/3;
+            nd->adj_elems.push_back(i);
+        }
+    }
+
+}

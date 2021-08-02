@@ -28,12 +28,14 @@ public:
     void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
     bool PlasticDeformation(SimParams &prms, double timeStep);  // true if plastic deformation occurred
 
-    double strain_energy_density;   // (not multiplied by the volume)
-
     Eigen::Matrix2d CauchyStress, GreenStrain;
+    double area_initial, area_current;
+    double strain_energy_density;   // (not multiplied by the volume)
     double principal_stress1, principal_stress2, max_shear_stress, hydrostatic_stress;
     double volume_change, velocity_divergence;
-    double area_initial, area_current;
+
+    double quality_measure_Wicke;
+    Eigen::Matrix2d leftCauchyGreenDeformationTensor, qualityMetricTensor;
 
 private:
     static Eigen::Matrix2d DDs[6]; // derivatives of Ds with respect to x1,y1,x2,y2,x3,y3

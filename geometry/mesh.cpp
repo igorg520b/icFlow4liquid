@@ -302,7 +302,8 @@ void icy::Mesh::ChangeVisualizationOption(int option)
         return;
     }
     else if(VisualizingVariable == (int)icy::Model::VisOpt::node_group
-            || VisualizingVariable == (int)icy::Model::VisOpt::vel_mag)
+            || VisualizingVariable == (int)icy::Model::VisOpt::vel_mag
+            || VisualizingVariable == (int)icy::Model::VisOpt::adj_elems_count)
     {
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
@@ -419,6 +420,11 @@ void icy::Mesh::UpdateValues()
             visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
         break;
 
+    case icy::Model::VisOpt::adj_elems_count:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->adj_elems.size());
+        break;
+
     default:
         break;
     }
@@ -447,6 +453,10 @@ void icy::Mesh::UpdateValues()
     else if(VisualizingVariable == icy::Model::VisOpt::plasticity_norm)
     {
         hueLut->SetTableRange(0, 0.5);
+    }
+    else if(VisualizingVariable == icy::Model::VisOpt::adj_elems_count)
+    {
+        hueLut->SetTableRange(4, minmax[1]);
     }
     else
     {

@@ -11,7 +11,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(HDF5 REQUIRED COMPONENTS CXX)
-#find_package(Boost REQUIRED)
+find_package(Boost REQUIRED)
 
 find_package(VTK 9.0 REQUIRED COMPONENTS
   CommonColor
@@ -98,6 +98,7 @@ add_executable(fl4liquid
 )
 
 target_include_directories(fl4liquid PUBLIC ${HDF5_INCLUDE_DIRS})
+target_include_directories(fl4liquid PUBLIC ${Boost_INCLUDE_DIRS})
 target_include_directories(fl4liquid PUBLIC gui geometry simulation gui/propertybrowser)
 target_include_directories(fl4liquid PUBLIC gui/objectpropertybrowser gui/windows)
 target_include_directories(fl4liquid PUBLIC gui/interactor)
@@ -110,6 +111,7 @@ target_link_libraries(fl4liquid PUBLIC gomp pthread m dl)
 #target_link_libraries(fl4liquid PUBLIC ${HDF5_C_LIBRARIES})
 target_link_libraries(fl4liquid PUBLIC ${HDF5_LIBRARIES})
 target_link_libraries(fl4liquid PUBLIC Eigen3::Eigen)
+target_link_libraries(fl4liquid PUBLIC ${Boost_LIBRARIES})
 
 #MOSEK
 target_include_directories(fl4liquid PUBLIC "/home/s2/mosek/9.2/tools/platform/linux64x86/h")

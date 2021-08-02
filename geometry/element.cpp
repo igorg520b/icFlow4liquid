@@ -45,12 +45,6 @@ void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2)
     nds[2] = nd2;
     group = -1;
     PiMultiplier = Eigen::Matrix2d::Identity();
-    PrecomputeInitialArea();
-    if(area_initial < 0)
-    {
-        std::swap(nds[0],nds[1]);
-        PrecomputeInitialArea();
-    }
 }
 
 
@@ -58,9 +52,16 @@ void icy::Element::PrecomputeInitialArea()
 {
     // reference shape matrix
     Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
-    DmInv = Dm.inverse();
     area_initial = area_current = Dm.determinant()/2;
+
     if(area_initial==0) throw std::runtime_error("element's initial area is zero");
+    else if(area_initial < 0)
+    {
+        std::swap(nds[0],nds[1]);
+        Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
+        area_initial = area_current = Dm.determinant()/2;
+    }
+    DmInv = Dm.inverse();
 }
 
 
@@ -174,6 +175,12 @@ void icy::Element::ComputeVisualizedVariables()
     // velocity matrix
     DDot << nds[1]->vn-nds[0]->vn, nds[2]->vn-nds[0]->vn;
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
+
+
+    //  quality measures
+    // quality_measure_Wicke;
+    // leftCauchyGreenDeformationTensor, qualityMetricTensor;
+
 }
 
 

@@ -31,6 +31,7 @@ public:
     void GenerateContainer(double ElementSize, double offset);
 
     void RemeshSpecialBrick(double ElementSize);
+    void PostMeshingEvaluations();  // element/node area and connectivity information
     void Swap();
 
 private:

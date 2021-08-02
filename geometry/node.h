@@ -4,6 +4,7 @@
 
 #include <bitset>
 #include <Eigen/Core>
+#include <boost/container/small_vector.hpp>
 #include "equationofmotionsolver.h"
 #include "parameters_sim.h"
 
@@ -34,6 +35,8 @@ public:
 
     double spring_attached;
     Eigen::Vector2d spring_attachment_position;
+
+    boost::container::small_vector<unsigned, 8> adj_elems;
 };
 
 #endif // NODE_H
