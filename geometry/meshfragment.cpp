@@ -118,7 +118,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nodes.push_back(nd);
     }
-    std::cout << "\nStep1 nodes added:" << nodes.size() << std::endl;
 
     // place the rest of the nodes
     nodeTags.clear();
@@ -144,7 +143,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         for(const std::size_t tag : nodeTags) nodes[mtags.at(tag)]->group.set(i);
     }
 
-    std::cout << "special brick: pricessing elements" << std::endl;
     // GET ELEMENTS
     if(elems.size()!=0) throw std::runtime_error("elems.size != 0");
     std::vector<int> surfaces = {surfaceTag1, surfaceTag2, surfaceTag3};
@@ -159,10 +157,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             icy::Element *elem = ElementFactory.take();
             elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
             elem->group=k;
             elems.push_back(elem);
-
         }
         if(k==0) nFirstGroupElems = elems.size();
     }
@@ -196,6 +193,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     }
     PostMeshingEvaluations();
 
+    KeepGmshResult();
     gmsh::clear();
 
     std::cout << "\nSpecial Brick:\nTotal elems: " << elems.size();
@@ -322,7 +320,6 @@ void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, d
 void icy::MeshFragment::GetFromGmsh()
 {
     if(elems.size() || nodes.size() || boundary_edges.size()) throw std::runtime_error("GetFromGmsh(): elem/node/edge arrays not empty");
-//    freeNodeCount = 0;
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
@@ -360,7 +357,7 @@ void icy::MeshFragment::GetFromGmsh()
             icy::Element *elem = ElementFactory.take();
             elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
             elems.push_back(elem);
         }
 
@@ -405,7 +402,7 @@ void icy::MeshFragment::GetFromGmsh()
         }
     }
     PostMeshingEvaluations();
-
+    if(deformable) KeepGmshResult();
     gmsh::clear();
 }
 
@@ -458,7 +455,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         Element *elem = ElementFactory.take();
         elem->Reset(nodes_tmp[elems[i]->nds[0]->locId],
                 nodes_tmp[elems[i]->nds[1]->locId],
-                nodes_tmp[elems[i]->nds[2]->locId]);
+                nodes_tmp[elems[i]->nds[2]->locId], 0);
         elems_tmp.push_back(elem);
     }
 
@@ -541,7 +538,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
         icy::Element *elem = ElementFactory.take();
         elem->Reset(nodes_tmp[mtags.at(nodeTagsInTris[i*3+0])],
                 nodes_tmp[mtags.at(nodeTagsInTris[i*3+1])],
-                nodes_tmp[mtags.at(nodeTagsInTris[i*3+2])]);
+                nodes_tmp[mtags.at(nodeTagsInTris[i*3+2])], 0);
         elem->group = 2;
         elems_tmp.push_back(elem);
     }
@@ -680,7 +677,7 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
 }
 
 
-void icy::MeshFragment::PostMeshingEvaluations()
+void icy::MeshFragment::PostMeshingEvaluations(bool inferConnectivity)
 {
     unsigned nElems = elems.size();
     unsigned nNodes = nodes.size();
@@ -689,12 +686,7 @@ void icy::MeshFragment::PostMeshingEvaluations()
     for(unsigned i=0;i<nElems;i++) elems[i]->PrecomputeInitialArea();
 
 #pragma omp parallel for
-    for(unsigned i=0;i<nNodes;i++)
-    {
-        icy::Node *nd = nodes[i];
-        nd->area = 0;
-        nd->adj_elems.clear();
-    }
+    for(unsigned i=0;i<nNodes;i++) nodes[i]->area = 0;
 
     for(unsigned i=0;i<nElems;i++)
     {
@@ -703,36 +695,175 @@ void icy::MeshFragment::PostMeshingEvaluations()
         {
             icy::Node *nd = elem->nds[j];
             nd->area += elem->area_initial/3;
-            nd->adj_elems.push_back(i);
         }
-        elem->adj_elems.clear();
     }
 
-    // all adjacent elems per nodes are copied to elements (repetitions may occur)
-    for(unsigned i=0;i<nNodes;i++)
+
+    if(inferConnectivity)
     {
-        icy::Node *nd = nodes[i];
-        for(unsigned j : nd->adj_elems)
+#pragma omp parallel for
+        for(unsigned i=0;i<nNodes;i++)
         {
-            icy::Element *elem = elems[j];
-            std::copy(nd->adj_elems.begin(),nd->adj_elems.end(),std::back_inserter(elem->adj_elems));
+            icy::Node *nd = nodes[i];
+            nd->adj_elems.clear();
         }
-    }
 
-    // repetitions and self-references are eliminated
-    for(unsigned i=0;i<nElems;i++)
-    {
-        icy::Element *elem = elems[i];
-        std::sort(elem->adj_elems.begin(),elem->adj_elems.end());
-        auto unique_res = std::unique(elem->adj_elems.begin(),elem->adj_elems.end());
-        unsigned newSize = std::distance(elem->adj_elems.begin(),unique_res);
-        elem->adj_elems.resize(newSize);
-        elem->adj_elems.erase(std::remove(elem->adj_elems.begin(), elem->adj_elems.end(), i), elem->adj_elems.end());
+        for(unsigned i=0;i<nElems;i++)
+        {
+            icy::Element *elem = elems[i];
+            for(int j=0;j<3;j++)
+            {
+                icy::Node *nd = elem->nds[j];
+                nd->adj_elems.push_back(i);
+            }
+            elem->adj_elems.clear();
+        }
+
+        // all adjacent elems per nodes are copied to elements (repetitions may occur)
+        for(unsigned i=0;i<nNodes;i++)
+        {
+            icy::Node *nd = nodes[i];
+            for(unsigned j : nd->adj_elems)
+            {
+                icy::Element *elem = elems[j];
+                std::copy(nd->adj_elems.begin(),nd->adj_elems.end(),std::back_inserter(elem->adj_elems));
+            }
+        }
+
+        // repetitions and self-references are eliminated
+        for(unsigned i=0;i<nElems;i++)
+        {
+            icy::Element *elem = elems[i];
+            std::sort(elem->adj_elems.begin(),elem->adj_elems.end());
+            auto unique_res = std::unique(elem->adj_elems.begin(),elem->adj_elems.end());
+            unsigned newSize = std::distance(elem->adj_elems.begin(),unique_res);
+            elem->adj_elems.resize(newSize);
+            elem->adj_elems.erase(std::remove(elem->adj_elems.begin(), elem->adj_elems.end(), i), elem->adj_elems.end());
+        }
     }
 
 }
 
 
+void icy::MeshFragment::KeepGmshResult()
+{
+    gmshResult.clear();
+    std::vector<std::pair<int, int>> entities;
+    gmsh::model::getEntities(entities);
 
+    gmshResult.resize(entities.size());
+
+    for(unsigned i=0;i<entities.size();i++)
+    {
+        GmshEntity &ge = gmshResult[i];
+        ge.dimTags = entities[i];
+        int dim = ge.dimTags.first, tag = ge.dimTags.second;
+
+        gmsh::model::getBoundary({ge.dimTags},ge.outDimTags_boundary);
+        for(std::pair<int,int> p : ge.outDimTags_boundary) ge.boundary.push_back(p.second);
+
+        gmsh::model::mesh::getNodes(ge.nodeTags_nodes, ge.coord_nodes, ge.parametricCoord_nodes, dim, tag);
+        gmsh::model::mesh::getElements(ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements, dim, tag);
+    }
+
+    /*
+
+        std:: cout << "{\n";
+        for(auto e : entities)
+        {
+            std::cout << "{";
+            int dim = e.first, tag = e.second;
+            std::cout << "{" << dim << "," << tag << "},";
+
+            std::cout << "{";
+            for(std::pair<int,int> entry : outDimTags_boundary)
+            {
+                std::cout << "{" << entry.first << "," << entry.second << "}";
+                if(entry != outDimTags_boundary.back()) std::cout << ",";
+            }
+            std::cout << "},";
+
+            std::cout << "{";
+            for(unsigned i=0;i<nodeTags_nodes.size();i++)
+            {
+                std::size_t ndTag = nodeTags_nodes[i];
+                std::cout << ndTag;
+                if(i!=nodeTags_nodes.size()-1) std::cout << ",";
+            }
+            std::cout << "},";
+
+            std::cout << "{";
+            for(unsigned i=0;i<coord_nodes.size();i++)
+            {
+                double coord = coord_nodes[i];
+                std::cout << coord;
+                if(i!=coord_nodes.size()-1) std::cout << ",";
+            }
+            std::cout << "},";
+
+            std::cout << "{";
+            for(unsigned i=0;i<parametricCoord_nodes.size();i++)
+            {
+                double coord = parametricCoord_nodes[i];
+                std::cout << coord;
+                if(i!=parametricCoord_nodes.size()-1) std::cout << ",";
+            }
+            std::cout << "},";
+
+
+
+            std::cout << "{";
+            for(unsigned i=0;i<elementTypes_elements.size();i++)
+            {
+                int elementType = elementTypes_elements[i];
+                std::cout << elementType;
+                if(i!=elementTypes_elements.size()-1) std::cout << ",";
+            }
+            std::cout << "},";
+
+            std::cout << "{";
+            for(unsigned i=0;i<elementTags_elements.size();i++)
+            {
+                std::vector<std::size_t> &elementTags = elementTags_elements[i];
+                std::cout << "{";
+                for(unsigned j=0;j<elementTags.size();j++)
+                {
+                    std::cout << elementTags[j];
+                    if(j!=elementTags.size()-1) std::cout << ",";
+                }
+                std::cout << "}";
+                if(i!=elementTags_elements.size()-1) std::cout << ",";
+            }
+            std::cout << "},";
+
+            std::cout << "{";
+            for(unsigned i=0;i<nodeTags_elements.size();i++)
+            {
+                std::vector<std::size_t> &nodeTags = nodeTags_elements[i];
+                std::cout << "{";
+                for(unsigned j=0;j<nodeTags.size();j++)
+                {
+                    std::cout << nodeTags[j];
+                    if(j!=nodeTags.size()-1) std::cout << ",";
+                }
+                std::cout << "}";
+                if(i!=nodeTags_elements.size()-1) std::cout << ",";
+            }
+            std::cout << "}";
+
+            saveAllGeometry.emplace_back(e, outDimTags_boundary,nodeTags_nodes, coord_nodes, parametricCoord_nodes,
+                                         elementTypes_elements, elementTags_elements, nodeTags_elements);
+
+            std::cout << "}";
+            if(e!= entities.back()) std::cout << ",\n";
+
+        }
+        std:: cout << "};\n";
+
+
+        std::cout << "saveAllGeometry.size() " << saveAllGeometry.size() << std::endl;
+    */
+
+}
 
 

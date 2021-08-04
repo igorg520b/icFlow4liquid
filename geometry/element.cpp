@@ -36,15 +36,17 @@ void icy::Element::Reset(void)
     area_initial = area_current = 0;
     group = -1;
     PiMultiplier = Eigen::Matrix2d::Identity();
+    gmshTag = 0; // cannot stay zero
 }
 
-void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2)
+void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2, std::size_t gmshTag_)
 {
     nds[0] = nd0;
     nds[1] = nd1;
     nds[2] = nd2;
     group = -1;
     PiMultiplier = Eigen::Matrix2d::Identity();
+    gmshTag = gmshTag_;
 }
 
 
@@ -190,8 +192,8 @@ void icy::Element::ComputeVisualizedVariables()
     double l_rms_sq = (1.0/3.0)*(e0sq+e1sq+e2sq);
 
     quality_measure_Wicke = coeff*V*l_harm/(l_rms_sq*l_rms_sq);
-    // leftCauchyGreenDeformationTensor, qualityMetricTensor;
-
+    leftCauchyGreenDeformationTensor = F*F.transpose();
+    // qualityMetricTensor;
 }
 
 

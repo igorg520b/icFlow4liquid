@@ -10,9 +10,8 @@
 
 namespace icy { class Node; }
 
-class icy::Node
+struct icy::Node
 {
-public:
     Node(){ Reset();}
     void Reset();
     void Reset(int locId, double x, double y);

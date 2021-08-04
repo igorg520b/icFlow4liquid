@@ -373,10 +373,9 @@ void icy::Model::GetNewMaterialPosition()
         for(unsigned i=0;i<nElems;i++)
         {
             icy::Element *elem = mf->elems[i];
-            Eigen::Matrix2d DmPrime, Dm;
+            Eigen::Matrix2d DmPrime;
             DmPrime << elem->nds[0]->xt-elem->nds[2]->xt, elem->nds[1]->xt-elem->nds[2]->xt;
-            Dm << elem->nds[0]->x_initial-elem->nds[2]->x_initial, elem->nds[1]->x_initial-elem->nds[2]->x_initial;
-            elem->PiMultiplier = DmPrime*Dm.inverse()*elem->PiMultiplier;
+            elem->PiMultiplier = DmPrime*elem->Dm.inverse()*elem->PiMultiplier;
         }
         // tentative -> initial
 #pragma omp parallel for
@@ -386,8 +385,7 @@ void icy::Model::GetNewMaterialPosition()
             if(!nd->pinned) nd->x_initial = nd->xt;
         }
 
-
-        mf->PostMeshingEvaluations();
+        mf->PostMeshingEvaluations(false);
     }
 
     mesh->freeNodeCount=0;

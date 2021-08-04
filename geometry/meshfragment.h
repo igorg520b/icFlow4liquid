@@ -21,7 +21,6 @@ public:
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
-//    unsigned freeNodeCount;
     void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize);
@@ -31,7 +30,7 @@ public:
     void GenerateContainer(double ElementSize, double offset);
 
     void RemeshSpecialBrick(double ElementSize);
-    void PostMeshingEvaluations();  // element/node area and connectivity information
+    void PostMeshingEvaluations(bool inferConnectivity=true);  // element/node area and connectivity information
     void Swap();
 
 private:
@@ -39,9 +38,24 @@ private:
     std::vector<icy::Node*> nodes_tmp;  // for remeshing
     std::vector<icy::Element*> elems_tmp;// for remeshing
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges_tmp;
-    void GetFromGmsh();
+    void GetFromGmsh();     // populate "nodes" and "elems" vectors
+    void KeepGmshResult();  // save into gmshResult
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
+
+    struct GmshEntity
+    {
+        std::pair<int, int> dimTags;
+        std::vector<std::pair<int,int>> outDimTags_boundary;
+        std::vector<int> boundary;  // same as outDimTags_boundary, but only the second element of the pair
+        std::vector<std::size_t> nodeTags_nodes;
+        std::vector<double> coord_nodes;
+        std::vector<double> parametricCoord_nodes;
+        std::vector<int> elementTypes_elements;
+        std::vector<std::vector<std::size_t>> elementTags_elements;
+        std::vector<std::vector<std::size_t>> nodeTags_elements;
+    };
+    std::vector<GmshEntity> gmshResult; // store the result returned by the gmsh, to reuse later as a background mesh
 
 // BROAD PHASE
 
