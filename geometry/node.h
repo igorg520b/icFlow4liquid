@@ -29,7 +29,6 @@ struct icy::Node
 
     Eigen::Vector2d intended_position; // when manipulating via GUI during a running simulation
 
-//    void ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
     void AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep, Eigen::Vector2d &spring);
 
     double spring_attached;

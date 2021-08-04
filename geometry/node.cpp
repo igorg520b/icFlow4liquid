@@ -24,30 +24,10 @@ void icy::Node::Reset(int locId_, double x, double y)
     group.reset();
 }
 
-
-/*
-void icy::Node::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep)
-{
-    if(this->eqId<0) return;
-
-    double mass = area * prms.Density * prms.Thickness;
-    //if(mass<1e-15) throw std::runtime_error("node's mass is zero");
-
-    // for nodes that are not pinned, add the lumped mass matrix to the quadratic term of the equation
-    Eigen::Matrix2d M_nd = Eigen::Matrix2d::Identity()*mass;
-
-    Eigen::Vector2d lambda_n = xt-x_hat;
-    Eigen::Vector2d linear_term = M_nd*lambda_n;
-
-    double const_term = lambda_n.dot(M_nd*lambda_n)/2;
-    eq.AddToEquation(const_term, linear_term, M_nd, eqId);
-}
-*/
-
 void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double h, Eigen::Vector2d &spring)
 {
     if(eqId<0 || spring_attached<1) return;
-    double k = prms.YoungsModulus/1000;
+    double k = prms.YoungsModulus/300;
     Eigen::Vector2d spr = spring_attachment_position+spring;
     double hsqk = h*h*k;
 

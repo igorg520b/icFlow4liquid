@@ -13,7 +13,8 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
     allFragments.push_back(&indenter);
 
     MeshFragment *brick = new MeshFragment;
-    brick->GenerateSpecialBrick(CharacteristicLengthMax);
+//    brick->GenerateSpecialBrick(CharacteristicLengthMax);
+    brick->GenerateBrick(CharacteristicLengthMax);
     allFragments.push_back(brick);
 
     MeshFragment *mf = new MeshFragment;
@@ -434,7 +435,7 @@ void icy::Mesh::UpdateValues()
     case icy::Model::VisOpt::QM1:
         visualized_values->SetNumberOfValues(allElems.size());
         for(size_t i=0;i<allElems.size();i++)
-            visualized_values->SetValue(i, -allElems[i]->quality_measure_Wicke);
+            visualized_values->SetValue(i, allElems[i]->quality_measure_Wicke);
         break;
 
 
@@ -507,6 +508,7 @@ void icy::Mesh::AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, do
 
 void icy::Mesh::DetectContactPairs(double distance_threshold)
 {
+    // BROAD PHASE
     broadlist_contact.clear();
 
     root_contact.SelfCollide(broadlist_contact);
@@ -516,6 +518,7 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
     narrow_list_contact.clear();
     collision_interactions.clear();
 
+    // NARROW PHASE
 #pragma omp parallel for
     for(unsigned i=0;i<nBroadListContact/2;i++)
     {

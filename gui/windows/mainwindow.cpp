@@ -290,7 +290,8 @@ void MainWindow::on_actionSave_Mesh_triggered()
 
 void MainWindow::on_actionRemesh_triggered()
 {
-    model.mesh->allFragments[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
+//    model.mesh->allFragments[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
+    model.mesh->allFragments[1]->RemeshWithBackgroundMesh(model.prms.CharacteristicLength);
     model.mesh->RegenerateVisualizedGeometry();
     render_results();
 }

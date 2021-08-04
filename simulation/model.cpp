@@ -202,14 +202,7 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
     }
 
     if(mesh_iversion_detected) return false; // mesh inversion
-/*
-#pragma omp parallel for
-    for(unsigned i=0;i<nNodes;i++)
-    {
-        Node *nd = mesh->allNodes[i];
-        nd->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-    }
-*/
+
     if(!restShape)
     {
 #pragma omp parallel for

@@ -178,6 +178,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
         int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
         Node *nd1, *nd2;
+        nd1 = nodes[idx1];
+        nd2 = nodes[idx2];
+        /*
         if(idx1<idx2)
         {
             nd1 = nodes[idx1];
@@ -188,6 +191,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
             nd1 = nodes[idx2];
             nd2 = nodes[idx1];
         }
+        */
         if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
         else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
@@ -384,23 +388,17 @@ void icy::MeshFragment::GetFromGmsh()
             nodes.push_back(nd);
             nd->pinned=true;
         }
-
-
-        // BOUNDARIRES - EDGES
-
-        std::vector<std::size_t> edgeTags, nodeTagsInEdges;
-        gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-
-        for(std::size_t i=0;i<edgeTags.size();i++)
-        {
-            int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
-            int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
-            if(idx1<idx2)
-                boundary_edges.emplace_back(nodes[idx1],nodes[idx2]);
-            else
-                boundary_edges.emplace_back(nodes[idx2],nodes[idx1]);
-        }
     }
+
+    // BOUNDARIRES - EDGES
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+    boundary_edges.clear();
+    boundary_edges.reserve(edgeTags.size());
+
+    for(std::size_t i=0;i<edgeTags.size();i++)
+        boundary_edges.emplace_back(nodes[mtags.at(nodeTagsInEdges[i*2+0])],nodes[mtags.at(nodeTagsInEdges[i*2+1])]);
+
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
@@ -433,7 +431,6 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
     }
     qDebug() << "icy::MeshFragment::GenerateLeafs() " << leaves_for_ccd.size() << " " << leaves_for_contact.size();
 }
-
 
 
 void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
@@ -559,6 +556,89 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 //    for(Element *e : elems) for(unsigned j=0;j<3;j++) connected_nds.insert(e->nds[j]);
 //    if(connected_nds.size() != nodes.size()) throw std::runtime_error("remeshing error");
 }
+
+
+void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
+{
+    // re-create the boundary in gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+
+    gmsh::model::add("background1");
+
+    for(GmshEntity &ge : gmshResult)
+    {
+        int dim = ge.dimTags.first;
+        int tag = ge.dimTags.second;
+        gmsh::model::addDiscreteEntity(dim, tag , ge.boundary);
+        gmsh::model::mesh::addNodes(dim, tag, ge.nodeTags_nodes,ge.coord_nodes);
+        gmsh::model::mesh::addElements(dim, tag, ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements);
+    }
+
+    int view = gmsh::view::add("b");
+
+    std::vector<std::size_t> elem_tags;//, nodeTags;
+//    gmsh::model::mesh::getElementsByType(2, elem_tags, nodeTags);
+    std::vector<double> data;
+    data.resize(elems.size());
+    elem_tags.resize(elems.size());
+
+    for(unsigned i=0;i<elems.size();i++)
+    {
+        Element *elem = elems[i];
+        elem_tags[i] = elem->gmshTag;
+        data[i] = elem->quality_measure_Wicke*ElementSize;
+    }
+    gmsh::view::addHomogeneousModelData(view, 0, "background1", "ElementData", elem_tags, data);
+
+//    gmsh::fltk::run();
+
+    gmsh::model::add("remesh1");
+    int bg_field = gmsh::model::mesh::field::add("PostView");
+    gmsh::model::mesh::field::setNumber(bg_field, "ViewIndex", 0);
+    gmsh::model::mesh::field::setAsBackgroundMesh(bg_field);
+
+
+    std::unordered_map<unsigned,int> boundary_nodes_ids; // local nodal indices -> gmsh tags
+    for(auto p : boundary_edges)
+    {
+        boundary_nodes_ids.insert(std::make_pair(p.first->locId,0));
+        boundary_nodes_ids.insert(std::make_pair(p.second->locId,0));
+    }
+
+    for(auto p : boundary_nodes_ids)
+    {
+        unsigned locIdx = p.first;
+        Node *nd = nodes[locIdx];
+        int tag = gmsh::model::occ::addPoint(nd->x_initial.x(), nd->x_initial.y(), 0);
+        boundary_nodes_ids.at(locIdx) = tag;
+    }
+
+    std::vector<int> ltags;
+    ltags.reserve(boundary_edges.size());
+    for(auto p : boundary_edges)
+    {
+        int lineTag = gmsh::model::occ::addLine(boundary_nodes_ids.at(p.first->locId),boundary_nodes_ids.at(p.second->locId));
+        ltags.push_back(lineTag);
+    }
+
+    int innerLoopTag = gmsh::model::occ::addCurveLoop(ltags);
+    int surfaceTag = gmsh::model::occ::addPlaneSurface({innerLoopTag});
+    gmsh::model::occ::synchronize();
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeFromPoints", 0);
+    gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", 0);
+    gmsh::model::mesh::generate(2);
+
+    Swap();
+    NodeFactory.release(nodes);
+    ElementFactory.release(elems);
+    GetFromGmsh();
+
+}
+
 
 void icy::MeshFragment::Swap()
 {

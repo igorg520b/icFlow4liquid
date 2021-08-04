@@ -30,6 +30,7 @@ public:
     void GenerateContainer(double ElementSize, double offset);
 
     void RemeshSpecialBrick(double ElementSize);
+    void RemeshWithBackgroundMesh(double ElementSize);
     void PostMeshingEvaluations(bool inferConnectivity=true);  // element/node area and connectivity information
     void Swap();
 
