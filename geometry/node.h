@@ -18,6 +18,7 @@ struct icy::Node
     void Reset(Node *other) { Reset(other->locId, other->x_initial.x(), other->x_initial.y()); }
 
     int locId, globId, eqId;    // sequential number of a node; identificator in the equation of motion (if not pinned)
+    std::size_t gmshTag;
     bool pinned;
     double area;                // area that the node represents, for applying body forces
     std::bitset<6> group;       // for meshing/initialization

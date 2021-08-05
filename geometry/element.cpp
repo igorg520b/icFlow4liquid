@@ -38,17 +38,16 @@ void icy::Element::Reset(void)
     PiMultiplier = Eigen::Matrix2d::Identity();
     gmshTag = 0; // cannot stay zero
     quality_measure_Wicke = 1;
+    leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
 }
 
 void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2, std::size_t gmshTag_)
 {
+    Reset();
     nds[0] = nd0;
     nds[1] = nd1;
     nds[2] = nd2;
-    group = -1;
-    PiMultiplier = Eigen::Matrix2d::Identity();
     gmshTag = gmshTag_;
-    quality_measure_Wicke = 1;
 }
 
 

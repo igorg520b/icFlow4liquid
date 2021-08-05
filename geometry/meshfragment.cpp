@@ -349,6 +349,7 @@ void icy::MeshFragment::GetFromGmsh()
             icy::Node* nd = NodeFactory.take();
             nodes.push_back(nd);
             nd->Reset(sequential_idx, x, y);
+            nd->gmshTag = tag;
             // if(y==0 || !deformable) nd->pinned=true;
         }
 
@@ -576,13 +577,11 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     }
 
     int view = gmsh::view::add("b");
-
+/*
     std::vector<std::size_t> elem_tags;//, nodeTags;
-//    gmsh::model::mesh::getElementsByType(2, elem_tags, nodeTags);
     std::vector<double> data;
     data.resize(elems.size());
     elem_tags.resize(elems.size());
-
     for(unsigned i=0;i<elems.size();i++)
     {
         Element *elem = elems[i];
@@ -590,8 +589,31 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
         data[i] = elem->quality_measure_Wicke*ElementSize;
     }
     gmsh::view::addHomogeneousModelData(view, 0, "background1", "ElementData", elem_tags, data);
+*/
 
-//    gmsh::fltk::run();
+    //leftCauchyGreenDeformationTensor
+    std::vector<std::size_t> elem_tags;
+    std::vector<double> data;
+    constexpr int n_comp = 9;
+    data.resize(nodes.size()*n_comp);
+    elem_tags.resize(nodes.size());
+    const double coeff = ElementSize/1000;
+    for(unsigned i=0;i<nodes.size();i++)
+    {
+        elem_tags[i] = nodes[i]->gmshTag;
+        data[i*n_comp+0] = coeff/2;
+        data[i*n_comp+1] = 0;
+        data[i*n_comp+2] = 0;
+        data[i*n_comp+3] = 0;
+        data[i*n_comp+4] = coeff/10*nodes[i]->x_initial.y();
+        data[i*n_comp+5] = 0;
+        data[i*n_comp+6] = 0;
+        data[i*n_comp+7] = 0;
+        data[i*n_comp+8] = coeff/2;
+    }
+    gmsh::view::addHomogeneousModelData(view, 0, "background1", "NodeData", elem_tags, data,0,n_comp);
+
+    gmsh::fltk::run();
 
     gmsh::model::add("remesh1");
     int bg_field = gmsh::model::mesh::field::add("PostView");
@@ -625,6 +647,10 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     int innerLoopTag = gmsh::model::occ::addCurveLoop(ltags);
     int surfaceTag = gmsh::model::occ::addPlaneSurface({innerLoopTag});
     gmsh::model::occ::synchronize();
+
+    gmsh::option::setNumber("Mesh.SmoothRatio", 3);
+    gmsh::option::setNumber("Mesh.AnisoMax", 1000);
+    gmsh::option::setNumber("Mesh.Algorithm", 7);
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
