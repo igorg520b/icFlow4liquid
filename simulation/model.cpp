@@ -260,7 +260,7 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     {
         icy::Element *elem = mesh->allElems[i];
         bool result = elem->PlasticDeformation(prms, timeStep);
-//        if(result) plasticDeformation = true;
+        if(result) plasticDeformation = true;
         elem->ComputeVisualizedVariables();
     }
 

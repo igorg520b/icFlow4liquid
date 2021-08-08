@@ -84,14 +84,13 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
 
     // GET NODES
-//    freeNodeCount = 0;
-    std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords;
 
     // nodes of the "inner boundary" are placed first
     gmsh::model::mesh::getNodesForPhysicalGroup(1, groups[1], nodeTags, nodeCoords);
     nInnerBoundaryNodes = nodeTags.size();
+    mtags.clear();
     for(unsigned i=0;i<nodeTags.size();i++)
     {
         std::size_t tag = nodeTags[i];
@@ -177,21 +176,8 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     {
         int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
         int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
-        Node *nd1, *nd2;
-        nd1 = nodes[idx1];
-        nd2 = nodes[idx2];
-        /*
-        if(idx1<idx2)
-        {
-            nd1 = nodes[idx1];
-            nd2 = nodes[idx2];
-        }
-        else
-        {
-            nd1 = nodes[idx2];
-            nd2 = nodes[idx1];
-        }
-        */
+        Node *nd1 = nodes[idx1];
+        Node *nd2 = nodes[idx2];
         if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
         else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
@@ -327,7 +313,7 @@ void icy::MeshFragment::GetFromGmsh()
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
-    std::unordered_map<std::size_t, int> mtags; // nodeTag -> sequential position in nodes[]
+    mtags.clear();
 
     if(deformable)
     {
@@ -492,7 +478,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
-    std::unordered_map<std::size_t, unsigned> mtags; // nodeTag -> sequential position in nodes[]
+    mtags.clear();
 
     // GET NODES
     gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
@@ -572,12 +558,21 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
         int dim = ge.dimTags.first;
         int tag = ge.dimTags.second;
         gmsh::model::addDiscreteEntity(dim, tag , ge.boundary);
+
+        // update the nodal coordinates
+        for(std::size_t i=0;i<ge.nodeTags_nodes.size();i++)
+        {
+            Node *nd = nodes[mtags.at(ge.nodeTags_nodes[i])];
+            ge.coord_nodes[i*3+0] = nd->x_initial.x();
+            ge.coord_nodes[i*3+1] = nd->x_initial.y();
+            ge.coord_nodes[i*3+2] = 0;
+        }
         gmsh::model::mesh::addNodes(dim, tag, ge.nodeTags_nodes,ge.coord_nodes);
         gmsh::model::mesh::addElements(dim, tag, ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements);
     }
 
     int view = gmsh::view::add("b");
-/*
+
     std::vector<std::size_t> elem_tags;//, nodeTags;
     std::vector<double> data;
     data.resize(elems.size());
@@ -589,15 +584,15 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
         data[i] = elem->quality_measure_Wicke*ElementSize;
     }
     gmsh::view::addHomogeneousModelData(view, 0, "background1", "ElementData", elem_tags, data);
-*/
 
+/*
     //leftCauchyGreenDeformationTensor
     std::vector<std::size_t> elem_tags;
     std::vector<double> data;
     constexpr int n_comp = 9;
     data.resize(nodes.size()*n_comp);
     elem_tags.resize(nodes.size());
-    const double coeff = ElementSize/1000;
+    const double coeff = 1.0/ElementSize;
     for(unsigned i=0;i<nodes.size();i++)
     {
         elem_tags[i] = nodes[i]->gmshTag;
@@ -612,8 +607,7 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
         data[i*n_comp+8] = coeff/2;
     }
     gmsh::view::addHomogeneousModelData(view, 0, "background1", "NodeData", elem_tags, data,0,n_comp);
-
-    gmsh::fltk::run();
+*/
 
     gmsh::model::add("remesh1");
     int bg_field = gmsh::model::mesh::field::add("PostView");
@@ -648,15 +642,17 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     int surfaceTag = gmsh::model::occ::addPlaneSurface({innerLoopTag});
     gmsh::model::occ::synchronize();
 
-    gmsh::option::setNumber("Mesh.SmoothRatio", 3);
-    gmsh::option::setNumber("Mesh.AnisoMax", 1000);
-    gmsh::option::setNumber("Mesh.Algorithm", 7);
+//    gmsh::option::setNumber("Mesh.SmoothRatio", 3);
+//    gmsh::option::setNumber("Mesh.AnisoMax", 1000);
+//    gmsh::option::setNumber("Mesh.Algorithm", 7);
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
     gmsh::option::setNumber("Mesh.MeshSizeFromPoints", 0);
     gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", 0);
     gmsh::model::mesh::generate(2);
+
+//    gmsh::fltk::run();
 
     Swap();
     NodeFactory.release(nodes);
@@ -872,103 +868,6 @@ void icy::MeshFragment::KeepGmshResult()
         gmsh::model::mesh::getElements(ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements, dim, tag);
     }
 
-    /*
-
-        std:: cout << "{\n";
-        for(auto e : entities)
-        {
-            std::cout << "{";
-            int dim = e.first, tag = e.second;
-            std::cout << "{" << dim << "," << tag << "},";
-
-            std::cout << "{";
-            for(std::pair<int,int> entry : outDimTags_boundary)
-            {
-                std::cout << "{" << entry.first << "," << entry.second << "}";
-                if(entry != outDimTags_boundary.back()) std::cout << ",";
-            }
-            std::cout << "},";
-
-            std::cout << "{";
-            for(unsigned i=0;i<nodeTags_nodes.size();i++)
-            {
-                std::size_t ndTag = nodeTags_nodes[i];
-                std::cout << ndTag;
-                if(i!=nodeTags_nodes.size()-1) std::cout << ",";
-            }
-            std::cout << "},";
-
-            std::cout << "{";
-            for(unsigned i=0;i<coord_nodes.size();i++)
-            {
-                double coord = coord_nodes[i];
-                std::cout << coord;
-                if(i!=coord_nodes.size()-1) std::cout << ",";
-            }
-            std::cout << "},";
-
-            std::cout << "{";
-            for(unsigned i=0;i<parametricCoord_nodes.size();i++)
-            {
-                double coord = parametricCoord_nodes[i];
-                std::cout << coord;
-                if(i!=parametricCoord_nodes.size()-1) std::cout << ",";
-            }
-            std::cout << "},";
-
-
-
-            std::cout << "{";
-            for(unsigned i=0;i<elementTypes_elements.size();i++)
-            {
-                int elementType = elementTypes_elements[i];
-                std::cout << elementType;
-                if(i!=elementTypes_elements.size()-1) std::cout << ",";
-            }
-            std::cout << "},";
-
-            std::cout << "{";
-            for(unsigned i=0;i<elementTags_elements.size();i++)
-            {
-                std::vector<std::size_t> &elementTags = elementTags_elements[i];
-                std::cout << "{";
-                for(unsigned j=0;j<elementTags.size();j++)
-                {
-                    std::cout << elementTags[j];
-                    if(j!=elementTags.size()-1) std::cout << ",";
-                }
-                std::cout << "}";
-                if(i!=elementTags_elements.size()-1) std::cout << ",";
-            }
-            std::cout << "},";
-
-            std::cout << "{";
-            for(unsigned i=0;i<nodeTags_elements.size();i++)
-            {
-                std::vector<std::size_t> &nodeTags = nodeTags_elements[i];
-                std::cout << "{";
-                for(unsigned j=0;j<nodeTags.size();j++)
-                {
-                    std::cout << nodeTags[j];
-                    if(j!=nodeTags.size()-1) std::cout << ",";
-                }
-                std::cout << "}";
-                if(i!=nodeTags_elements.size()-1) std::cout << ",";
-            }
-            std::cout << "}";
-
-            saveAllGeometry.emplace_back(e, outDimTags_boundary,nodeTags_nodes, coord_nodes, parametricCoord_nodes,
-                                         elementTypes_elements, elementTags_elements, nodeTags_elements);
-
-            std::cout << "}";
-            if(e!= entities.back()) std::cout << ",\n";
-
-        }
-        std:: cout << "};\n";
-
-
-        std::cout << "saveAllGeometry.size() " << saveAllGeometry.size() << std::endl;
-    */
 
 }
 

@@ -128,7 +128,8 @@ MainWindow::MainWindow(QWidget *parent)
     comboBox_visualizations->setCurrentIndex(settings.value("vis_option").toInt());
 
     pbrowser->setActiveObject(&model.prms);
-    sliderValueChanged(0);
+//    sliderValueChanged(0);
+    slider1->setValue(200);
     updateGUI();
 }
 

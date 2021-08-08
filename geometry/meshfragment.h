@@ -57,6 +57,7 @@ private:
         std::vector<std::vector<std::size_t>> nodeTags_elements;
     };
     std::vector<GmshEntity> gmshResult; // store the result returned by the gmsh, to reuse later as a background mesh
+    std::unordered_map<std::size_t, std::size_t> mtags; // gmsh nodeTag -> sequential position in nodes[]
 
 // BROAD PHASE
 
