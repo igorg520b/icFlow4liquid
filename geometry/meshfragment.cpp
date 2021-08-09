@@ -756,10 +756,10 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
         elems_buffer_nodes[i*3+0] = e->nds[0]->locId;
         elems_buffer_nodes[i*3+1] = e->nds[1]->locId;
         elems_buffer_nodes[i*3+2] = e->nds[2]->locId;
-        elems_buffer_data[i*ElemDataFields+0] = e->hydrostatic_stress;
-        elems_buffer_data[i*ElemDataFields+1] = e->GreenStrain(0,0);
-        elems_buffer_data[i*ElemDataFields+2] = e->GreenStrain(1,1);
-        elems_buffer_data[i*ElemDataFields+3] = e->GreenStrain(1,0);
+        elems_buffer_data[i*ElemDataFields+0] = e->PiMultiplier(0,0);
+        elems_buffer_data[i*ElemDataFields+1] = e->PiMultiplier(0,1);
+        elems_buffer_data[i*ElemDataFields+2] = e->PiMultiplier(1,0);
+        elems_buffer_data[i*ElemDataFields+3] = e->PiMultiplier(1,1);
     }
 
     hsize_t dimsf_elems_nodes_old[2] = {elems_tmp.size(), 3};
