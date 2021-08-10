@@ -338,93 +338,93 @@ void icy::Mesh::UpdateValues()
     // per node
     case icy::Model::VisOpt::node_group:
         visualized_values->SetNumberOfValues(allNodes.size());
-        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group.to_ulong());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->group.to_ulong());
         break;
 
     case icy::Model::VisOpt::vel_mag:
         visualized_values->SetNumberOfValues(allNodes.size());
-        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->vn.norm());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->vn.norm());
         break;
 
     case icy::Model::VisOpt::adj_elems_count_nd:
         visualized_values->SetNumberOfValues(allNodes.size());
-        for(size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->adj_elems.size());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->adj_elems.size());
         break;
 
     // per-element
     case icy::Model::VisOpt::elem_area:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->area_initial);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->area_initial);
         break;
 
     case icy::Model::VisOpt::energy_density:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->strain_energy_density);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->strain_energy_density);
         break;
 
     case icy::Model::VisOpt::stress_xx:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress(0,0));
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress(0,0));
         break;
 
     case icy::Model::VisOpt::stress_yy:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress(1,1));
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress(1,1));
         break;
 
     case icy::Model::VisOpt::stress_hydrostatic:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->hydrostatic_stress);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->hydrostatic_stress);
         break;
 
     case icy::Model::VisOpt::ps1:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->principal_stress1);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->principal_stress1);
         break;
 
     case icy::Model::VisOpt::ps2:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->principal_stress2);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->principal_stress2);
         break;
 
     case icy::Model::VisOpt::shear_stress:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->max_shear_stress);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->max_shear_stress);
         break;
 
     case icy::Model::VisOpt::volume_change:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->volume_change);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->volume_change);
         break;
 
     case icy::Model::VisOpt::velocity_div:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->velocity_divergence);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->velocity_divergence);
         break;
 
     case icy::Model::VisOpt::elem_group:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group);
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group);
         break;
 
     case icy::Model::VisOpt::Green_strain_xx:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,0));
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,0));
         break;
 
     case icy::Model::VisOpt::Green_strain_yy:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(1,1));
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(1,1));
         break;
 
     case icy::Model::VisOpt::Green_strain_xy:
-        for(size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,1));
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,1));
         break;
 
     case icy::Model::VisOpt::plasticity_norm:
-        for(size_t i=0;i<allElems.size();i++)
+        for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
         break;
 
     case icy::Model::VisOpt::adj_elems_count_elem:
-        for(size_t i=0;i<allElems.size();i++)
+        for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, allElems[i]->adj_elems.size());
         break;
 
     case icy::Model::VisOpt::QM1:
-        for(size_t i=0;i<allElems.size();i++)
+        for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, allElems[i]->quality_measure_Wicke);
         break;
 
     case icy::Model::VisOpt::avg_edge_len:
-        for(size_t i=0;i<allElems.size();i++)
+        for(std::size_t i=0;i<allElems.size();i++)
         {
             Element *elem = allElems[i];
             double e0 = (elem->nds[1]->x_initial - elem->nds[2]->x_initial).norm();
