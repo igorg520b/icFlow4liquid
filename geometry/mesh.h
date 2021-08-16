@@ -39,16 +39,20 @@ namespace icy { class Mesh; class Model; }
 class icy::Mesh
 {
 public:
-    MeshFragment indenter;
-    std::vector<MeshFragment*> allFragments;   // including the indenter
+    unsigned typeOfSetup; // 0:intentation; 1:shear; 2:stretching
+
+    std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
     std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
+    std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
+    std::vector<icy::Node*> movableNodes;
     unsigned freeNodeCount;
 
     Mesh();
-    void Reset(double CharacteristicLengthMax, double offset);
+    void Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_);
     void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
+    void SetIndenterPosition(double position);
 
     double area_initial, area_current;
 private:

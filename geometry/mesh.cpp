@@ -3,23 +3,42 @@
 #include <numeric>
 #include <algorithm>
 #include <iterator>
+#include <unordered_set>
 
 
-
-void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
+void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
-    allFragments.clear();
-    indenter.GenerateIndenter(CharacteristicLengthMax);
-    allFragments.push_back(&indenter);
+    typeOfSetup = typeOfSetup_;
+    fragments.clear();
+    movableBoundary.clear();
+    movableNodes.clear();
 
-    MeshFragment *brick = new MeshFragment;
-//    brick->GenerateSpecialBrick(CharacteristicLengthMax);
-    brick->GenerateBrick(CharacteristicLengthMax);
-    allFragments.push_back(brick);
+    switch(typeOfSetup)
+    {
+    case 0:
+    {
+        fragments.resize(3);
+        fragments[0].GenerateIndenter(MeshSizeMax/2);
+        fragments[1].GenerateBrick(MeshSizeMax);
+        fragments[2].GenerateContainer(MeshSizeMax,offset);
 
-    MeshFragment *mf = new MeshFragment;
-    mf->GenerateContainer(CharacteristicLengthMax, offset);
-    allFragments.push_back(mf);
+        movableBoundary.resize(fragments[0].boundary_edges.size());
+        std::copy(fragments[0].boundary_edges.begin(),fragments[0].boundary_edges.end(),movableBoundary.begin());
+        std::unordered_set<Node*> s;
+        for(auto const &p : movableBoundary) { s.insert(p.first); s.insert(p.second); }
+        movableNodes.resize(s.size());
+        std::copy(s.begin(),s.end(),movableNodes.begin());
+    }
+
+        break;
+    case 1:
+        fragments.resize(2);
+        fragments[0].GenerateBrick(MeshSizeMax);
+        fragments[1].GenerateContainer(MeshSizeMax,offset);
+        break;
+    case 2:
+        break;
+    }
 
     RegenerateVisualizedGeometry();
 
@@ -27,9 +46,31 @@ void icy::Mesh::Reset(double CharacteristicLengthMax, double offset)
     area_initial = area_current = std::accumulate(allElems.begin(),
                                                   allElems.end(),0.0,
                                                   [](double a, Element* m){return a+m->area_initial;});
-
-    showDeformation = ShowDeformationOption::current;
+    std::clog << "icy::Mesh::Reset() done\n";
 }
+
+void icy::Mesh::SetIndenterPosition(double position)
+{
+    switch(typeOfSetup)
+    {
+    case 0:
+    {
+        MeshFragment &indenter = fragments[0];
+        Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.1);
+        for(unsigned i=0;i<indenter.nodes.size();i++)
+        {
+            icy::Node* nd = indenter.nodes[i];
+            nd->intended_position = nd->x_initial + position*y_direction;
+        }
+    }
+        break;
+    case 1:
+        break;
+    case 2:
+        break;
+    }
+}
+
 
 icy::Mesh::Mesh()
 {
@@ -121,24 +162,24 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     fragmentRoots_ccd.clear();
     fragmentRoots_contact.clear();
 
-    for(MeshFragment *mf : allFragments)
+    for(MeshFragment &mf : fragments)
     {
-        for(unsigned i=0;i<mf->nodes.size();i++)
+        for(unsigned i=0;i<mf.nodes.size();i++)
         {
-            Node *nd = mf->nodes[i];
+            Node *nd = mf.nodes[i];
             nd->globId = count++;
             if(nd->pinned) nd->eqId=-1;
             else nd->eqId=freeNodeCount++;
             allNodes.push_back(nd);
         }
-        mf->GenerateLeafs(allBoundaryEdges.size());
+        mf.GenerateLeafs(allBoundaryEdges.size());
 
-        for(unsigned i=0;i<mf->elems.size();i++) allElems.push_back(mf->elems[i]);
-        allBoundaryEdges.insert(allBoundaryEdges.end(), mf->boundary_edges.begin(), mf->boundary_edges.end());
-        global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());
-        global_leaves_contact.insert(global_leaves_contact.end(),mf->leaves_for_contact.begin(), mf->leaves_for_contact.end());
-        fragmentRoots_ccd.push_back(&mf->root_ccd);
-        fragmentRoots_contact.push_back(&mf->root_contact);
+        for(unsigned i=0;i<mf.elems.size();i++) allElems.push_back(mf.elems[i]);
+        allBoundaryEdges.insert(allBoundaryEdges.end(), mf.boundary_edges.begin(), mf.boundary_edges.end());
+        global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
+        global_leaves_contact.insert(global_leaves_contact.end(),mf.leaves_for_contact.begin(), mf.leaves_for_contact.end());
+        fragmentRoots_ccd.push_back(&mf.root_ccd);
+        fragmentRoots_contact.push_back(&mf.root_contact);
     }
 
     points_deformable->SetNumberOfPoints(allNodes.size());
@@ -164,15 +205,16 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 
 
     // intended position of the indenter
-    points_indenter_intended->SetNumberOfPoints(indenter.nodes.size());
+    points_indenter_intended->SetNumberOfPoints(movableNodes.size());
     cellArray_indenter_intended->Reset();
-    for(auto edge : indenter.boundary_edges)
+    for(const auto &edge : movableBoundary)
     {
         vtkIdType pts[2] = {edge.first->locId, edge.second->locId};
         cellArray_indenter_intended->InsertNextCell(2, pts);
     }
     ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);
 
+    UnsafeUpdateGeometry();
 }
 
 
@@ -213,10 +255,10 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     else
     {
         BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
-        for(MeshFragment *mf : allFragments)
+        for(MeshFragment &mf : fragments)
         {
-            mf->root_ccd.Build(&mf->leaves_for_ccd,0);
-            mf->root_contact.Build(&mf->leaves_for_contact,0);
+            mf.root_ccd.Build(&mf.leaves_for_ccd,0);
+            mf.root_contact.Build(&mf.leaves_for_contact,0);
         }
         root_ccd.Build(&fragmentRoots_ccd,0);
         root_contact.Build(&fragmentRoots_contact,0);
@@ -251,7 +293,7 @@ void icy::Mesh::UnsafeUpdateGeometry()
     }
     points_deformable->Modified();
 
-    for(icy::Node* nd : indenter.nodes)
+    for(const icy::Node* nd : movableNodes)
     {
         x[0]=nd->intended_position[0];
         x[1]=nd->intended_position[1];

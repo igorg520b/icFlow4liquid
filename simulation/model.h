@@ -13,10 +13,11 @@
 #include "parameters_sim.h"
 #include "equationofmotionsolver.h"
 #include "modelcontrollerinterface.h"
+#include "mesh.h"
 
 #include <Eigen/Core>
 
-namespace icy { class Model; class Mesh; class Node; class Element; }
+namespace icy { class Model; }
 
 class icy::Model : public QObject, public ModelControllerInterface
 {
@@ -37,22 +38,20 @@ signals:
     // Model
 public:
     SimParams prms;
-    icy::Mesh *mesh;
+    icy::Mesh mesh;
     EquationOfMotionSolver eqOfMotion;
 
     int currentStep;
     double timeStepFactor, simulationTime;
 
-    Model();
-    ~Model();
-    void Reset(SimParams &prms);
-    void InitialGuess(SimParams &prms, double timeStep, double timeStepFactor);
-    bool AssembleAndSolve(SimParams &prms, double timeStep, bool restShape = false);  // return true if solved
+    void Reset(unsigned setup);
+    void InitialGuess(double timeStep, double timeStepFactor);
+    bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
     bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
     void GetNewMaterialPosition();
 
     void UnsafeUpdateGeometry();
-    void PositionIndenter(double offset);
+    void SetIndenterPosition(double position);
 
     void AttachSpring(double X, double Y, double radius);   // attach spring to nodes
     void ReleaseSpring();

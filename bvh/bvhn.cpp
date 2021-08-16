@@ -16,8 +16,8 @@ void icy::BVHN::Build(std::vector<BVHN*> *bvs, int level_)
     if(level_ > 100) throw std::runtime_error("BVH level is over 100");
     level = level_;
     auto count = bvs->size();
-    if(count == 0) throw std::runtime_error("bvs->size==0 in BVHN::Initialize");
-    else if(count == 1) throw std::runtime_error("bvs->size==1 in BVHN::Initialize");
+    if(count == 0) throw std::runtime_error("bvs->size==0 in icy::BVHN::Build");
+    else if(count == 1) throw std::runtime_error("bvs->size==1 in icy::BVHN::Build");
 
     isLeaf = false;
 

@@ -55,9 +55,18 @@
     <addaction name="actionClear_Velocity"/>
     <addaction name="actionMaterial_Space"/>
    </widget>
+   <widget class="QMenu" name="menuSetup">
+    <property name="title">
+     <string>Setup</string>
+    </property>
+    <addaction name="actionIndentation"/>
+    <addaction name="actionShear"/>
+    <addaction name="actionStretch"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuTools"/>
    <addaction name="menuTools_2"/>
+   <addaction name="menuSetup"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -193,6 +202,21 @@
   <action name="actionMaterial_Space">
    <property name="text">
     <string>Material Space</string>
+   </property>
+  </action>
+  <action name="actionIndentation">
+   <property name="text">
+    <string>Indentation</string>
+   </property>
+  </action>
+  <action name="actionShear">
+   <property name="text">
+    <string>Shear</string>
+   </property>
+  </action>
+  <action name="actionStretch">
+   <property name="text">
+    <string>Stretch</string>
    </property>
   </action>
  </widget>

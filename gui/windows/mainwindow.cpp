@@ -26,10 +26,10 @@ MainWindow::MainWindow(QWidget *parent)
     qt_vtk_widget->setRenderWindow(renderWindow);
 
     renderer->SetBackground(1.0,1.0,1.0);
-    renderer->AddActor(model.mesh->actor_collisions);
-    renderer->AddActor(model.mesh->actor_mesh_deformable);
-    renderer->AddActor(model.mesh->actor_boundary_all);
-    renderer->AddActor(model.mesh->actor_boundary_intended_indenter);
+    renderer->AddActor(model.mesh.actor_collisions);
+    renderer->AddActor(model.mesh.actor_mesh_deformable);
+    renderer->AddActor(model.mesh.actor_boundary_all);
+    renderer->AddActor(model.mesh.actor_boundary_intended_indenter);
 
     renderWindow->AddRenderer(renderer);
     renderWindow->GetInteractor()->SetInteractorStyle(specialSelector2D);
@@ -66,7 +66,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(slider1, SIGNAL(valueChanged(int)), this, SLOT(sliderValueChanged(int)));
 
     labelStepCount = new QLabel();
-//    ui->toolBar->addWidget(labelStepCount);
 
     // statusbar
     statusLabel = new QLabel("-");
@@ -110,7 +109,7 @@ MainWindow::MainWindow(QWidget *parent)
     camera->Modified();
 
     renderer->AddActor(scalarBar);
-    scalarBar->SetLookupTable(model.mesh->hueLut);
+    scalarBar->SetLookupTable(model.mesh.hueLut);
 
     scalarBar->SetMaximumWidthInPixels(130);
     scalarBar->SetBarRatio(0.07);
@@ -125,10 +124,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     renderWindow->Render();
 
+    pbrowser->setActiveObject(&model.prms);
+
+    model.Reset(settings.value("setup_option",0).toInt());
     comboBox_visualizations->setCurrentIndex(settings.value("vis_option").toInt());
 
-    pbrowser->setActiveObject(&model.prms);
-//    sliderValueChanged(0);
     slider1->setValue(200);
     updateGUI();
 }
@@ -157,6 +157,7 @@ void MainWindow::closeEvent( QCloseEvent* event )
     QByteArray arr((char*)&data[0], sizeof(double)*10);
     settings.setValue("camData", arr);
     settings.setValue("vis_option", comboBox_visualizations->currentIndex());
+    settings.setValue("setup_option", model.mesh.typeOfSetup);
 
     // kill backgroundworker
     worker->Finalize();
@@ -226,7 +227,7 @@ void MainWindow::updateGUI()
     labelStepCount->setText(QString{"step: %1"}.arg(model.currentStep));
     statusLabelStepFactor->setText(QString{"%1"}.arg(model.timeStepFactor, 6, 'f', 3, '0'));
     labelElapsedTime->setText(QString{"%1"}.arg(model.simulationTime, 5, 'f', 3, '0'));
-    labelVolumeChange->setText(QString{"%1%"}.arg((model.mesh->area_current/model.mesh->area_initial)*100, 6, 'f', 3, '0'));
+    labelVolumeChange->setText(QString{"%1%"}.arg((model.mesh.area_current/model.mesh.area_initial)*100, 6, 'f', 3, '0'));
 
     render_results();
 }
@@ -249,7 +250,7 @@ void MainWindow::comboboxIndexChanged_visualizations(int index)
 
 void MainWindow::sliderValueChanged(int val)
 {
-    model.PositionIndenter(1.1 * 0.001 * val);
+    model.SetIndenterPosition(0.001 * val);
     render_results();
 }
 
@@ -281,7 +282,7 @@ void MainWindow::on_actionSave_Mesh_triggered()
     QString fileName = qfd.selectedFiles()[0];
 
     if (fileName.isEmpty()) return;
-    model.mesh->allFragments[1]->SaveFragment(fileName.toStdString());
+    model.mesh.fragments[1].SaveFragment(fileName.toStdString());
 
 }
 
@@ -292,34 +293,34 @@ void MainWindow::on_actionSave_Mesh_triggered()
 void MainWindow::on_actionRemesh_triggered()
 {
 //    model.mesh->allFragments[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
-    model.mesh->allFragments[1]->RemeshWithBackgroundMesh(model.prms.CharacteristicLength);
-    model.mesh->RegenerateVisualizedGeometry();
+    model.mesh.fragments[1].RemeshWithBackgroundMesh(model.prms.CharacteristicLength);
+    model.mesh.RegenerateVisualizedGeometry();
     render_results();
 }
 
 
 void MainWindow::on_actionSwap_Buffers_triggered()
 {
-    model.mesh->allFragments[1]->Swap();
-    model.mesh->RegenerateVisualizedGeometry();
+    model.mesh.fragments[1].Swap();
+    model.mesh.RegenerateVisualizedGeometry();
     render_results();
 }
 
 
 void MainWindow::on_actionClear_Velocity_triggered()
 {
-    for(icy::Node *nd : model.mesh->allNodes) nd->vn = Eigen::Vector2d::Zero();
+    for(icy::Node *nd : model.mesh.allNodes) nd->vn = Eigen::Vector2d::Zero();
 }
 
 void MainWindow::on_actionUse_Initial_State_triggered()
 {
-    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::initial;
+    model.mesh.showDeformation = icy::Mesh::ShowDeformationOption::initial;
     render_results();
 }
 
 void MainWindow::on_actionCurrent_Space_triggered()
 {
-    model.mesh->showDeformation = icy::Mesh::ShowDeformationOption::current;
+    model.mesh.showDeformation = icy::Mesh::ShowDeformationOption::current;
     render_results();
 }
 
@@ -328,5 +329,26 @@ void MainWindow::on_actionMaterial_Space_triggered()
 {
     model.GetNewMaterialPosition();
     render_results();
+}
+
+
+void MainWindow::on_actionIndentation_triggered()
+{
+    model.Reset(0);
+    updateGUI();
+}
+
+
+void MainWindow::on_actionShear_triggered()
+{
+    model.Reset(1);
+    updateGUI();
+}
+
+
+void MainWindow::on_actionStretch_triggered()
+{
+    model.Reset(2);
+    updateGUI();
 }
 

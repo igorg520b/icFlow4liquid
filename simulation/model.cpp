@@ -3,24 +3,18 @@
 #include "model.h"
 #include "mesh.h"
 
-icy::Model::Model()
-{
-    mesh = new icy::Mesh();
-    Reset(prms);
-}
 
-icy::Model::~Model()
-{
-    delete mesh;
-}
 
-void icy::Model::Reset(SimParams &prms)
+void icy::Model::Reset(unsigned setup)
 {
-    mesh->Reset(prms.CharacteristicLength, prms.InteractionDistance);
-    UnsafeUpdateGeometry();
     currentStep = 0;
     timeStepFactor = 1;
     simulationTime = 0;
+
+    vtk_update_mutex.lock();
+    mesh.Reset(prms.CharacteristicLength, prms.InteractionDistance, setup);
+    vtk_update_mutex.unlock();
+    std::clog << "icy::Model::Reset() done\n";
 }
 
 void icy::Model::Prepare()
@@ -30,7 +24,7 @@ void icy::Model::Prepare()
 
 bool icy::Model::Step()
 {
-    mesh->UpdateTree(prms.InteractionDistance);
+    mesh.UpdateTree(prms.InteractionDistance);
 
     int attempt = 0;
     bool converges=false;
@@ -40,8 +34,8 @@ bool icy::Model::Step()
     {
         int iter = 0;
         h = prms.InitialTimeStep*timeStepFactor; // time step
-        InitialGuess(prms, h, timeStepFactor);
-        std::pair<bool, double> ccd_result = mesh->EnsureNoIntersectionViaCCD();
+        InitialGuess(h, timeStepFactor);
+        std::pair<bool, double> ccd_result = mesh.EnsureNoIntersectionViaCCD();
         ccd_res = ccd_result.first;
         std::cout << std::scientific << std::setprecision(1);
         std::cout << "STEP: " << currentStep << "-" << attempt << " TCF " << timeStepFactor << std::endl;
@@ -51,8 +45,8 @@ bool icy::Model::Step()
         while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
             if(abortRequested) {Aborting(); return false;}
-            sln_res = AssembleAndSolve(prms, h);
-            ccd_result = mesh->EnsureNoIntersectionViaCCD();
+            sln_res = AssembleAndSolve(h);
+            ccd_result = mesh.EnsureNoIntersectionViaCCD();
             ccd_res = ccd_result.first;
 
             double ratio = 0;
@@ -118,38 +112,32 @@ void icy::Model::Aborting()
 void icy::Model::UnsafeUpdateGeometry()
 {
     vtk_update_mutex.lock();
-    mesh->UnsafeUpdateGeometry();
+    mesh.UnsafeUpdateGeometry();
     vtk_update_mutex.unlock();
 }
 
 void icy::Model::ChangeVisualizationOption(icy::Model::VisOpt option)
 {
     vtk_update_mutex.lock();
-    mesh->ChangeVisualizationOption((int)option);
+    mesh.ChangeVisualizationOption((int)option);
     vtk_update_mutex.unlock();
 }
 
-void icy::Model::PositionIndenter(double offset)
+void icy::Model::SetIndenterPosition(double position)
 {
     vtk_update_mutex.lock();
-    unsigned n = mesh->indenter.nodes.size();
-    Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.0);
-    for(unsigned i=0;i<n;i++)
-    {
-        icy::Node* nd = mesh->indenter.nodes[i];
-        nd->intended_position = nd->x_initial + offset*y_direction;
-    }
+    mesh.SetIndenterPosition(position);
     vtk_update_mutex.unlock();
 }
 
 
-void icy::Model::InitialGuess(SimParams &prms, double timeStep, double timeStepFactor)
+void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
 {
-    std::size_t nNodes = mesh->allNodes.size();
+    std::size_t nNodes = mesh.allNodes.size();
 #pragma omp parallel for
     for(std::size_t i=0;i<nNodes;i++)
     {
-        icy::Node *nd = mesh->allNodes[i];
+        icy::Node *nd = mesh.allNodes[i];
         if(nd->pinned)
         {
             nd->xt = (timeStepFactor)*nd->intended_position + (1-timeStepFactor)*nd->xn;
@@ -166,27 +154,27 @@ void icy::Model::InitialGuess(SimParams &prms, double timeStep, double timeStepF
 }
 
 
-bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restShape)
+bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
 {
-    eqOfMotion.ClearAndResize(mesh->freeNodeCount);
+    eqOfMotion.ClearAndResize(mesh.freeNodeCount);
 
-    unsigned nElems = mesh->allElems.size();
-    unsigned nNodes = mesh->allNodes.size();
+    unsigned nElems = mesh.allElems.size();
+    unsigned nNodes = mesh.allNodes.size();
 
 #pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++) mesh->allElems[i]->AddToSparsityStructure(eqOfMotion);
+    for(unsigned i=0;i<nElems;i++) mesh.allElems[i]->AddToSparsityStructure(eqOfMotion);
 
     unsigned nInteractions;
     if(!restShape)
     {
-        mesh->UpdateTree(prms.InteractionDistance);
+        mesh.UpdateTree(prms.InteractionDistance);
         vtk_update_mutex.lock();
-        mesh->DetectContactPairs(prms.InteractionDistance);
+        mesh.DetectContactPairs(prms.InteractionDistance);
         vtk_update_mutex.unlock();
-        nInteractions = mesh->collision_interactions.size();
+        nInteractions = mesh.collision_interactions.size();
 
 #pragma omp parallel for
-        for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
     }
 
     eqOfMotion.CreateStructure();
@@ -197,7 +185,7 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
-        bool elem_entry_ok = mesh->allElems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+        bool elem_entry_ok = mesh.allElems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
         if(!elem_entry_ok) mesh_iversion_detected = true;
     }
 
@@ -208,12 +196,12 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
 #pragma omp parallel for
         for(unsigned i=0;i<nNodes;i++)
         {
-            Node *nd = mesh->allNodes[i];
+            Node *nd = mesh.allNodes[i];
             nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
         }
 
 #pragma omp parallel for
-        for(unsigned i=0;i<nInteractions;i++) mesh->collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
     }
 
 
@@ -226,7 +214,7 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
 #pragma omp parallel for
     for(std::size_t i=0;i<nNodes;i++)
     {
-        icy::Node *nd = mesh->allNodes[i];
+        icy::Node *nd = mesh.allNodes[i];
         Eigen::Vector2d delta_x;
         if(!nd->pinned)
         {
@@ -241,11 +229,11 @@ bool icy::Model::AssembleAndSolve(SimParams &prms, double timeStep, bool restSha
 bool icy::Model::AcceptTentativeValues(double timeStep)
 {
     vtk_update_mutex.lock();
-    unsigned nNodes = mesh->allNodes.size();
+    unsigned nNodes = mesh.allNodes.size();
 #pragma omp parallel for
     for(unsigned i=0;i<nNodes;i++)
     {
-        icy::Node *nd = mesh->allNodes[i];
+        icy::Node *nd = mesh.allNodes[i];
         Eigen::Vector2d dx = nd->xt-nd->xn;
         nd->vn = dx/timeStep;
         nd->xn = nd->xt;
@@ -253,19 +241,19 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     vtk_update_mutex.unlock();
 
     // plastic behavior
-    unsigned nElems = mesh->allElems.size();
+    unsigned nElems = mesh.allElems.size();
     bool plasticDeformation = false;
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
-        icy::Element *elem = mesh->allElems[i];
+        icy::Element *elem = mesh.allElems[i];
         bool result = elem->PlasticDeformation(prms, timeStep);
         if(result) plasticDeformation = true;
         elem->ComputeVisualizedVariables();
     }
 
     simulationTime+=timeStep;
-    mesh->area_current = std::accumulate(mesh->allElems.begin(), mesh->allElems.end(),0.0,
+    mesh.area_current = std::accumulate(mesh.allElems.begin(), mesh.allElems.end(),0.0,
                                          [](double a, Element* m){return a+m->area_current;});
     return plasticDeformation;
 }
@@ -273,19 +261,19 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
 void icy::Model::GetNewMaterialPosition()
 {
     // relax each mesh fragment separately
-    for(MeshFragment *mf : mesh->allFragments)
+    for(MeshFragment &mf : mesh.fragments)
     {
-        if(!mf->deformable) continue;
+        if(!mf.deformable) continue;
 
         unsigned freeNodes = 0;
-        for(Node *nd : mf->nodes)
+        for(Node *nd : mf.nodes)
         {
             if(nd->pinned) nd->eqId = -1;
             else nd->eqId = freeNodes++;
         }
 
-        unsigned nNodes = mf->nodes.size();
-        unsigned nElems = mf->elems.size();
+        unsigned nNodes = mf.nodes.size();
+        unsigned nElems = mf.elems.size();
 
 
         // solve the equation iteratively (as usual, but without collisions)
@@ -303,7 +291,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
             for(std::size_t i=0;i<nNodes;i++)
             {
-                icy::Node *nd = mf->nodes[i];
+                icy::Node *nd = mf.nodes[i];
                 nd->xt = nd->x_hat = nd->x_initial;
             }
 
@@ -314,7 +302,7 @@ void icy::Model::GetNewMaterialPosition()
 
             while(sln_res && iter < prms.MaxIter*5 && (iter < prms.MinIter || !converges))
             {
-                sln_res = AssembleAndSolve(prms, h, true);
+                sln_res = AssembleAndSolve(h, true);
 
                 double ratio = 0;
                 if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
@@ -352,7 +340,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(std::size_t i=0;i<nNodes;i++)
         {
-            icy::Node *nd = mf->nodes[i];
+            icy::Node *nd = mf.nodes[i];
             Eigen::Vector2d delta_x;
             if(!nd->pinned)
             {
@@ -365,7 +353,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(unsigned i=0;i<nElems;i++)
         {
-            icy::Element *elem = mf->elems[i];
+            icy::Element *elem = mf.elems[i];
             Eigen::Matrix2d DmPrime;
             DmPrime << elem->nds[0]->xt-elem->nds[2]->xt, elem->nds[1]->xt-elem->nds[2]->xt;
             elem->PiMultiplier = DmPrime*elem->Dm.inverse()*elem->PiMultiplier;
@@ -374,19 +362,19 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(std::size_t i=0;i<nNodes;i++)
         {
-            icy::Node *nd = mf->nodes[i];
+            icy::Node *nd = mf.nodes[i];
             if(!nd->pinned) nd->x_initial = nd->xt;
         }
 
-        mf->PostMeshingEvaluations(false);
+        mf.PostMeshingEvaluations(false);
     }
 
-    mesh->freeNodeCount=0;
-    for(unsigned i=0;i<mesh->allNodes.size();i++)
+    mesh.freeNodeCount=0;
+    for(unsigned i=0;i<mesh.allNodes.size();i++)
     {
-        Node *nd = mesh->allNodes[i];
+        Node *nd = mesh.allNodes[i];
         if(nd->pinned) nd->eqId=-1;
-        else nd->eqId=mesh->freeNodeCount++;
+        else nd->eqId=mesh.freeNodeCount++;
     }
 }
 
@@ -398,9 +386,9 @@ void icy::Model::AttachSpring(double X, double Y, double radius)
     Eigen::Vector2d attachmentPos(X,Y);
     vtk_update_mutex.lock();
 #pragma omp parallel for
-    for(unsigned i=0;i<mesh->allNodes.size();i++)
+    for(unsigned i=0;i<mesh.allNodes.size();i++)
     {
-        icy::Node *nd = mesh->allNodes[i];
+        icy::Node *nd = mesh.allNodes[i];
         if((nd->xn-attachmentPos).norm()<radius)
         {
             nd->spring_attached = 1;
@@ -419,9 +407,9 @@ void icy::Model::ReleaseSpring()
     std::cout << "icy::Model::ReleaseSpring " << std::endl;
     vtk_update_mutex.lock();
 #pragma omp parallel for
-    for(unsigned i=0;i<mesh->allNodes.size();i++)
+    for(unsigned i=0;i<mesh.allNodes.size();i++)
     {
-        icy::Node *nd = mesh->allNodes[i];
+        icy::Node *nd = mesh.allNodes[i];
         nd->spring_attached=0;
     }
     vtk_update_mutex.unlock();

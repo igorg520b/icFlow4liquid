@@ -116,6 +116,12 @@ private slots:
 
     void on_actionMaterial_Space_triggered();
 
+    void on_actionIndentation_triggered();
+
+    void on_actionShear_triggered();
+
+    void on_actionStretch_triggered();
+
 private:
 //    PreferencesGUI prefsGUI;
     icy::Model model;
