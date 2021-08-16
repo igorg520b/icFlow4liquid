@@ -18,7 +18,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     case 0:
     {
         fragments.resize(3);
-        fragments[0].GenerateIndenter(MeshSizeMax/2);
+        fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
         fragments[1].GenerateBrick(MeshSizeMax);
         fragments[2].GenerateContainer(MeshSizeMax,offset);
 
@@ -32,15 +32,30 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 
         break;
     case 1:
-        fragments.resize(2);
-        fragments[0].GenerateBrick(MeshSizeMax);
-        fragments[1].GenerateContainer(MeshSizeMax,offset);
+    {
+        const double radius = 0.1;
+        const double height = 0.8;
+        const double width = 2.0;
+        fragments.resize(5);
+        fragments[0].GenerateBrick2(MeshSizeMax, width, height);
+        fragments[1].GenerateIndenter(MeshSizeMax/2, width*0.1/2, height+radius+offset, radius, 1);
+        fragments[2].GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset, radius, 1);
+        fragments[3].GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset), radius, 1);
+        fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset), radius, 1);
+        for(unsigned i=1;i<=2;i++)
+            std::copy(fragments[i].boundary_edges.begin(),fragments[i].boundary_edges.end(),std::back_inserter(movableBoundary));
+        std::unordered_set<Node*> s;
+        for(auto const &p : movableBoundary) { s.insert(p.first); s.insert(p.second); }
+        movableNodes.resize(s.size());
+        std::copy(s.begin(),s.end(),movableNodes.begin());
+    }
         break;
     case 2:
         break;
     }
 
     RegenerateVisualizedGeometry();
+    ChangeVisualizationOption(VisualizingVariable);
 
     tree_update_counter=0;
     area_initial = area_current = std::accumulate(allElems.begin(),
@@ -332,7 +347,6 @@ void icy::Mesh::UnsafeUpdateGeometry()
 void icy::Mesh::ChangeVisualizationOption(int option)
 {
     qDebug() << "icy::Model::ChangeVisualizationOption " << option;
-    if(VisualizingVariable == option) return; // option did not change
     VisualizingVariable = option;
 
     if(VisualizingVariable == icy::Model::VisOpt::none)

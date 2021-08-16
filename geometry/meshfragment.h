@@ -24,8 +24,9 @@ public:
     void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize);
+    void GenerateBrick2(double ElementSize, double width, double height);
     void GenerateSpecialBrick(double ElementSize);
-    void GenerateIndenter(double ElementSize);
+    void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);
 

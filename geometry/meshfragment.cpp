@@ -232,6 +232,23 @@ void icy::MeshFragment::GenerateBrick(double ElementSize)
     GetFromGmsh();
 }
 
+void icy::MeshFragment::GenerateBrick2(double ElementSize, double width, double height)
+{
+    deformable = true;
+
+    // invoke Gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("block1");
+    gmsh::model::occ::addRectangle(-width/2,0,0,width,height);
+
+    gmsh::model::occ::synchronize();
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+    GetFromGmsh();
+}
+
+
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 {
     std::cout << "\nGenerateContainer" << std::endl;;
@@ -266,26 +283,16 @@ void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
     GetFromGmsh();
 }
 
-void icy::MeshFragment::GenerateIndenter(double ElementSize)
+void icy::MeshFragment::GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect)
 {
-    std::cout << "\nGenerateIndenter\n";
-
     deformable = false;
-
     gmsh::option::setNumber("General.Terminal", 0);
     gmsh::clear();
-    gmsh::model::add("block1");
-
-    double height = 1;
-    double radius = 0.15;
-//    int point1 = gmsh::model::occ::addPoint(0, height+radius*1.1, 0, 1.0);
-
-    gmsh::model::occ::addEllipse(0, height+radius*1.1, 0, radius, radius/2);
+    gmsh::model::add("indenter1");
+    gmsh::model::occ::addEllipse(cx, cy, 0, radius, radius/aspect);
     gmsh::model::occ::synchronize();
-
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     GetFromGmsh();
-
 }
 
 void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, double ElementSize)
