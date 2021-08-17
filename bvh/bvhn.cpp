@@ -133,9 +133,9 @@ void icy::BVHN::Update()
 
 void icy::BVHN::SelfCollide(std::vector<unsigned> &broad_list)
 {
-    if (isLeaf) return;
-    if(child1->test_self_collision) child1->SelfCollide(broad_list);
-    if(child2->test_self_collision) child2->SelfCollide(broad_list);
+    if (isLeaf || !test_self_collision) return;
+    child1->SelfCollide(broad_list);
+    child2->SelfCollide(broad_list);
     child1->Collide(child2, broad_list);
 }
 

@@ -66,7 +66,8 @@ public:
     std::pair<bool, double> EnsureNoIntersectionViaCCD();
 
 private:
-    BVHN root_ccd, root_contact;
+    BVHN mesh_root_ccd, mesh_root_contact;  // only used when the mesh contains more than one fragment
+
     std::vector<BVHN*> global_leaves_ccd, global_leaves_contact, fragmentRoots_ccd, fragmentRoots_contact;
     std::vector<unsigned> broadlist_ccd, broadlist_contact; // indices of potentially colliding edges
     tbb::concurrent_unordered_set<long long> narrow_list_contact;

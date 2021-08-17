@@ -19,15 +19,11 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     {
         fragments.resize(3);
         fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
-        fragments[1].GenerateBrick(MeshSizeMax);
+        fragments[1].GenerateBrick2(MeshSizeMax,2,1);
         fragments[2].GenerateContainer(MeshSizeMax,offset);
 
         movableBoundary.resize(fragments[0].boundary_edges.size());
         std::copy(fragments[0].boundary_edges.begin(),fragments[0].boundary_edges.end(),movableBoundary.begin());
-        std::unordered_set<Node*> s;
-        for(auto const &p : movableBoundary) { s.insert(p.first); s.insert(p.second); }
-        movableNodes.resize(s.size());
-        std::copy(s.begin(),s.end(),movableNodes.begin());
     }
 
         break;
@@ -44,15 +40,23 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset), radius, 1);
         for(unsigned i=1;i<=2;i++)
             std::copy(fragments[i].boundary_edges.begin(),fragments[i].boundary_edges.end(),std::back_inserter(movableBoundary));
-        std::unordered_set<Node*> s;
-        for(auto const &p : movableBoundary) { s.insert(p.first); s.insert(p.second); }
-        movableNodes.resize(s.size());
-        std::copy(s.begin(),s.end(),movableNodes.begin());
     }
         break;
     case 2:
+        fragments.resize(1);
+        fragments[0].GenerateBrick(MeshSizeMax,2,1);
+        movableBoundary.resize(fragments[0].special_boundary.size());
+        std::copy(fragments[0].special_boundary.begin(),fragments[0].special_boundary.end(),movableBoundary.begin());
         break;
     }
+
+    // make a list of nodes that only belong to the movable boudnary
+    std::unordered_set<Node*> s;
+    for(auto const &p : movableBoundary) { s.insert(p.first); s.insert(p.second); }
+    movableNodes.resize(s.size());
+    std::copy(s.begin(),s.end(),movableNodes.begin());
+    for(unsigned i=0;i<movableNodes.size();i++) movableNodes[i]->indId=i;
+
 
     RegenerateVisualizedGeometry();
     ChangeVisualizationOption(VisualizingVariable);
@@ -69,19 +73,23 @@ void icy::Mesh::SetIndenterPosition(double position)
     switch(typeOfSetup)
     {
     case 0:
+    case 1:
     {
-        MeshFragment &indenter = fragments[0];
         Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.1);
-        for(unsigned i=0;i<indenter.nodes.size();i++)
+        for(unsigned i=0;i<movableNodes.size();i++)
         {
-            icy::Node* nd = indenter.nodes[i];
+            icy::Node* nd = movableNodes[i];
             nd->intended_position = nd->x_initial + position*y_direction;
         }
     }
         break;
-    case 1:
-        break;
     case 2:
+        Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
+        for(unsigned i=0;i<movableNodes.size();i++)
+        {
+            icy::Node* nd = movableNodes[i];
+            nd->intended_position = nd->x_initial + (position-0.3)*x_direction*(1+nd->x_initial.y()/3);
+        }
         break;
     }
 }
@@ -156,8 +164,8 @@ icy::Mesh::Mesh()
     broadlist_ccd.reserve(100000);
     broadlist_contact.reserve(100000);
 
-    root_contact.isLeaf = root_ccd.isLeaf = false;
-    root_contact.test_self_collision = root_ccd.test_self_collision = true;
+    mesh_root_contact.isLeaf = mesh_root_ccd.isLeaf = false;
+    mesh_root_contact.test_self_collision = mesh_root_ccd.test_self_collision = true;
 }
 
 
@@ -224,7 +232,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     cellArray_indenter_intended->Reset();
     for(const auto &edge : movableBoundary)
     {
-        vtkIdType pts[2] = {edge.first->locId, edge.second->locId};
+        vtkIdType pts[2] = {edge.first->indId, edge.second->indId};
         cellArray_indenter_intended->InsertNextCell(2, pts);
     }
     ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);
@@ -264,19 +272,28 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     // TODO: parallel
     if(tree_update_counter%10 != 0)
     {
-        root_ccd.Update();
-        root_contact.Update();
+        mesh_root_ccd.Update();
+        mesh_root_contact.Update();
     }
     else
     {
         BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
-        for(MeshFragment &mf : fragments)
+
+        if(fragmentRoots_ccd.size()>1)
         {
-            mf.root_ccd.Build(&mf.leaves_for_ccd,0);
-            mf.root_contact.Build(&mf.leaves_for_contact,0);
+            for(MeshFragment &mf : fragments)
+            {
+                mf.root_ccd.Build(&mf.leaves_for_ccd,0);
+                mf.root_contact.Build(&mf.leaves_for_contact,0);
+            }
+            mesh_root_ccd.Build(&fragmentRoots_ccd,0);
+            mesh_root_contact.Build(&fragmentRoots_contact,0);
         }
-        root_ccd.Build(&fragmentRoots_ccd,0);
-        root_contact.Build(&fragmentRoots_contact,0);
+        else
+        {
+            mesh_root_ccd.Build(&fragments.front().leaves_for_ccd,0);
+            mesh_root_contact.Build(&fragments.front().leaves_for_contact,0);
+        }
     }
     tree_update_counter++;
 }
@@ -312,7 +329,7 @@ void icy::Mesh::UnsafeUpdateGeometry()
     {
         x[0]=nd->intended_position[0];
         x[1]=nd->intended_position[1];
-        points_indenter_intended->SetPoint((vtkIdType)nd->locId, x);
+        points_indenter_intended->SetPoint((vtkIdType)nd->indId, x);
     }
     points_indenter_intended->Modified();
 
@@ -566,8 +583,8 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
 {
     // BROAD PHASE
     broadlist_contact.clear();
-
-    root_contact.SelfCollide(broadlist_contact);
+    if(fragments.size()>1) //TODO: allow self-collisions
+    mesh_root_contact.SelfCollide(broadlist_contact);
 
     unsigned nBroadListContact = broadlist_contact.size();
 
@@ -589,14 +606,13 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
         AddToNarrowListIfNeeded(edge2_idx, nd1->globId, distance_threshold);
         AddToNarrowListIfNeeded(edge2_idx, nd2->globId, distance_threshold);
     }
-
-
 }
 
 std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
 {
     broadlist_ccd.clear();
-    root_ccd.SelfCollide(broadlist_ccd);
+    if(fragments.size()>1)  // TODO: allow self-collisions
+    mesh_root_ccd.SelfCollide(broadlist_ccd);
 
     // CCD
     ccd_results.clear();

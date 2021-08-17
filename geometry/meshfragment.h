@@ -19,11 +19,12 @@ public:
     std::vector<icy::Element*> elems;
 
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
+    std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary, fixed_boundary; // these are used when some nodes are pinned
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
     void SaveFragment(std::string fileName);
 
-    void GenerateBrick(double ElementSize);
+    void GenerateBrick(double ElementSize, double width, double height);
     void GenerateBrick2(double ElementSize, double width, double height);
     void GenerateSpecialBrick(double ElementSize);
     void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);
