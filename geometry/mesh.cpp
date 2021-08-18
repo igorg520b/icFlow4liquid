@@ -15,6 +15,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 
     switch(typeOfSetup)
     {
+    // indentation
     case 0:
     {
         fragments.resize(3);
@@ -27,6 +28,8 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     }
 
         break;
+
+        // shear
     case 1:
     {
         const double radius = 0.1;
@@ -42,9 +45,19 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
             std::copy(fragments[i].boundary_edges.begin(),fragments[i].boundary_edges.end(),std::back_inserter(movableBoundary));
     }
         break;
+
+        // stretch
     case 2:
         fragments.resize(1);
         fragments[0].GenerateBrick(MeshSizeMax,2,1);
+        movableBoundary.resize(fragments[0].special_boundary.size());
+        std::copy(fragments[0].special_boundary.begin(),fragments[0].special_boundary.end(),movableBoundary.begin());
+        break;
+
+        // self-collision test
+    case 3:
+        fragments.resize(1);
+        fragments[0].GenerateSelfCollisionBrick(MeshSizeMax,2,1);
         movableBoundary.resize(fragments[0].special_boundary.size());
         std::copy(fragments[0].special_boundary.begin(),fragments[0].special_boundary.end(),movableBoundary.begin());
         break;
@@ -84,6 +97,7 @@ void icy::Mesh::SetIndenterPosition(double position)
     }
         break;
     case 2:
+    case 3:
         Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
         for(unsigned i=0;i<movableNodes.size();i++)
         {
@@ -253,18 +267,18 @@ void icy::Mesh::UpdateTree(float distance_threshold)
         std::tie(nd1,nd2) = allBoundaryEdges[leaf_ccd->feature_idx];
         kDOP8 &box_ccd = leaf_ccd->box;
         box_ccd.Reset();
-        box_ccd.Expand(nd1->xn.x(), nd1->xn.y());
-        box_ccd.Expand(nd2->xn.x(), nd2->xn.y());
-        box_ccd.Expand(nd1->xt.x(), nd1->xt.y());
-        box_ccd.Expand(nd2->xt.x(), nd2->xt.y());
+        box_ccd.Expand(nd1->xn[0], nd1->xn[1]);
+        box_ccd.Expand(nd2->xn[0], nd2->xn[1]);
+        box_ccd.Expand(nd1->xt[0], nd1->xt[1]);
+        box_ccd.Expand(nd2->xt[0], nd2->xt[1]);
 
         BVHN *leaf_contact = global_leaves_contact[i];
         std::tie(nd1,nd2) = allBoundaryEdges[leaf_contact->feature_idx];
 
         kDOP8 &box_contact = leaf_contact->box;
         box_contact.Reset();
-        box_contact.Expand(nd1->xt.x(), nd1->xt.y());
-        box_contact.Expand(nd2->xt.x(), nd2->xt.y());
+        box_contact.Expand(nd1->xt[0], nd1->xt[1]);
+        box_contact.Expand(nd2->xt[0], nd2->xt[1]);
         box_contact.ExpandBy(distance_threshold);
     }
 
@@ -559,6 +573,7 @@ void icy::Mesh::AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, do
     Node *ndA, *ndB, *ndP;
     std::tie(ndA,ndB) = allBoundaryEdges[edge_idx];
     ndP = allNodes[node_idx];
+    if(ndA==ndP || ndB==ndP) return;    // a node can't collide with itself
     Eigen::Vector2d D;
     double dist = icy::Interaction::SegmentPointDistance(ndA->xt, ndB->xt, ndP->xt, D);
     if(dist < distance_threshold)
@@ -583,7 +598,7 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
 {
     // BROAD PHASE
     broadlist_contact.clear();
-    if(fragments.size()>1) //TODO: allow self-collisions
+//    if(fragments.size()>1) //TODO: allow self-collisions
     mesh_root_contact.SelfCollide(broadlist_contact);
 
     unsigned nBroadListContact = broadlist_contact.size();
@@ -611,7 +626,7 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
 std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
 {
     broadlist_ccd.clear();
-    if(fragments.size()>1)  // TODO: allow self-collisions
+
     mesh_root_ccd.SelfCollide(broadlist_ccd);
 
     // CCD
@@ -627,11 +642,12 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     {
         unsigned edge1_idx = broadlist_ccd[i*2];
         unsigned edge2_idx = broadlist_ccd[i*2+1];
-        if(EdgeIntersection(edge1_idx, edge2_idx)==true) final_state_contains_edge_intersection = true;
 
         Node *nd1, *nd2, *nd3, *nd4;
         std::tie(nd1,nd2) = allBoundaryEdges[edge1_idx];
         std::tie(nd3,nd4) = allBoundaryEdges[edge2_idx];
+
+        if(EdgeIntersection(edge1_idx, edge2_idx)==true) final_state_contains_edge_intersection = true;
 
         bool result;
         double t;
@@ -670,6 +686,9 @@ bool icy::Mesh::EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2)
     std::tie(ndA,ndB) = allBoundaryEdges[edgeIdx1];
     std::tie(ndC,ndD) = allBoundaryEdges[edgeIdx2];
 
+    // if edges are adjacent, consider them non-intersecting
+    if(ndA==ndC || ndA == ndD || ndB==ndC || ndB == ndD) return false;
+
     gte::Segment2<double> seg1;
     seg1.p[0] = {ndA->xt.x(), ndA->xt.y()};
     seg1.p[1] = {ndB->xt.x(), ndB->xt.y()};
@@ -689,24 +708,26 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
     std::tie(ndA,ndB) = allBoundaryEdges[edge_idx];
     ndP = allNodes[node_idx];
 
+    if(ndA == ndP || ndB == ndP) return std::make_pair(false,0);
+
     double t;
     double px,py,ptx,pty;
     double v1x,v1y,v2x,v2y,v1tx,v1ty,v2tx,v2ty;
 
-    px=ndP->xn.x();
-    ptx=ndP->xt.x();
-    py=ndP->xn.y();
-    pty=ndP->xt.y();
+    px=ndP->xn[0];
+    ptx=ndP->xt[0];
+    py=ndP->xn[1];
+    pty=ndP->xt[1];
 
-    v1x=ndA->xn.x();
-    v1tx=ndA->xt.x();
-    v1y=ndA->xn.y();
-    v1ty=ndA->xt.y();
+    v1x=ndA->xn[0];
+    v1tx=ndA->xt[0];
+    v1y=ndA->xn[1];
+    v1ty=ndA->xt[1];
 
-    v2x=ndB->xn.x();
-    v2tx=ndB->xt.x();
-    v2y=ndB->xn.y();
-    v2ty=ndB->xt.y();
+    v2x=ndB->xn[0];
+    v2tx=ndB->xt[0];
+    v2y=ndB->xn[1];
+    v2ty=ndB->xt[1];
 
     double t1, t2;
 
@@ -726,13 +747,16 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
                    v1ty*v2x - 2*v1y*v2x + ptx*v2y - 2*px*v2y - v1tx*v2y + 2*v1x*v2y +
                    sqrt1t)/
                 (2.*(ptx*v1ty - px*v1ty - ptx*v1y + px*v1y - v1ty*v2tx + v1y*v2tx - ptx*v2ty + px*v2ty + v1tx*v2ty - v1x*v2ty +
-                     pty*(-v1tx + v1x + v2tx - v2x) + v1ty*v2x - v1y*v2x + py*(v1tx - v1x - v2tx + v2x) + ptx*v2y - px*v2y - v1tx*v2y + v1x*v2y));
+                     pty*(-v1tx + v1x + v2tx - v2x) + v1ty*v2x - v1y*v2x +
+                     py*(v1tx - v1x - v2tx + v2x) + ptx*v2y - px*v2y - v1tx*v2y + v1x*v2y));
 
-        t2 = (-(py*v1tx) + px*v1ty - pty*v1x + 2*py*v1x + ptx*v1y - 2*px*v1y + py*v2tx - v1y*v2tx - px*v2ty + v1x*v2ty + pty*v2x - 2*py*v2x -
+        t2 = (-(py*v1tx) + px*v1ty - pty*v1x + 2*py*v1x + ptx*v1y - 2*px*v1y +
+              py*v2tx - v1y*v2tx - px*v2ty + v1x*v2ty + pty*v2x - 2*py*v2x -
               v1ty*v2x + 2*v1y*v2x - ptx*v2y + 2*px*v2y + v1tx*v2y - 2*v1x*v2y +
               sqrt1t)/
            (2.*(-(ptx*v1ty) + px*v1ty + ptx*v1y - px*v1y + v1ty*v2tx - v1y*v2tx + ptx*v2ty - px*v2ty - v1tx*v2ty + v1x*v2ty +
-                py*(-v1tx + v1x + v2tx - v2x) - v1ty*v2x + v1y*v2x + pty*(v1tx - v1x - v2tx + v2x) - ptx*v2y + px*v2y + v1tx*v2y - v1x*v2y));
+                py*(-v1tx + v1x + v2tx - v2x) - v1ty*v2x + v1y*v2x + pty*(v1tx - v1x - v2tx + v2x) -
+                ptx*v2y + px*v2y + v1tx*v2y - v1x*v2y));
 
         bool result = false;
         double result_s;
@@ -777,10 +801,10 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
         {
             if(t<1e-5)
             {
-                qDebug() << "A("<<v1x<<","<<v1y<<")-("<<v1tx<<","<<v1ty<<")";
-                qDebug() << "B("<<v2x<<","<<v2y<<")-("<<v2tx<<","<<v2ty<<")";
-                qDebug() << "P("<<px<<","<<py<<")-("<<ptx<<","<<pty<<")";
-                qDebug() << "t " << t << "; s " << result_s;
+                std::cerr << "A("<<v1x<<","<<v1y<<")-("<<v1tx<<","<<v1ty<<")\n";
+                std::cerr << "B("<<v2x<<","<<v2y<<")-("<<v2tx<<","<<v2ty<<")\n";
+                std::cerr << "P("<<px<<","<<py<<")-("<<ptx<<","<<pty<<")\n";
+                std::cerr << "t " << t << "; s " << result_s << '\n';
             }
             return std::make_pair(true,t);
         }

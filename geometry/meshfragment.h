@@ -26,6 +26,7 @@ public:
 
     void GenerateBrick(double ElementSize, double width, double height);
     void GenerateBrick2(double ElementSize, double width, double height);
+    void GenerateSelfCollisionBrick(double ElementSize, double width, double height);
     void GenerateSpecialBrick(double ElementSize);
     void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);
     void GenerateBall(double x, double y, double r1, double r2, double ElementSize);

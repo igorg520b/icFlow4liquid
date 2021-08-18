@@ -122,6 +122,8 @@ private slots:
 
     void on_actionStretch_triggered();
 
+    void on_actionSelf_collision_triggered();
+
 private:
 //    PreferencesGUI prefsGUI;
     icy::Model model;

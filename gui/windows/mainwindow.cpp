@@ -352,3 +352,10 @@ void MainWindow::on_actionStretch_triggered()
     updateGUI();
 }
 
+
+void MainWindow::on_actionSelf_collision_triggered()
+{
+    model.Reset(3);
+    updateGUI();
+}
+
