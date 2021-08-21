@@ -36,5 +36,6 @@ void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, do
     double const_term = hsqk*fd.dot(fd)/2;
     Eigen::Vector2d linear_term = hsqk*(xt-spr);
     Eigen::Matrix2d quadratic_term = hsqk*Eigen::Matrix2d::Identity();
-    eq.AddToEquation(const_term, linear_term, quadratic_term, eqId);
+//    eq.AddToEquation(const_term, linear_term, quadratic_term, eqId);
+    eq.AddToEquation(hsqk*fd.dot(fd)/2, hsqk*(xt-spr), hsqk*Eigen::Matrix2d::Identity(), eqId);
 }

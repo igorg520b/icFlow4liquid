@@ -146,8 +146,7 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams 
     constTerm += const_term_mass;
 
     // distribute to the equation of motion
-    int ids[3] = {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId};
-    eq.AddToEquation(constTerm, DE, HE, ids);
+    eq.AddToEquation(constTerm, DE, HE, {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId});
 
     return true;
 }

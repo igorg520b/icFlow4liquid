@@ -152,7 +152,7 @@ void EquationOfMotionSolver::CreateStructure()
 }
 
 // creating the values array
-void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen::Matrix2d mat)
+void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen::Matrix2d &mat)
 {
     if (row < 0 || column < 0 || row < column) return;
     else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
@@ -193,7 +193,7 @@ void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen
     }
 }
 
-void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d vec)
+void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d &vec)
 {
     if(idx < 0) return;
     if((unsigned)idx >= N) throw std::runtime_error("AddToC: index out of range");
@@ -204,15 +204,16 @@ void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d vec)
     cval[idx*DOFS+1]+=vec.y();
 }
 
-void EquationOfMotionSolver::AddToConstTerm(const double c)
+void EquationOfMotionSolver::AddToConstTerm(const double &c)
 {
 #pragma omp atomic
     cfix+=c;
 }
 
-void EquationOfMotionSolver::AddToEquation(double constTerm,
-                                           Eigen::Matrix<double,6,1> &linearTerm,
-                                           Eigen::Matrix<double,6,6> quadraticTerm, int (&ids)[3])
+void EquationOfMotionSolver::AddToEquation(const double &constTerm,
+                                           const Eigen::Matrix<double,6,1> &linearTerm,
+                                           const Eigen::Matrix<double,6,6> &quadraticTerm,
+                                           const int (&ids)[3])
 {
     AddToConstTerm(constTerm);
 
@@ -230,7 +231,9 @@ void EquationOfMotionSolver::AddToEquation(double constTerm,
     }
 }
 
-void EquationOfMotionSolver::AddToEquation(double constTerm, Eigen::Vector2d &linearTerm, Eigen::Matrix2d quadraticTerm, int id)
+void EquationOfMotionSolver::AddToEquation(const double &constTerm,
+                                           const Eigen::Vector2d &linearTerm,
+                                           const Eigen::Matrix2d &quadraticTerm, int id)
 {
     AddToConstTerm(constTerm);
     AddToC(id, linearTerm);
@@ -306,7 +309,7 @@ bool EquationOfMotionSolver::Solve()
 
     solution_norm = 0;
 #pragma omp parallel for reduction(+:solution_norm)
-    for(int i=0;i<N*DOFS;i++) solution_norm+=(double)(sln[i]*sln[i]);
+    for(unsigned i=0;i<N*DOFS;i++) solution_norm+=(double)(sln[i]*sln[i]);
 
     solution_norm = sqrt(solution_norm);
 
