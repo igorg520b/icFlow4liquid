@@ -41,8 +41,9 @@ MainWindow::MainWindow(QWidget *parent)
     splitter_main = new QSplitter(Qt::Orientation::Horizontal);
     splitter_main->addWidget(pbrowser);
     splitter_main->addWidget(qt_vtk_widget);
-    splitter_main->setStretchFactor(0,100);
-    splitter_main->setStretchFactor(1,500);
+    //splitter_main->setStretchFactor(0,100);
+    //splitter_main->setStretchFactor(1,500);
+    splitter_main->setSizes(QList<int>({100, 500}));
     setCentralWidget(splitter_main);
 
     // toolbar - comboboxes
