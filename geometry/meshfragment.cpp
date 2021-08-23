@@ -205,7 +205,7 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
 
     int point1 = gmsh::model::occ::addPoint(-width/2, 0, 0, 1.0);
     int point2 = gmsh::model::occ::addPoint(-width/2, height, 0, 1.0);
-    int point3 = gmsh::model::occ::addPoint(width/2, height*1.1, 0, 1.0);
+    int point3 = gmsh::model::occ::addPoint(width/2, height, 0, 1.0);
     int point4 = gmsh::model::occ::addPoint(width/2, 0, 0, 1.0);
 
     int line1 = gmsh::model::occ::addLine(point1, point2);
@@ -220,8 +220,9 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     gmsh::model::occ::addPlaneSurface(loops);
     gmsh::model::occ::synchronize();
 
-    int groupTag1 = gmsh::model::addPhysicalGroup(1, {line3});
-    int groupTag2 = gmsh::model::addPhysicalGroup(1, {line1});
+    int groupTag1 = gmsh::model::addPhysicalGroup(1, {line3});  // right boundary
+    int groupTag2 = gmsh::model::addPhysicalGroup(1, {line1});  // left boundary
+    int groupTag3 = gmsh::model::addPhysicalGroup(0, {point2, point4});
 
 
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
@@ -259,7 +260,6 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     {
         icy::Node* nd = nodes[mtags[nodeTags[i]]];
         nd->group.set(0);
-        nd->pinned = true;
     }
     nodeTags.clear();
     nodeCoords.clear();
@@ -268,7 +268,14 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     {
         icy::Node* nd = nodes[mtags[nodeTags[i]]];
         nd->group.set(1);
-        nd->pinned = true;
+    }
+    nodeTags.clear();
+    nodeCoords.clear();
+    gmsh::model::mesh::getNodesForPhysicalGroup(0, groupTag3, nodeTags, nodeCoords);
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        icy::Node* nd = nodes[mtags[nodeTags[i]]];
+        nd->group.set(2);
     }
 
     // GET ELEMENTS
@@ -421,7 +428,7 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     gmsh::clear();
 }
 
-void icy::MeshFragment::GenerateBrick2(double ElementSize, double width, double height)
+void icy::MeshFragment::GenerateBrick_Simple(double ElementSize, double width, double height)
 {
     deformable = true;
 

@@ -25,7 +25,7 @@ public:
     void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize, double width, double height);
-    void GenerateBrick2(double ElementSize, double width, double height);
+    void GenerateBrick_Simple(double ElementSize, double width, double height);
     void GenerateSelfCollisionBrick(double ElementSize, double width, double height);
     void GenerateSpecialBrick(double ElementSize);
     void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);

@@ -12,6 +12,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     fragments.clear();
     movableBoundary.clear();
     movableNodes.clear();
+    collision_interactions.clear();
 
     switch(typeOfSetup)
     {
@@ -20,7 +21,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     {
         fragments.resize(3);
         fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
-        fragments[1].GenerateBrick2(MeshSizeMax,2,1);
+        fragments[1].GenerateBrick(MeshSizeMax,2,1);
         fragments[2].GenerateContainer(MeshSizeMax,offset);
 
         movableBoundary.resize(fragments[0].boundary_edges.size());
@@ -36,13 +37,13 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         const double height = 0.8;
         const double width = 2.0;
         fragments.resize(5);
-        fragments[0].GenerateBrick2(MeshSizeMax, width, height);
-        fragments[1].GenerateIndenter(MeshSizeMax/2, width*0.1/2, height+radius+offset, radius, 1);
-        fragments[2].GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset, radius, 1);
-        fragments[3].GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset), radius, 1);
-        fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset), radius, 1);
-        for(unsigned i=1;i<=2;i++)
-            std::copy(fragments[i].boundary_edges.begin(),fragments[i].boundary_edges.end(),std::back_inserter(movableBoundary));
+        fragments[0].GenerateBrick(MeshSizeMax, width, height);
+        for(Node *nd : fragments[0].nodes) if(nd->group.test(2)) nd->pinned=true;
+        fragments[1].GenerateIndenter(MeshSizeMax/2, width*0.1/2, height+radius+offset*1.5, radius, 1);
+        fragments[2].GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
+        fragments[3].GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
+        fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
+        std::copy(fragments[1].boundary_edges.begin(),fragments[1].boundary_edges.end(),std::back_inserter(movableBoundary));
     }
         break;
 
@@ -50,6 +51,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     case 2:
         fragments.resize(1);
         fragments[0].GenerateBrick(MeshSizeMax,2,1);
+        for(Node *nd : fragments[0].nodes) if(nd->group.test(0) || nd->group.test(1)) nd->pinned=true;
         movableBoundary.resize(fragments[0].special_boundary.size());
         std::copy(fragments[0].special_boundary.begin(),fragments[0].special_boundary.end(),movableBoundary.begin());
         break;

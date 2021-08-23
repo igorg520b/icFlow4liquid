@@ -68,7 +68,7 @@ bool icy::Model::Step()
         {
             std::cout << "intersection detected - discarding this attempt\n";
             attempt++;
-            timeStepFactor*=(ccd_result.second*0.8);
+            timeStepFactor*=(std::max((1-ccd_result.second)*0.8,0.1));
         }
         else if(!sln_res)
         {
