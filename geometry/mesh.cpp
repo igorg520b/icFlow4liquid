@@ -211,7 +211,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
             else nd->eqId=freeNodeCount++;
             allNodes.push_back(nd);
         }
-        mf.GenerateLeafs(allBoundaryEdges.size());
+        mf.GenerateLeaves(allBoundaryEdges.size());
 
         for(unsigned i=0;i<mf.elems.size();i++) allElems.push_back(mf.elems[i]);
         allBoundaryEdges.insert(allBoundaryEdges.end(), mf.boundary_edges.begin(), mf.boundary_edges.end());
@@ -500,11 +500,6 @@ void icy::Mesh::UpdateValues()
     case icy::Model::VisOpt::plasticity_norm:
         for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
-        break;
-
-    case icy::Model::VisOpt::adj_elems_count_elem:
-        for(std::size_t i=0;i<allElems.size();i++)
-            visualized_values->SetValue(i, allElems[i]->adj_elems.size());
         break;
 
     case icy::Model::VisOpt::QM1:

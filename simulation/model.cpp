@@ -366,7 +366,7 @@ void icy::Model::GetNewMaterialPosition()
             if(!nd->pinned) nd->x_initial = nd->xt;
         }
 
-        mf.PostMeshingEvaluations(false);
+        mf.PostMeshingEvaluations();
     }
 
     mesh.freeNodeCount=0;

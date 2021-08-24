@@ -48,7 +48,7 @@ public:
     void InitialGuess(double timeStep, double timeStepFactor);
     bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
     bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
-    void GetNewMaterialPosition();
+    void GetNewMaterialPosition();      // relax the mesh to a new rest state
 
     void UnsafeUpdateGeometry();
     void SetIndenterPosition(double position);
@@ -65,7 +65,7 @@ public:
     enum VisOpt { none, elem_area, energy_density, stress_xx, stress_yy, stress_hydrostatic,
                 ps1, ps2, shear_stress, volume_change, velocity_div, elem_group, node_group,
                 vel_mag, Green_strain_xx, Green_strain_yy, Green_strain_xy, plasticity_norm,
-                adj_elems_count_nd, adj_elems_count_elem, QM1, avg_edge_len};
+                adj_elems_count_nd, QM1, avg_edge_len};
     Q_ENUM(VisOpt)
     void ChangeVisualizationOption(icy::Model::VisOpt option);
 private:

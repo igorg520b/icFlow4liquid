@@ -1,13 +1,14 @@
 #include <unordered_map>
 #include <unordered_set>
-//#include <hdf5.h>
 #include <H5Cpp.h>
 #include <gmsh.h>
 #include "meshfragment.h"
+#include "tbb/concurrent_unordered_map.h"
+#include "edge.h"
 
-icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(50000);
-icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(50000);
-icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(50000);
+icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(10000);
+icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(10000);
+icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(10000);
 
 
 icy::MeshFragment::~MeshFragment()
@@ -594,7 +595,7 @@ void icy::MeshFragment::GetFromGmsh()
     gmsh::clear();
 }
 
-void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
+void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
 {
     root_ccd.isLeaf = root_contact.isLeaf = false;
     root_contact.test_self_collision = root_ccd.test_self_collision = this->deformable;
@@ -620,7 +621,7 @@ void icy::MeshFragment::GenerateLeafs(unsigned edge_idx)
         leaves_for_ccd.push_back(leaf_ccd);
         leaves_for_contact.push_back(leaf_contact);
     }
-    qDebug() << "icy::MeshFragment::GenerateLeafs() " << leaves_for_ccd.size() << " " << leaves_for_contact.size();
+    std::clog << "GenerateLeaves() " << leaves_for_ccd.size() << " " << leaves_for_contact.size() << '\n';
 }
 
 
@@ -983,7 +984,7 @@ void icy::MeshFragment::SaveFragment(std::string fileName)
 }
 
 
-void icy::MeshFragment::PostMeshingEvaluations(bool inferConnectivity)
+void icy::MeshFragment::PostMeshingEvaluations()
 {
     unsigned nElems = elems.size();
     unsigned nNodes = nodes.size();
@@ -1004,7 +1005,7 @@ void icy::MeshFragment::PostMeshingEvaluations(bool inferConnectivity)
         }
     }
 
-
+/*
     if(inferConnectivity)
     {
 #pragma omp parallel for
@@ -1047,6 +1048,7 @@ void icy::MeshFragment::PostMeshingEvaluations(bool inferConnectivity)
             elem->adj_elems.erase(std::remove(elem->adj_elems.begin(), elem->adj_elems.end(), i), elem->adj_elems.end());
         }
     }
+*/
 
 }
 
@@ -1071,8 +1073,88 @@ void icy::MeshFragment::KeepGmshResult()
         gmsh::model::mesh::getNodes(ge.nodeTags_nodes, ge.coord_nodes, ge.parametricCoord_nodes, dim, tag);
         gmsh::model::mesh::getElements(ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements, dim, tag);
     }
+}
+
+
+void icy::MeshFragment::CreateEdges()
+{
+    // clear adj_elems vector and isBoundary flag
+#pragma omp parallel for
+    for(std::size_t i=0;i<nodes.size();i++)
+    {
+        icy::Node* nd = nodes[i];
+        nd->adj_elems.clear();
+        nd->isBoundary = false;
+    }
+
+    // edges_map will hold all edges and their connected elements
+    std::unordered_map<uint64_t, Edge> edges_map;
+
+    // associate edges with one or two adjacent elements
+    // for simplicity, this part of the algorithm is single-threaded
+
+    for(std::size_t k=0;k<elems.size();k++)
+    {
+        icy::Element *elem = elems[k];
+        for(int i=0;i<3;i++)
+        {
+            elem->incident_elems[i] = nullptr;
+            elem->nds[i]->adj_elems.push_back(elem);
+
+            // insert element's edges into edges_map
+            Node *nd0 = elem->nds[i];
+            Node *nd1 = elem->nds[(i+1)%3];
+            uint64_t key = Node::make_key(nd0,nd1);
+
+            auto result = edges_map.try_emplace(key, nd0, nd1);
+            Edge &e = result.first->second;
+            e.AddElement(elem, (i+2)%3);
+        }
+    }
+
+    std::vector<Edge> edges_as_vector;
+    edges_as_vector.resize(edges_map.size());
+//    boundaryEdges.clear();
+
+    std::size_t count = 0;
+    for(auto &kvpair : edges_map)
+    {
+        icy::Edge &e = kvpair.second;
+        e.isBoundary = (e.elems[0] == nullptr || e.elems[1] == nullptr);
+//        if(e.isBoundary) boundaryEdges.push_back(e);
+        edges_as_vector[count++] = e;
+    }
+
+#pragma omp parallel for
+    for(std::size_t i=0;i<edges_as_vector.size();i++)
+    {
+        icy::Edge &e = edges_as_vector[i];
+        icy::Element *elem_of_edge0 = e.elems[0];
+        icy::Element *elem_of_edge1 = e.elems[1];
+        short idx0 = e.edge_in_elem_idx[0];
+        short idx1 = e.edge_in_elem_idx[1];
+        if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("CreateEdges(): disconnected edge");
+
+        if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = e;
+        if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = e;
+
+        // ensure that each element "knows" its incident elements (remains nullptr if element is on the boundary)
+        if(!e.isBoundary)
+        {
+            elem_of_edge0->incident_elems[idx0] = elem_of_edge1;
+            elem_of_edge1->incident_elems[idx1] = elem_of_edge0;
+        }
+    }
 
 
 }
 
+/*
 
+
+
+
+
+#pragma omp parallel for
+    for(std::size_t i=0;i<nodes->size();i++) (*nodes)[i]->PrepareFan2();
+*/

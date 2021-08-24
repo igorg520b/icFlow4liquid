@@ -69,10 +69,10 @@ add_executable(fl4liquid
 
     geometry/node.cpp
     geometry/node.h
-
     geometry/element.cpp
     geometry/element.h
-
+    geometry/edge.cpp
+    geometry/edge.h
     geometry/meshfragment.cpp
     geometry/meshfragment.h
     geometry/mesh.cpp
@@ -97,26 +97,26 @@ add_executable(fl4liquid
     bvh/ConcurrentPool.h
 )
 
-target_include_directories(fl4liquid PUBLIC ${HDF5_INCLUDE_DIRS})
-target_include_directories(fl4liquid PUBLIC ${Boost_INCLUDE_DIRS})
-target_include_directories(fl4liquid PUBLIC gui geometry simulation gui/propertybrowser)
-target_include_directories(fl4liquid PUBLIC gui/objectpropertybrowser gui/windows)
-target_include_directories(fl4liquid PUBLIC gui/interactor)
+target_include_directories(fl4liquid PRIVATE ${HDF5_INCLUDE_DIRS})
+target_include_directories(fl4liquid PRIVATE ${Boost_INCLUDE_DIRS})
+target_include_directories(fl4liquid PRIVATE gui geometry simulation gui/propertybrowser)
+target_include_directories(fl4liquid PRIVATE gui/objectpropertybrowser gui/windows)
+target_include_directories(fl4liquid PRIVATE gui/interactor)
 
 target_link_libraries(fl4liquid PRIVATE Qt5::Widgets Qt5::Charts Qt5::Core)
 target_link_libraries(fl4liquid PRIVATE ${VTK_LIBRARIES})
-target_link_libraries(fl4liquid PUBLIC gmsh)
-target_link_libraries(fl4liquid PUBLIC tbb)
-target_link_libraries(fl4liquid PUBLIC gomp pthread m dl)
-target_link_libraries(fl4liquid PUBLIC ${HDF5_LIBRARIES})
-target_link_libraries(fl4liquid PUBLIC Eigen3::Eigen)
-target_link_libraries(fl4liquid PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(fl4liquid PRIVATE gmsh)
+target_link_libraries(fl4liquid PRIVATE tbb)
+target_link_libraries(fl4liquid PRIVATE gomp pthread m dl)
+target_link_libraries(fl4liquid PRIVATE ${HDF5_LIBRARIES})
+target_link_libraries(fl4liquid PRIVATE Eigen3::Eigen)
+target_link_libraries(fl4liquid PRIVATE ${Boost_LIBRARIES})
 
 #MOSEK
-target_include_directories(fl4liquid PUBLIC "~/mosek/9.3/tools/platform/linux64x86/h")
-target_link_directories(fl4liquid PUBLIC "~/mosek/9.3/tools/platform/linux64x86/bin")
+target_include_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64x86/h")
+target_link_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64x86/bin")
 target_link_libraries(fl4liquid PRIVATE mosek64)
 
-target_compile_options(fl4liquid PUBLIC -fopenmp)
+target_compile_options(fl4liquid PRIVATE -fopenmp)
 
 

@@ -5,7 +5,7 @@
 #include "equationofmotionsolver.h"
 #include "parameters_sim.h"
 
-namespace icy { class Interaction; class Node;}
+namespace icy { class Interaction; struct Node;}
 
 class icy::Interaction
 {

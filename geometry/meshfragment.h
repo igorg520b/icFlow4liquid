@@ -1,3 +1,4 @@
+#if !defined(Q_MOC_RUN) // MOC has a glitch when parsing tbb headers
 #ifndef MESHFRAGMENT_H
 #define MESHFRAGMENT_H
 
@@ -34,7 +35,7 @@ public:
 
     void RemeshSpecialBrick(double ElementSize);
     void RemeshWithBackgroundMesh(double ElementSize);
-    void PostMeshingEvaluations(bool inferConnectivity=true);  // element/node area and connectivity information
+    void PostMeshingEvaluations();  // element/node area and connectivity information
     void Swap();
 
 private:
@@ -42,8 +43,8 @@ private:
     std::vector<icy::Node*> nodes_tmp;  // for remeshing
     std::vector<icy::Element*> elems_tmp;// for remeshing
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges_tmp;
-    void GetFromGmsh();     // populate "nodes" and "elems" vectors
-    void KeepGmshResult();  // save into gmshResult
+    void GetFromGmsh();     // populate "nodes" and "elems"
+    void KeepGmshResult();  // save gmsh representation into gmshResult
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
 
@@ -63,14 +64,19 @@ private:
     std::unordered_map<std::size_t, std::size_t> mtags; // gmsh nodeTag -> sequential position in nodes[]
 
 // BROAD PHASE
-
 public:
     BVHN root_ccd, root_contact;
     std::vector<BVHN*> leaves_for_ccd, leaves_for_contact;
-    void GenerateLeafs(unsigned edge_idx);
+    void GenerateLeaves(unsigned edge_idx);
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
+
+// FRACTURE MODEL
+public:
+    void CreateEdges();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
+private:
 
 };
 
 #endif // MESHFRAGMENT_H
+#endif
