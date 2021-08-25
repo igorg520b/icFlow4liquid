@@ -57,6 +57,7 @@ struct icy::Node
     void UpdateFan();   // performed when tentative displacements and stress distribution change
     void PrintoutFan(); // for testing
     float fan_angle_span;  // assigned in UpdateFan();
+    bool crack_tip;
 
 };
 

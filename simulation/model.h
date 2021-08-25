@@ -31,6 +31,7 @@ public:
 private:
     bool abortRequested = false;
     void Aborting();       // called before exiting Step() if aborted
+    constexpr static int colWidth = 12;    // table column width when logging
 signals:
     void stepCompleted();
     void stepAborted();

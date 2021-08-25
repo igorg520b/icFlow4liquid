@@ -1,5 +1,6 @@
-#include <cmath>
+//#include <cmath>
 #include "node.h"
+#include "spdlog/spdlog.h"
 
 void icy::Node::Reset()
 {
@@ -9,19 +10,15 @@ void icy::Node::Reset()
     pinned = false;
     spring_attached = 0;
     group.reset();
+    crack_tip = false;
 }
 
 void icy::Node::Reset(int locId_, double x, double y)
 {
-    vn = Eigen::Vector2d::Zero();
+    Reset();
     locId = locId_;
     x_initial << x,y;
     intended_position = xt = xn = x_initial;
-    eqId = globId = -1;
-    area = 0;
-    pinned = false;
-    spring_attached = 0;
-    group.reset();
 }
 
 void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double h, Eigen::Vector2d &spring)
@@ -52,7 +49,34 @@ void icy::Node::UpdateFan()
 
 void icy::Node::PrintoutFan()
 {
-    throw std::runtime_error("not implemented");
+    spdlog::info("Printing fan for node {}; crack_tip: {}", locId, crack_tip);
+
+//    std::cout << "fan size " << fan.size() << "; isBoundary " << isBoundary << std::endl;
+//    std::cout << "adj elems size " << adjacent_elems.size() << std::endl;
+
+    /*
+void icy::Node::PrintoutFan()
+{
+
+    for(Sector &s : fan)
+    {
+        std::cout << s.nd[0]->locId << "-" << s.nd[1]->locId;
+        std::cout << " ; " << s.face->nds[0]->locId << "-" << s.face->nds[1]->locId << "-"<< s.face->nds[2]->locId;
+//        std::cout << " ; C " << s.e[0].nds[0]->locId << "-" << s.e[0].nds[1]->locId << (s.e[0].isBoundary ? " b " : " nb ");
+//        std::cout << (s.e[0].toSplit ? "* " : " ");
+        //std::cout << s.e[0].elems[0] << " " << s.e[0].elems[1];
+//        std::cout << "; CC " << s.e[1].nds[0]->locId << "-" << s.e[1].nds[1]->locId << (s.e[1].isBoundary ? " b " : " nb ");
+//        std::cout << (s.e[1].toSplit ? "* " : " ");
+        //std::cout << s.e[1].elems[0] << " " << s.e[1].elems[1];
+        std::cout << std::endl;
+    }
+    std::cout << "--------------------------------\n";
+    std::cout << std::endl;
+    for(int i=0;i<100;i++)
+    std::cout << std::flush;
+}
+
+*/
 }
 
 
@@ -129,29 +153,6 @@ void icy::Node::PrepareFan2()
     }
 }
 
-void icy::Node::PrintoutFan()
-{
-    std::cout << "Printing fan for node " << locId << (crack_tip ? " crack_tip" : " ") << std::endl;
-    std::cout << "fan size " << fan.size() << "; isBoundary " << isBoundary << std::endl;
-    std::cout << "adj elems size " << adjacent_elems.size() << std::endl;
-
-    for(Sector &s : fan)
-    {
-        std::cout << s.nd[0]->locId << "-" << s.nd[1]->locId;
-        std::cout << " ; " << s.face->nds[0]->locId << "-" << s.face->nds[1]->locId << "-"<< s.face->nds[2]->locId;
-//        std::cout << " ; C " << s.e[0].nds[0]->locId << "-" << s.e[0].nds[1]->locId << (s.e[0].isBoundary ? " b " : " nb ");
-//        std::cout << (s.e[0].toSplit ? "* " : " ");
-        //std::cout << s.e[0].elems[0] << " " << s.e[0].elems[1];
-//        std::cout << "; CC " << s.e[1].nds[0]->locId << "-" << s.e[1].nds[1]->locId << (s.e[1].isBoundary ? " b " : " nb ");
-//        std::cout << (s.e[1].toSplit ? "* " : " ");
-        //std::cout << s.e[1].elems[0] << " " << s.e[1].elems[1];
-        std::cout << std::endl;
-    }
-    std::cout << "--------------------------------\n";
-    std::cout << std::endl;
-    for(int i=0;i<100;i++)
-    std::cout << std::flush;
-}
 
 
 

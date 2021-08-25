@@ -2,7 +2,7 @@
 #include <QtGlobal>
 #include "model.h"
 #include "mesh.h"
-
+#include "spdlog/spdlog.h"
 
 
 void icy::Model::Reset(unsigned setup)
@@ -37,8 +37,9 @@ bool icy::Model::Step()
         InitialGuess(h, timeStepFactor);
         std::pair<bool, double> ccd_result = mesh.EnsureNoIntersectionViaCCD();
         ccd_res = ccd_result.first;
-        std::cout << std::scientific << std::setprecision(1);
-        std::cout << "STEP: " << currentStep << "-" << attempt << " TCF " << timeStepFactor << std::endl;
+        spdlog::info("\n┌{2:─^{1}}┬{3:─^{1}}┬{4:─^{1}}┬{5:─^{1}}┬{6:─^{1}}┐ ST {7:>}-{8:<2}"
+                     ,"",colWidth, " it "," obj "," sln "," tsf "," ra ", currentStep,attempt);
+
         sln_res=true;
         double first_solution_norm = 0;
 
@@ -55,35 +56,31 @@ bool icy::Model::Step()
             converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff ||
                          (ratio > 0 && ratio < prms.ConvergenceEpsilon));
 
-            std::cout << "IT "<< std::left << std::setw(2) << iter;
-            std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;
-            std::cout << " sln " << std::setw(10) << eqOfMotion.solution_norm;
-            if(iter) std::cout << " ra " << std::setw(10) << ratio;
-            else std::cout << "tsf " << std::setw(20) << timeStepFactor;
-            std::cout << '\n';
+            spdlog::info("│{2: ^{1}d}│{3: ^{1}.3e}│{4: ^{1}.3e}│{5: ^{1}.3e}│{6: ^{1}.3e}│",
+    "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
             iter++;
         }
+        spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
 
         if(!ccd_res)
         {
-            std::cout << "intersection detected - discarding this attempt\n";
+            spdlog::info("intersection detected - discarding attempt {}",attempt);
             attempt++;
             timeStepFactor*=(std::max((1-ccd_result.second)*0.8,0.1));
         }
         else if(!sln_res)
         {
-            std::cout << "could not solve - discarding this attempt\n";
+            spdlog::info("matrix not PSD - discarding attempt {}",attempt);
             attempt++;
             timeStepFactor*=0.5;
         }
         else if(!converges)
         {
-            std::cout << "did not converge - discarding this attempt\n";
+            spdlog::info("did not converge - discarding attempt {}",attempt);
             attempt++;
             timeStepFactor*=0.5;
         }
         if(attempt > 20) throw std::runtime_error("could not solve");
-        std::cout << std::endl;
     } while (!ccd_res || !sln_res || !converges);
 
     // accept step
@@ -104,7 +101,7 @@ void icy::Model::RequestAbort(void) { abortRequested = true; }
 void icy::Model::Aborting()
 {
     //perform any cleanup if step was aborted
-    qDebug() << "icy::ModelController::Aborting()";
+    spdlog::info("icy::ModelController::Aborting()");
     abortRequested = false;
     emit stepAborted();
 }
@@ -204,8 +201,6 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
         for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
     }
 
-
-
     // solve
     bool solve_result = eqOfMotion.Solve();
     if(!solve_result) return false;
@@ -295,8 +290,9 @@ void icy::Model::GetNewMaterialPosition()
                 nd->xt = nd->x_hat = nd->x_initial;
             }
 
-            std::cout << std::scientific << std::setprecision(1);
-            std::cout << "\nRELAXING STEP: " << attempt << " h " << h << std::endl;
+            spdlog::info("\n╔{0:─^{1}}┬{0:─^{1}}┬{0:─^{1}}┬{0:─^{1}}┬{0:─^{1}}┐  R-STEP: {7:<3}\n"
+                         "│{2: ^{1}}│{3: ^{1}}│{4: ^{1}}│{5: ^{1}}│{6: ^{1}}│","",colWidth, "it","obj","sln","h","ra", attempt);
+
             sln_res=true;
             double first_solution_norm = 0;
 
@@ -310,29 +306,26 @@ void icy::Model::GetNewMaterialPosition()
                 converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff ||
                              (ratio > 0 && ratio < prms.ConvergenceEpsilon));
 
-                std::cout << "IT "<< std::left << std::setw(2) << iter;
-                std::cout << " obj " << std::setw(10) << eqOfMotion.objective_value;
-                std::cout << " sln " << std::setw(10) << eqOfMotion.solution_norm;
-                if(iter) std::cout << " ra " << std::setw(10) << ratio;
-                else std::cout << "h " << std::setw(20) << h;
-                std::cout << '\n';
+                spdlog::info("│{2: ^{1}d}│{3: ^{1}.3e}│{4: ^{1}.3e}│{5: ^{1}.3e}│{6: ^{1}.3e}│",
+        "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, h, ratio);
+
                 iter++;
             }
+            spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
 
             if(!sln_res)
             {
-                std::cout << "could not solve - discarding this attempt\n";
+                spdlog::info("Matrix not PSD - discarding this attempt");
                 attempt++;
                 h*=0.5;
             }
             else if(!converges)
             {
-                std::cout << "did not converge - discarding this attempt\n";
+                spdlog::info("did not converge - discarding this attempt");
                 attempt++;
                 h*=0.5;
             }
             if(attempt > 20) throw std::runtime_error("relaxation step: could not solve");
-            std::cout << std::endl;
         } while (!sln_res || !converges);
 
 
@@ -382,7 +375,7 @@ void icy::Model::GetNewMaterialPosition()
 
 void icy::Model::AttachSpring(double X, double Y, double radius)
 {
-    std::cout << "icy::Model::AttachSpring " << X << "; " << Y << "; " << radius << std::endl;
+    spdlog::debug("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
     Eigen::Vector2d attachmentPos(X,Y);
     vtk_update_mutex.lock();
 #pragma omp parallel for
@@ -404,7 +397,7 @@ void icy::Model::AttachSpring(double X, double Y, double radius)
 
 void icy::Model::ReleaseSpring()
 {
-    std::cout << "icy::Model::ReleaseSpring " << std::endl;
+    spdlog::debug("icy::Model::ReleaseSpring");
     vtk_update_mutex.lock();
 #pragma omp parallel for
     for(unsigned i=0;i<mesh.allNodes.size();i++)
@@ -417,7 +410,7 @@ void icy::Model::ReleaseSpring()
 
 void icy::Model::AdjustSpring(double dX, double dY)
 {
-    std::cout << "icy::Model::AdjustSpring " << dX << "; " << dY << std::endl;
+    spdlog::debug("icy::Model::AdjustSpring {}-{}",dX,dY);
     spring << dX,dY;
 }
 

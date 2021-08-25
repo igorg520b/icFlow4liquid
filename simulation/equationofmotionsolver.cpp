@@ -1,6 +1,7 @@
 #include "equationofmotionsolver.h"
 #include <iostream>
 #include <algorithm>
+#include "spdlog/spdlog.h"
 
 EquationOfMotionSolver::EquationOfMotionSolver()
 {
@@ -21,13 +22,13 @@ EquationOfMotionSolver::~EquationOfMotionSolver()
     // free the elements of rows_Neighbors and rows_pcsr
     for(std::size_t i=0;i<rows_Neighbors.size();i++) delete rows_Neighbors[i];
     for(std::size_t i=0;i<rows_pcsr.size();i++) delete rows_pcsr[i];
-    std::cout << "~EquationOfMotionSolver() done" << std::endl;
+    spdlog::debug("~EquationOfMotionSolver()");
 }
 
 
 void MSKAPI EquationOfMotionSolver::printstr(void *, const char str[])
 {
-    std::cout << str << std::endl;
+    spdlog::info("{}",str);
 }
 
 
@@ -132,8 +133,6 @@ void EquationOfMotionSolver::CreateStructure()
             }
             else throw std::runtime_error("matrix is not lower-triangular");
 
-
-
             if((int)local_column <= previous_column) {
                 std::cout << "sorted_vec: ";
                 for(unsigned int const &idx : sorted_vec) std::cout << idx << ", ";
@@ -145,8 +144,7 @@ void EquationOfMotionSolver::CreateStructure()
 
     if(nnz!=count)
     {
-        std::cout << "csr_rows["<<N<<"]="<<nnz<< std::endl;
-        std::cout << "nnz="<<nnz<<"; count="<<count<< std::endl;
+        spdlog::critical("csr_rows[{}]=={}, whereas count=={}",N,nnz,count);
         throw std::runtime_error("nnz != count");
     }
 }
@@ -264,7 +262,7 @@ bool EquationOfMotionSolver::Solve()
     r = MSK_putclist(task, numvar, csubj.data(), cval.data());
     if (r != MSK_RES_OK)
     {
-        std::cout << "MSK_putclist returns " << r << std::endl;
+        spdlog::critical("MSK_putclist returns {}",r);
         throw std::runtime_error("MSK_putclist");
     }
 
@@ -283,12 +281,12 @@ bool EquationOfMotionSolver::Solve()
     r = MSK_optimizetrm(task, &trmcode);
     if(r == MSK_RES_ERR_OBJ_Q_NOT_PSD)
     {
-        std::cout << "The quadratic coefficient matrix in the objective is not positive semidefinite" << std::endl;
+//        spdlog::info("EquationOfMotionSolver: The quadratic coefficient matrix in the objective is not positive semidefinite");
         return false;
     }
     if (r != MSK_RES_OK)
     {
-        std::cout << "MSK_optimizetrm returns " << r << std::endl;
+        spdlog::critical("EquationOfMotionSolver: MSK_optimizetrm returns", r);
         throw std::runtime_error("MSK_optimizetrm");
     }
 
@@ -305,7 +303,7 @@ bool EquationOfMotionSolver::Solve()
     //     std::cout << "\nMSK_SOL_ITR sol = " << objective_value << std::endl;
 
     r = MSK_deletetask(&task);
-    if (r != MSK_RES_OK) std::cout << "MSK_deletetask error" << std::endl;
+    if (r != MSK_RES_OK) spdlog::warn("MSK_deletetask error");
 
     solution_norm = 0;
 #pragma omp parallel for reduction(+:solution_norm)
@@ -451,6 +449,4 @@ void EquationOfMotionSolver::TestSolve()
 
      r = MSK_deletetask(&task);
      if (r != MSK_RES_OK) std::cout << "MSK_deletetask error" << std::endl;
-
-
 }

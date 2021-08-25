@@ -12,6 +12,7 @@ set(CMAKE_AUTORCC ON)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(HDF5 REQUIRED COMPONENTS CXX)
 find_package(Boost REQUIRED)
+find_package(spdlog REQUIRED)
 
 find_package(VTK 9.0 REQUIRED COMPONENTS
   CommonColor
@@ -111,6 +112,7 @@ target_link_libraries(fl4liquid PRIVATE gomp pthread m dl)
 target_link_libraries(fl4liquid PRIVATE ${HDF5_LIBRARIES})
 target_link_libraries(fl4liquid PRIVATE Eigen3::Eigen)
 target_link_libraries(fl4liquid PRIVATE ${Boost_LIBRARIES})
+target_link_libraries(fl4liquid PRIVATE spdlog::spdlog)
 
 #MOSEK
 target_include_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64x86/h")
@@ -118,5 +120,4 @@ target_link_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64x86
 target_link_libraries(fl4liquid PRIVATE mosek64)
 
 target_compile_options(fl4liquid PRIVATE -fopenmp)
-
 
