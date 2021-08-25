@@ -29,4 +29,17 @@ void icy::Edge::AddElement(icy::Element* elem, short idx)
     else throw std::runtime_error("mesh topology error");
 }
 
+icy::Node* icy::Edge::getOtherNode(const icy::Node* const nd) const
+{
+    if(nd==nds[0]) return nds[1];
+    else if(nd==nds[1]) return nds[0];
+    else throw std::runtime_error("icy::Edge::getOtherNode: node does not belong to the edge");
+}
+
+Eigen::Vector2d icy::Edge::getVec(const icy::Node* const from_node) const
+{
+    const Node* other = getOtherNode(from_node);
+    return other->xt - from_node->xt;
+}
+
 

@@ -1,7 +1,8 @@
-//#include <cmath>
 #include "node.h"
-#include "spdlog/spdlog.h"
 #include "element.h"
+#include <algorithm>
+#include <cmath>
+#include "spdlog/spdlog.h"
 
 void icy::Node::Reset()
 {
@@ -40,49 +41,21 @@ void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, do
 
 void icy::Node::PrepareFan()
 {
-    throw std::runtime_error("not implemented");
-}
+    if(adj_elems.size()==0) throw std::runtime_error("PrepareFan: disconnected node");
 
-void icy::Node::UpdateFan()
-{
-    throw std::runtime_error("not implemented");
-}
-
-void icy::Node::PrintoutFan()
-{
-    spdlog::info("Printing fan for node {}; crack_tip: {}; isBoundary{}", locId, crack_tip, isBoundary);
-    spdlog::info("fan.size {}; adj_elems.size {}", fan.size(), adj_elems.size());
-    for(Sector &s : fan)
-        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3:0^4}-{4: <4} │ ",
-                     s.nd[0]->locId, s.nd[1]->locId,
-                     s.face->nds[0]->locId,s.face->nds[1]->locId,s.face->nds[2]->locId);
-}
-
-
-/*
-
-void icy::Node::PrepareFan2()
-{
-    Eigen::Vector3d nd_vec = x_initial;
-
-    unsigned nElems = adjacent_elems.size();
-    if(nElems == 0)
-    {
-        qDebug() << "node " << this->locId;
-        throw std::runtime_error("disconnected node");
-    }
     fan.clear();
-    fan.reserve(nElems);
+    fan.resize(adj_elems.size());
     area = 0;
-    for(unsigned k=0;k<nElems;k++)
+    isBoundary = false;
+    for(unsigned k=0;k<adj_elems.size();k++)
     {
-        icy::Element *elem = adjacent_elems[k];
-        if(!elem->ContainsNode(this))  throw std::runtime_error("PrepareFan2: mesh topology error 0");
+        icy::Element *elem = adj_elems[k];
+        if(!elem->containsNode(this))  throw std::runtime_error("PrepareFan: mesh topology error");
         area += elem->area_initial/3;
 
-        Sector s;
+        Sector &s = fan[k];
         s.face = elem;
-        Eigen::Vector3d tcv = elem->getCenter() - nd_vec;
+        Eigen::Vector2d tcv = elem->getCenter() - x_initial;
         s.centerAngle = atan2(tcv.y(), tcv.x());
 
         short thisIdx, CWIdx, CCWIdx;
@@ -91,19 +64,15 @@ void icy::Node::PrepareFan2()
         s.nd[0] = elem->nds[CWIdx];
         s.nd[1] = elem->nds[CCWIdx];
 
-        // note that the indices are swapped
-        Edge e0 = elem->CWEdge(this);
-        Edge e1 = elem->CCWEdge(this);
-        fan.push_back(s);
-
+        const Edge &e0 = elem->CWEdge(this);
+        const Edge &e1 = elem->CCWEdge(this);
         if(e0.isBoundary || e1.isBoundary) isBoundary = true;
     }
 
-    std::sort(fan.begin(), fan.end(),
-              [](const Sector &f0, const Sector &f1)
-    {return f0.centerAngle < f1.centerAngle; });
+    std::sort(fan.begin(), fan.end(), [](const Sector &f0, const Sector &f1) {return f0.centerAngle < f1.centerAngle; });
 
-    if(isBoundary) // assert means that PrepareFan2 is not called from Fix_X
+    // if boundary, then ensure that sectors start with a boundary element and end with a boundary element
+    if(isBoundary)
     {
         // find the fan element with the border on the CW direction
         auto cw_boundary = std::find_if(fan.begin(), fan.end(), [this](const Sector &f){return f.face->CWEdge(this).isBoundary;});
@@ -114,7 +83,7 @@ void icy::Node::PrepareFan2()
         }
         else
         {
-        std::rotate(fan.begin(), cw_boundary, fan.end());
+            std::rotate(fan.begin(), cw_boundary, fan.end());
         }
     }
 
@@ -123,34 +92,24 @@ void icy::Node::PrepareFan2()
     {
         if(fan[i].nd[1] != fan[i+1].nd[0])
         {
-            std::cout << "\n\n\nfan nodes are not contiguous " << locId << std::endl;
+            spdlog::critical("fan nodes are not contiguous for node {}", locId);
             PrintoutFan();
             throw std::runtime_error("fan nodes are not contiguous");
         }
-//        if(fan[i].e[1].nds[0] != fan[i+1].e[0].nds[0] || fan[i].e[1].nds[1] != fan[i+1].e[0].nds[1])
-//            throw std::runtime_error("edges not shared");
     }
 }
 
-
-
-
-void icy::Node::InitializeFan()
+void icy::Node::UpdateFan()
 {
-    auto get_angle = [](Eigen::Vector2f u, Eigen::Vector2f v)
-    {
-        double dot = u.dot(v);
-//        double dot = u.dot(v)/(u.norm()*v.norm());
-        if(dot > 1) dot = 1.0;
-        else if(dot < -1.0) dot = -1.0;
-        return acos(dot);
-    };
+    // assumes that u and v are normalized
+    auto get_angle = [](Eigen::Vector2d u, Eigen::Vector2d v)
+    { return acos(std::clamp((double)u.dot(v),-1.0,1.0)); };
 
     fan_angle_span = 0;
 
     for(Sector &f : fan)
     {
-        // TODO: Simplify these two statements
+        // TODO: this can be simplified by using icy::Element::getIdxs()
         f.u_normalized = f.face->CWEdge(this).getVec(this).normalized();
         f.v_normalized = f.face->CCWEdge(this).getVec(this).normalized();
 
@@ -161,14 +120,21 @@ void icy::Node::InitializeFan()
         f.u_p << -f.u_normalized.y(), f.u_normalized.x();
         f.v_p << -f.v_normalized.y(), f.v_normalized.x();
 
-        f.t0_top << f.face->str_top * f.u_p;
-        f.t1_top << f.face->str_top * f.v_p;
-        f.t0_bottom << f.face->str_bottom * f.u_p;
-        f.t1_bottom << f.face->str_bottom * f.v_p;
+        f.t0 = f.face->CauchyStress * f.u_p;
+        f.t1 = f.face->CauchyStress * f.v_p;
     }
 }
 
-*/
+
+void icy::Node::PrintoutFan()
+{
+    spdlog::info("Printing fan for node {}; crack_tip: {}; isBoundary{}", locId, crack_tip, isBoundary);
+    spdlog::info("fan.size {}; adj_elems.size {}", fan.size(), adj_elems.size());
+    for(Sector &s : fan)
+        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3:0^4}-{4: <4} │ ",
+                     s.nd[0]->locId, s.nd[1]->locId,
+                     s.face->nds[0]->locId,s.face->nds[1]->locId,s.face->nds[2]->locId);
+}
 
 
 uint64_t icy::Node::make_key(Node *nd0, Node *nd1)

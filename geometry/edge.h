@@ -20,8 +20,11 @@ struct icy::Edge
     bool toSplit = false; // for mesh splitting
 
     void AddElement(icy::Element* elem, short idx);
+    Eigen::Vector2d getVec(const icy::Node* const from_node) const;  // edge as vector
+    icy::Node* getOtherNode(const icy::Node* const nd) const;
 
-    // to be used if creating std::unordered_map
+/*
+    // to be used if creating unordered_map
     bool operator==(const Edge &other) const
     {
         return (nds[0]==other.nds[0] && nds[1]==other.nds[1]);
@@ -33,6 +36,7 @@ struct icy::Edge
             return std::hash<int>()(icy::Node::make_key(obj.nds[0],obj.nds[1]));
         }
     };
+*/
 };
 
 #endif // EDGE_H

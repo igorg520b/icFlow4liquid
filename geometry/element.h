@@ -50,10 +50,16 @@ private:
     static Eigen::Matrix<double,6,6> consistentMassMatrix;
 
 
-    // FRACTURE ALGORITHM
+// FRACTURE ALGORITHM
 public:
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
     icy::Edge edges[3];
+    const Edge& CWEdge(const Node* nd) const;   // clockwise edge
+    const Edge& CCWEdge(const Node* nd) const;  // counter-clockwise edge
+    bool containsNode(Node const *nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
+    Eigen::Vector3d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
+    void getIdxs(const icy::Node* nd, short &thisIdx, short &CWIdx, short &CCWIdx) const;
+private:
 
 };
 

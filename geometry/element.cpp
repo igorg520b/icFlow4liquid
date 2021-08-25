@@ -4,10 +4,12 @@
 #include <cstdlib>
 #include <algorithm>
 
-#include <iostream>
+//#include <iostream>
 #include <vector>
 #include <utility>
 #include <cmath>
+
+#include "spdlog/spdlog.h"
 
 
 Eigen::Matrix2d icy::Element::DDs[6] = {
@@ -233,4 +235,27 @@ bool icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
     return true;
 }
 
+// FRACTURE ALGORITHM
+void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, short &CCWIdx) const
+{
+    if(nd==nds[0]) thisIdx=0;
+    else if(nd==nds[1]) thisIdx=1;
+    else if(nd==nds[2]) thisIdx=2;
+    else throw std::runtime_error("getIdxs: node does not belong to the element");
+    CWIdx = (thisIdx+1)%3;
+    CCWIdx = (thisIdx+2)%3;
+}
 
+const icy::Edge& icy::Element::CWEdge(const Node* nd) const
+{
+    short thisIdx, CWIdx, CCWIdx;
+    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
+    return edges[CCWIdx];
+}
+
+const icy::Edge& icy::Element::CCWEdge(const Node* nd) const
+{
+    short thisIdx, CWIdx, CCWIdx;
+    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
+    return edges[CWIdx];
+}
