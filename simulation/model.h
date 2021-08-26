@@ -58,6 +58,8 @@ public:
     void ReleaseSpring();
     void AdjustSpring(double dX, double dY);
 
+    void Fracture(double timeStep);
+
 signals:
 //    void requestGeometryUpdate(); // request the main thread to redraw
 
@@ -66,7 +68,7 @@ public:
     enum VisOpt { none, elem_area, energy_density, stress_xx, stress_yy, stress_hydrostatic,
                 ps1, ps2, shear_stress, volume_change, velocity_div, elem_group, node_group,
                 vel_mag, Green_strain_xx, Green_strain_yy, Green_strain_xy, plasticity_norm,
-                adj_elems_count_nd, QM1, avg_edge_len};
+                adj_elems_count_nd, QM1, avg_edge_len, nd_max_normal_traction};
     Q_ENUM(VisOpt)
     void ChangeVisualizationOption(icy::Model::VisOpt option);
 private:

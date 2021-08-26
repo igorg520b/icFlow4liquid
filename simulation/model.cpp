@@ -80,17 +80,18 @@ bool icy::Model::Step()
             attempt++;
             timeStepFactor*=0.5;
         }
-        if(attempt > 20) throw std::runtime_error("could not solve");
+        if(attempt > 20) throw std::runtime_error("Model::Step() could not solve");
     } while (!ccd_res || !sln_res || !converges);
 
     // accept step
     bool plasticDeformation = AcceptTentativeValues(h);
     if(plasticDeformation) GetNewMaterialPosition();
+    Fracture(h);
     currentStep++;
 
     // gradually increase the time step
     if(timeStepFactor < 1) timeStepFactor *= 1.2;
-    if(timeStepFactor > 1) timeStepFactor=1;
+    if(timeStepFactor > 1) timeStepFactor = 1;
 
     emit stepCompleted();
     return(currentStep < prms.MaxSteps);
@@ -371,8 +372,6 @@ void icy::Model::GetNewMaterialPosition()
     }
 }
 
-
-
 void icy::Model::AttachSpring(double X, double Y, double radius)
 {
     spdlog::debug("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
@@ -414,3 +413,9 @@ void icy::Model::AdjustSpring(double dX, double dY)
     spring << dX,dY;
 }
 
+void icy::Model::Fracture(double timeStep)
+{
+    vtk_update_mutex.lock();
+    mesh.ComputeFractureDirections(prms, timeStep, true);
+    vtk_update_mutex.unlock();
+}

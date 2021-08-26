@@ -46,6 +46,7 @@ class icy::SimParams : public QObject
     Q_PROPERTY(bool f_EnableFracture MEMBER FractureEnable NOTIFY propertyChanged)
     Q_PROPERTY(double f_TemporalAttenuation MEMBER FractureTemporalAttenuation NOTIFY propertyChanged)
     Q_PROPERTY(int f_MaxSubsteps MEMBER FractureMaxSubsteps NOTIFY propertyChanged)
+    Q_PROPERTY(double f_TractionThreshold MEMBER FractureTractionThreshold NOTIFY propertyChanged)
 
 public:
     int MaxSteps, MinIter, MaxIter;
@@ -62,6 +63,7 @@ public:
     bool FractureEnable;
     double FractureTemporalAttenuation;
     int FractureMaxSubsteps;
+    double FractureTractionThreshold;
 
     double lambda, mu, Kappa;
     double getKappa() {return Kappa;}
@@ -121,6 +123,7 @@ public:
         FractureEnable = true;
         FractureTemporalAttenuation = 0.2;
         FractureMaxSubsteps = 1000;
+        FractureTractionThreshold = 1;
     }
 
 

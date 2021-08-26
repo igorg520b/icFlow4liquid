@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <iterator>
 #include <unordered_set>
-
+#include "spdlog/spdlog.h"
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
@@ -379,33 +379,35 @@ void icy::Mesh::UnsafeUpdateGeometry()
 
 void icy::Mesh::ChangeVisualizationOption(int option)
 {
-    qDebug() << "icy::Model::ChangeVisualizationOption " << option;
+    spdlog::info("icy::Model::ChangeVisualizationOption {}", option);
     VisualizingVariable = option;
 
-    if(VisualizingVariable == icy::Model::VisOpt::none)
+    switch(VisualizingVariable)
     {
+    case icy::Model::VisOpt::none:
         dataSetMapper_deformable->ScalarVisibilityOff();
         ugrid_deformable->GetPointData()->RemoveArray("visualized_values");
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         return;
-    }
-    else if(VisualizingVariable == icy::Model::VisOpt::node_group ||
-            VisualizingVariable == icy::Model::VisOpt::vel_mag ||
-            VisualizingVariable == icy::Model::VisOpt::adj_elems_count_nd)
-    {
+
+    case icy::Model::VisOpt::node_group:
+    case icy::Model::VisOpt::vel_mag:
+    case icy::Model::VisOpt::adj_elems_count_nd:
+    case icy::Model::VisOpt::nd_max_normal_traction:
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
         ugrid_deformable->GetPointData()->SetActiveScalars("visualized_values");
         dataSetMapper_deformable->SetScalarModeToUsePointData();
         dataSetMapper_deformable->ScalarVisibilityOn();
-    }
-    else
-    {
+        break;
+
+    default:
         ugrid_deformable->GetPointData()->RemoveArray("visualized_values");
         ugrid_deformable->GetCellData()->AddArray(visualized_values);
         ugrid_deformable->GetCellData()->SetActiveScalars("visualized_values");
         dataSetMapper_deformable->SetScalarModeToUseCellData();
         dataSetMapper_deformable->ScalarVisibilityOn();
+        break;
     }
     UpdateValues();
 }
@@ -438,6 +440,11 @@ void icy::Mesh::UpdateValues()
     case icy::Model::VisOpt::adj_elems_count_nd:
         visualized_values->SetNumberOfValues(allNodes.size());
         for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->adj_elems.size());
+        break;
+
+    case icy::Model::VisOpt::nd_max_normal_traction:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->max_normal_traction);
         break;
 
     // per-element
@@ -805,4 +812,14 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
     return std::make_pair(false,0);
 }
 
+void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep, bool startingFracture)
+{
+//#pragma omp parallel for
+    for(unsigned i=0;i<allNodes.size();i++)
+    {
+        icy::Node *nd = allNodes[i];
+        if(nd->pinned) continue;
+        nd->ComputeFanVariables(prms);
+    }
+}
 

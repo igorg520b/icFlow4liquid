@@ -256,3 +256,10 @@ const icy::Edge& icy::Element::CCWEdge(const Node* nd) const
     getIdxs(nd, thisIdx, CWIdx, CCWIdx);
     return edges[CWIdx];
 }
+
+const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
+{
+    short thisIdx, CWIdx, CCWIdx;
+    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
+    return edges[thisIdx];
+}

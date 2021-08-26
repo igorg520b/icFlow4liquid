@@ -81,6 +81,9 @@ private:
 
     gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
 
+    // Fracture
+    void ComputeFractureDirections(SimParams &prms, double timeStep, bool startingFracture);
+
     // VTK
 public:
     void ChangeVisualizationOption(int option);  // called from the main thread

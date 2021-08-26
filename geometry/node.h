@@ -41,8 +41,8 @@ struct icy::Node
     {
         icy::Element *face;
         icy::Node* nd[2];
-        float centerAngle; // angle from the node to the center of the adjacent element
-        float angle0, angle1;
+        double centerAngle; // angle from the node to the center of the adjacent element
+        double angle0, angle1;
         Eigen::Vector2d u_normalized, v_normalized, u_p, v_p;
         Eigen::Vector2d t0, t1;
     };
@@ -52,7 +52,7 @@ struct icy::Node
     {
         double angle_fwd, angle_bwd;
         icy::Element* faces[2];
-        Eigen::Vector2d traction_top[2], traction_bottom[2];
+        Eigen::Vector2d traction[2];
         Eigen::Vector2d tn, tn_p;
         double phi[2], theta[2];
         double trac_normal, trac_tangential;

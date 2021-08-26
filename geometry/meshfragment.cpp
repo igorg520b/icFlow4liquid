@@ -585,9 +585,13 @@ void icy::MeshFragment::GetFromGmsh()
         boundary_edges.emplace_back(nodes[mtags.at(nodeTagsInEdges[i*2+0])],nodes[mtags.at(nodeTagsInEdges[i*2+1])]);
 
     PostMeshingEvaluations();
-    if(deformable) KeepGmshResult();
+    if(deformable) {
+        KeepGmshResult();
+        CreateEdges();
+    }
     gmsh::clear();
-    CreateEdges();
+
+
 }
 
 
