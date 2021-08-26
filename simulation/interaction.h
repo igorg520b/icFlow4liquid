@@ -13,7 +13,7 @@ public:
     Node *ndA, *ndB, *ndP;
     Eigen::Vector2d D;
 
-    void AddToSparsityStructure(EquationOfMotionSolver &eq);
+    void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
     void Evaluate(EquationOfMotionSolver &eq, SimParams &prms, double h);
     double static SegmentPointDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d P, Eigen::Vector2d &D);
 

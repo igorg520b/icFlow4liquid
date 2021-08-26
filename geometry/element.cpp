@@ -70,12 +70,9 @@ void icy::Element::PrecomputeInitialArea()
 }
 
 
-void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq)
+void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
-    // register the positions of non-zero entries with the EquationOfMotionSolver
-    eq.AddElementToStructure(nds[0]->eqId, nds[1]->eqId);
-    eq.AddElementToStructure(nds[0]->eqId, nds[2]->eqId);
-    eq.AddElementToStructure(nds[1]->eqId, nds[2]->eqId);
+    eq.AddEntriesToStructure(nds[0]->eqId, nds[1]->eqId, nds[2]->eqId);
 }
 
 

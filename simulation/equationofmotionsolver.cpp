@@ -61,14 +61,20 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
     }
 }
 
-void EquationOfMotionSolver::AddElementToStructure(int row, int column)
+void EquationOfMotionSolver::AddNNZEntry(int row, int column)
 {
     if(row < 0 || column < 0) return; // the element does not belong in the matrix
     else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("trying to insert element beyond the matrix size");
 
-    // lower-triangular matrix, so enforce row>=column
-    if(row>=column) rows_Neighbors[row]->push_back(column);
-    else rows_Neighbors[column]->push_back(row);
+    if(row < column) std::swap(row,column);    // enforce lower-triangular matrix
+    rows_Neighbors[row]->push_back(column);
+}
+
+void EquationOfMotionSolver::AddEntriesToStructure(int idx1, int idx2, int idx3)
+{
+    AddNNZEntry(idx1,idx2);
+    AddNNZEntry(idx1,idx3);
+    AddNNZEntry(idx3,idx2);
 }
 
 void EquationOfMotionSolver::CreateStructure()

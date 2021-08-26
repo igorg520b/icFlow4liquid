@@ -82,8 +82,6 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::model::mesh::generate(2);
 
-
-
     // GET NODES
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords;
@@ -164,10 +162,7 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         if(k==0) nFirstGroupElems = elems.size();
     }
 
-
-
     // BOUNDARIRES - EDGES
-
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
 
@@ -310,8 +305,8 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
+    CreateEdges();
 }
-
 
 void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double width, double height)
 {
@@ -427,6 +422,7 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
+    CreateEdges();
 }
 
 void icy::MeshFragment::GenerateBrick_Simple(double ElementSize, double width, double height)
@@ -444,7 +440,6 @@ void icy::MeshFragment::GenerateBrick_Simple(double ElementSize, double width, d
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     GetFromGmsh();
 }
-
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 {
@@ -509,7 +504,6 @@ void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, d
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     GetFromGmsh();
 }
-
 
 void icy::MeshFragment::GetFromGmsh()
 {
@@ -593,7 +587,10 @@ void icy::MeshFragment::GetFromGmsh()
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
+    CreateEdges();
 }
+
+
 
 void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
 {
@@ -1146,15 +1143,8 @@ void icy::MeshFragment::CreateEdges()
         }
     }
 
-
+#pragma omp parallel for
+    for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
 }
 
-/*
 
-
-
-
-
-#pragma omp parallel for
-    for(std::size_t i=0;i<nodes->size();i++) (*nodes)[i]->PrepareFan2();
-*/

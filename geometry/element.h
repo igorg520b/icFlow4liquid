@@ -27,7 +27,7 @@ struct icy::Element
     void Reset(Node *nd0, Node *nd1, Node *nd2, std::size_t gmshTag);
     void PrecomputeInitialArea();
 
-    void AddToSparsityStructure(EquationOfMotionSolver &eq);
+    void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
     void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
     bool PlasticDeformation(SimParams &prms, double timeStep);  // true if plastic deformation occurred
@@ -57,7 +57,7 @@ public:
     const Edge& CWEdge(const Node* nd) const;   // clockwise edge
     const Edge& CCWEdge(const Node* nd) const;  // counter-clockwise edge
     bool containsNode(Node const *nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
-    Eigen::Vector3d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
+    Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
     void getIdxs(const icy::Node* nd, short &thisIdx, short &CWIdx, short &CCWIdx) const;
 private:
 

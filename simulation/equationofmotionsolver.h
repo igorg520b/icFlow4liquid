@@ -16,7 +16,7 @@ public:
     ~EquationOfMotionSolver();
 
     void ClearAndResize(std::size_t N);     // size N must be set; return execution time
-    void AddElementToStructure(int row, int column);    // reserve non-zero positions one-by-one (thread-safe)
+    void AddEntriesToStructure(int idx1, int idx2, int idx3);   // mark entries as non-zero for combinations of these indices
     void CreateStructure();
 
     // creating the values array
@@ -51,6 +51,8 @@ private:
     std::vector<std::vector<unsigned>*> rows_pcsr;   // per row mappings between columns and offset in "values"
 
     static void MSKAPI printstr(void *, const char str[]);
+    void AddNNZEntry(int row, int column);    // reserve non-zero positions one-by-one (thread-safe)
+
     void ResizeRows();
 
     void AddToQ(const int row, const int column, const Eigen::Matrix2d &mat);

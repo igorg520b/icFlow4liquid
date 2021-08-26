@@ -548,10 +548,6 @@ void icy::Mesh::UpdateValues()
     {
         hueLut->SetTableRange(0, 0.5);
     }
-    else if(VisualizingVariable == icy::Model::VisOpt::adj_elems_count_nd)
-    {
-        hueLut->SetTableRange(4, minmax[1]);
-    }
     else if(VisualizingVariable == icy::Model::VisOpt::QM1)
     {
         hueLut->SetTableRange(0, 1);

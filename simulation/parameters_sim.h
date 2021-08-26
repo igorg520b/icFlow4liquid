@@ -41,6 +41,12 @@ class icy::SimParams : public QObject
     // meshing
     Q_PROPERTY(double s_ElemSize MEMBER CharacteristicLength NOTIFY propertyChanged)
 
+    // fracture
+    Q_PROPERTY(double f_WeakeningCoeff MEMBER FractureWeakeningCoeff NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnableFracture MEMBER FractureEnable NOTIFY propertyChanged)
+    Q_PROPERTY(double f_TemporalAttenuation MEMBER FractureTemporalAttenuation NOTIFY propertyChanged)
+    Q_PROPERTY(int f_MaxSubsteps MEMBER FractureMaxSubsteps NOTIFY propertyChanged)
+
 public:
     int MaxSteps, MinIter, MaxIter;
     double InitialTimeStep;
@@ -50,6 +56,12 @@ public:
 
     double ConvergenceEpsilon, ConvergenceCutoff;
     double InteractionDistance;
+
+    // fracture
+    double FractureWeakeningCoeff;
+    bool FractureEnable;
+    double FractureTemporalAttenuation;
+    int FractureMaxSubsteps;
 
     double lambda, mu, Kappa;
     double getKappa() {return Kappa;}
@@ -103,6 +115,12 @@ public:
 
         PlasticYieldThreshold = 100;
         PlasticFlowRate = 1;
+
+        // fracture
+        FractureWeakeningCoeff = 0.75;
+        FractureEnable = true;
+        FractureTemporalAttenuation = 0.2;
+        FractureMaxSubsteps = 1000;
     }
 
 
