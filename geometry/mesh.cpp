@@ -447,15 +447,25 @@ void icy::Mesh::UpdateValues()
         for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->max_normal_traction);
         break;
 
-    // per-element
-    case icy::Model::VisOpt::elem_area:
-        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->area_initial);
+
+        // plasticity
+    case icy::Model::VisOpt::plasticity_norm:
+        for(std::size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
         break;
 
-    case icy::Model::VisOpt::energy_density:
-        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->strain_energy_density);
+    case icy::Model::VisOpt::plasticity_gamma:
+        for(std::size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, allElems[i]->plasticity_gamma);
         break;
 
+    case icy::Model::VisOpt::plasticity_tau_ratio:
+        for(std::size_t i=0;i<allElems.size();i++)
+            visualized_values->SetValue(i, std::clamp(allElems[i]->plasticity_tau_ratio,0.0,1.0));
+        break;
+
+
+        // stress
     case icy::Model::VisOpt::stress_xx:
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->CauchyStress(0,0));
         break;
@@ -480,18 +490,8 @@ void icy::Mesh::UpdateValues()
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->max_shear_stress);
         break;
 
-    case icy::Model::VisOpt::volume_change:
-        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->volume_change);
-        break;
 
-    case icy::Model::VisOpt::velocity_div:
-        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->velocity_divergence);
-        break;
-
-    case icy::Model::VisOpt::elem_group:
-        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group);
-        break;
-
+        // strain
     case icy::Model::VisOpt::Green_strain_xx:
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,0));
         break;
@@ -504,11 +504,8 @@ void icy::Mesh::UpdateValues()
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->GreenStrain(0,1));
         break;
 
-    case icy::Model::VisOpt::plasticity_norm:
-        for(std::size_t i=0;i<allElems.size();i++)
-            visualized_values->SetValue(i, (allElems[i]->PiMultiplier-Eigen::Matrix2d::Identity()).norm());
-        break;
 
+        // mesh quality measures
     case icy::Model::VisOpt::QM1:
         for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, allElems[i]->quality_measure_Wicke);
@@ -523,6 +520,29 @@ void icy::Mesh::UpdateValues()
             double e2 = (elem->nds[1]->x_initial - elem->nds[0]->x_initial).norm();
             visualized_values->SetValue(i, (e0+e1+e2)/3.0);
         }
+        break;
+
+
+    // other per-element values
+    case icy::Model::VisOpt::elem_area:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->area_initial);
+        break;
+
+    case icy::Model::VisOpt::energy_density:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->strain_energy_density);
+        break;
+
+
+    case icy::Model::VisOpt::volume_change:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->volume_change);
+        break;
+
+    case icy::Model::VisOpt::velocity_div:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->velocity_divergence);
+        break;
+
+    case icy::Model::VisOpt::elem_group:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group);
         break;
 
 

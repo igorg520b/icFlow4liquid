@@ -177,7 +177,6 @@ void icy::Element::ComputeVisualizedVariables()
     DDot << nds[1]->vn-nds[0]->vn, nds[2]->vn-nds[0]->vn;
     velocity_divergence = DinvT.cwiseProduct(DDot).sum();
 
-
     //  quality measures
     double V = D.determinant()/2;
     double e0sq = (nds[1]->xn-nds[2]->xn).squaredNorm();
@@ -193,19 +192,18 @@ void icy::Element::ComputeVisualizedVariables()
     quality_measure_Wicke = coeff*V*l_harm/(l_rms_sq*sqrt(l_rms_sq));
     quality_measure_Wicke = std::min(1.0,quality_measure_Wicke);
     leftCauchyGreenDeformationTensor = F*F.transpose();
-    // qualityMetricTensor;
 }
-
-
 
 bool icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 {
     constexpr double epsilon = 1e-5;
     double stressNorm = CauchyStress.norm();
     double tau = prms.PlasticYieldThreshold;
-    double gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
-    gamma = std::clamp(gamma, 0.0, 1.0);
-    if(gamma < epsilon) return false;
+
+    plasticity_tau_ratio = (stressNorm-tau)/stressNorm;
+    plasticity_gamma = timeStep*prms.PlasticFlowRate*((stressNorm-tau)/stressNorm);
+    plasticity_gamma = std::clamp(plasticity_gamma, 0.0, 1.0);
+    if(plasticity_gamma < epsilon) return false;
 
     Eigen::Matrix2d Dm, Dm_inv, Ds, F, V, S_hat;
 
@@ -223,14 +221,15 @@ bool icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
 
     Eigen::Vector2d SVDvals = svd.singularValues();
     double detS_sqRoot = 1;//sqrt(SVDvals[0]*SVDvals[1]);
-    double val1 = std::pow(SVDvals[0]/detS_sqRoot,-gamma);
-    double val2 = std::pow(SVDvals[1]/detS_sqRoot,-gamma);
+    double val1 = std::pow(SVDvals[0]/detS_sqRoot,-plasticity_gamma);
+    double val2 = std::pow(SVDvals[1]/detS_sqRoot,-plasticity_gamma);
     double sqRoot = sqrt(val1*val2);
     S_hat << val1/sqRoot, 0, 0, val2/sqRoot;
     V = svd.matrixV();
     PiMultiplier *= V*S_hat*V.transpose();
     return true;
 }
+
 
 // FRACTURE ALGORITHM
 void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, short &CCWIdx) const

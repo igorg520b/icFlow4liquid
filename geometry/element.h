@@ -37,6 +37,7 @@ struct icy::Element
     double strain_energy_density;   // (not multiplied by the volume)
     double principal_stress1, principal_stress2, max_shear_stress, hydrostatic_stress;
     double volume_change, velocity_divergence;
+    double plasticity_gamma, plasticity_tau_ratio;
 
     Eigen::Matrix2d Dm, DmInv;  // reference shape matrix
     Eigen::Matrix2d F;  // deformation gradient

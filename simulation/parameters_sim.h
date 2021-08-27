@@ -17,6 +17,8 @@ class icy::SimParams : public QObject
 
     // general
     Q_PROPERTY(int s_MaxSteps MEMBER MaxSteps NOTIFY propertyChanged)
+    // meshing
+    Q_PROPERTY(double s_ElemSize MEMBER CharacteristicLength NOTIFY propertyChanged)
 
     // integration
     Q_PROPERTY(double in_InitialTimeStep MEMBER InitialTimeStep NOTIFY propertyChanged)
@@ -37,9 +39,6 @@ class icy::SimParams : public QObject
 
     Q_PROPERTY(double p_Thickness MEMBER Thickness NOTIFY propertyChanged)
     Q_PROPERTY(double p_InteractionDistance MEMBER InteractionDistance NOTIFY propertyChanged)
-
-    // meshing
-    Q_PROPERTY(double s_ElemSize MEMBER CharacteristicLength NOTIFY propertyChanged)
 
     // fracture
     Q_PROPERTY(double f_WeakeningCoeff MEMBER FractureWeakeningCoeff NOTIFY propertyChanged)
