@@ -151,7 +151,6 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
     }
 }
 
-
 bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
 {
     eqOfMotion.ClearAndResize(mesh.freeNodeCount);
@@ -426,11 +425,27 @@ void icy::Model::Fracture(double timeStep)
 
     while(mesh.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
     {
+        // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
 
     /*
-        model.FractureStep(prms, ts.TimeStep, ts.SimulationTime, ts.b_local_substep,
-                           ts.b_compute_fracture_directions, ts.b_split, ts.b_infer_support);
-                           */
+    // ComputeFractureDirections must be invoked prior to this
+    if(floes.maxNode == nullptr) throw std::runtime_error("FractureStep");
+
+    mutex.lock();
+    b_split += floes.SplitNodeAlt(prms);
+    mutex.unlock();
+    topologyInvalid = true;
+    b_support += floes.InferLocalSupport(prms);
+
+    b_substep += LocalSubstep(prms, timeStep, totalTime);
+
+    mutex.lock();
+    b_compute_fracture_directions += floes.ComputeFractureDirections(prms);
+    mutex.unlock();
+
+    displacementsInvalid = true;
+
+    if(!updateRequested) {updateRequested = true; emit requestGeometryUpdate(); }                           */
 
         fracture_step_count++;
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
@@ -443,21 +458,3 @@ void icy::Model::Fracture(double timeStep)
     }
 }
 
-
-/*
-    if(!prms.fracture_enable)
-    {
-        model.floes.EvaluateAllNormalTractions(prms);
-        return;
-    }
-
-    model.mutex.lock();
-    ts.b_compute_fracture_directions += model.floes.ComputeFractureDirections(prms, ts.TimeStep, true);
-    model.mutex.unlock();
-    int count=0;
-    model.floes_vtk.update_minmax = false;
-
-    model.floes_vtk.update_minmax = true;
-
-    if(count>0) ts.b_identify_regions += model.IdentifyDisconnectedRegions();
-*/
