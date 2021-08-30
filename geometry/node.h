@@ -69,6 +69,7 @@ struct icy::Node
     Eigen::Vector2d dir;
     Eigen::Vector2d weakening_direction;    // used when isCrackTip==true
     double max_normal_traction;
+    double time_loaded_above_threshold;
 
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing

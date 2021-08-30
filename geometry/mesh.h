@@ -83,6 +83,11 @@ private:
 
     // Fracture
     void ComputeFractureDirections(SimParams &prms, double timeStep, bool startingFracture);
+    std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
+    std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
+    icy::Node *maxNode;
+    // void InferLocalSupport(SimParams &prms);
+
 
     // VTK
 public:
@@ -95,6 +100,7 @@ public:
 
     enum ShowDeformationOption { initial, current };
     ShowDeformationOption showDeformation = ShowDeformationOption::current;
+    bool updateMinMax;
 
 private:
 

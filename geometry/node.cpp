@@ -14,6 +14,7 @@ void icy::Node::Reset()
     spring_attached = 0;
     group.reset();
     isCrackTip = false;
+    time_loaded_above_threshold = 0;
 }
 
 void icy::Node::Reset(int locId_, double x, double y)

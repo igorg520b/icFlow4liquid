@@ -416,6 +416,48 @@ void icy::Model::AdjustSpring(double dX, double dY)
 void icy::Model::Fracture(double timeStep)
 {
     vtk_update_mutex.lock();
-    mesh.ComputeFractureDirections(prms, timeStep, true);
+    mesh.ComputeFractureDirections(prms, timeStep, true);   // even if fracture is disabled, compute for visualization
     vtk_update_mutex.unlock();
+
+    if(!prms.FractureEnable) return;
+
+    mesh.updateMinMax = false;  // temporarily disable the adaptive scale when visualizing variables (to avoid flickering)
+    int fracture_step_count = 0;
+
+    while(model.floes.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
+    {
+
+    /*
+        model.FractureStep(prms, ts.TimeStep, ts.SimulationTime, ts.b_local_substep,
+                           ts.b_compute_fracture_directions, ts.b_split, ts.b_infer_support);
+                           */
+
+        fracture_step_count++;
+        emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
+    }
+    mesh.updateMinMax = true;
+
+    if(fracture_step_count > 0)
+    {
+        // TODO: identify disconnected regions
+    }
 }
+
+
+/*
+    if(!prms.fracture_enable)
+    {
+        model.floes.EvaluateAllNormalTractions(prms);
+        return;
+    }
+
+    model.mutex.lock();
+    ts.b_compute_fracture_directions += model.floes.ComputeFractureDirections(prms, ts.TimeStep, true);
+    model.mutex.unlock();
+    int count=0;
+    model.floes_vtk.update_minmax = false;
+
+    model.floes_vtk.update_minmax = true;
+
+    if(count>0) ts.b_identify_regions += model.IdentifyDisconnectedRegions();
+*/

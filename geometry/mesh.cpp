@@ -8,6 +8,7 @@
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
+    maxNode = nullptr;
     typeOfSetup = typeOfSetup_;
     fragments.clear();
     movableBoundary.clear();
@@ -80,6 +81,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     area_initial = area_current = std::accumulate(allElems.begin(),
                                                   allElems.end(),0.0,
                                                   [](double a, Element* m){return a+m->area_initial;});
+    updateMinMax = true;
     std::clog << "icy::Mesh::Reset() done\n";
 }
 
@@ -552,38 +554,40 @@ void icy::Mesh::UpdateValues()
 
     visualized_values->Modified();
 
-    double minmax[2];
-    visualized_values->GetValueRange(minmax);
-    if(VisualizingVariable == icy::Model::VisOpt::volume_change)
+    if(updateMinMax)
     {
-        double range = minmax[1]-minmax[0];
-        hueLut->SetTableRange(1-range*0.75,1+range*0.75);
+        double minmax[2];
+        visualized_values->GetValueRange(minmax);
+        if(VisualizingVariable == icy::Model::VisOpt::volume_change)
+        {
+            double range = minmax[1]-minmax[0];
+            hueLut->SetTableRange(1-range*0.75,1+range*0.75);
+        }
+        else if(VisualizingVariable == icy::Model::VisOpt::velocity_div)
+        {
+            double upper_boundary = std::max(10.0, minmax[1]);
+            double lower_boundary = std::min(-10.0, minmax[0]);
+            double boundary = std::max(upper_boundary, std::abs(lower_boundary));
+            hueLut->SetTableRange(-boundary, boundary);
+        }
+        else if(VisualizingVariable == icy::Model::VisOpt::stress_hydrostatic)
+        {
+            double absVal = std::max(std::abs(minmax[0]), std::abs(minmax[1]));
+            hueLut->SetTableRange(-absVal, absVal);
+        }
+        else if(VisualizingVariable == icy::Model::VisOpt::plasticity_norm)
+        {
+            hueLut->SetTableRange(0, 0.5);
+        }
+        else if(VisualizingVariable == icy::Model::VisOpt::QM1)
+        {
+            hueLut->SetTableRange(0, 1);
+        }
+        else
+        {
+            hueLut->SetTableRange(minmax[0], minmax[1]);
+        }
     }
-    else if(VisualizingVariable == icy::Model::VisOpt::velocity_div)
-    {
-        double upper_boundary = std::max(10.0, minmax[1]);
-        double lower_boundary = std::min(-10.0, minmax[0]);
-        double boundary = std::max(upper_boundary, std::abs(lower_boundary));
-        hueLut->SetTableRange(-boundary, boundary);
-    }
-    else if(VisualizingVariable == icy::Model::VisOpt::stress_hydrostatic)
-    {
-        double absVal = std::max(std::abs(minmax[0]), std::abs(minmax[1]));
-        hueLut->SetTableRange(-absVal, absVal);
-    }
-    else if(VisualizingVariable == icy::Model::VisOpt::plasticity_norm)
-    {
-        hueLut->SetTableRange(0, 0.5);
-    }
-    else if(VisualizingVariable == icy::Model::VisOpt::QM1)
-    {
-        hueLut->SetTableRange(0, 1);
-    }
-    else
-    {
-        hueLut->SetTableRange(minmax[0], minmax[1]);
-    }
-
 }
 
 
@@ -819,13 +823,8 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
         }
         if(result)
         {
-            if(t<1e-5)
-            {
-                std::cerr << "A("<<v1x<<","<<v1y<<")-("<<v1tx<<","<<v1ty<<")\n";
-                std::cerr << "B("<<v2x<<","<<v2y<<")-("<<v2tx<<","<<v2ty<<")\n";
-                std::cerr << "P("<<px<<","<<py<<")-("<<ptx<<","<<pty<<")\n";
-                std::cerr << "t " << t << "; s " << result_s << '\n';
-            }
+            if(t<1e-5) spdlog::warn("A({},{})-({},{}); B({},{})-({},{}); P({},{})-({},{}); t={}, s={}",
+                                 v1x, v1y, v1tx, v1ty, v2x, v2y, v2tx, v2ty, px, py, ptx, pty, t, result_s);
             return std::make_pair(true,t);
         }
     }
@@ -834,12 +833,75 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
 
 void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep, bool startingFracture)
 {
-//#pragma omp parallel for
+    const double threashold = prms.FractureTractionThreshold;
+
+#pragma omp parallel for
     for(unsigned i=0;i<allNodes.size();i++)
     {
         icy::Node *nd = allNodes[i];
         if(nd->pinned) continue;
         nd->ComputeFanVariables(prms);
     }
+
+    maxNode = nullptr;
+    if(!prms.FractureEnable) return;
+
+    if(startingFracture)
+    {
+        breakable_range.clear();
+        for(unsigned i=0;i<allNodes.size();i++)
+        {
+            icy::Node *nd = allNodes[i];
+            if(nd->pinned) continue;
+            if(nd->time_loaded_above_threshold >= prms.FractureTemporalAttenuation)
+            {
+                if(nd->max_normal_traction > threashold) breakable_range.push_back(nd);
+                else nd->time_loaded_above_threshold = 0;
+            }
+            else nd->time_loaded_above_threshold+=timeStep;
+        }
+        std::sort(breakable_range.begin(), breakable_range.end(), [](Node *nd1, Node *nd2)
+            {return nd1->max_normal_traction > nd2->max_normal_traction;});
+
+        // set some reasonable limit on the breakable_range
+        const unsigned breakable_range_limit = std::max(prms.FractureMaxSubsteps/10,10);
+        if(breakable_range.size()>breakable_range_limit) breakable_range.resize(breakable_range_limit);
+    }
+    else
+    {
+        // continuing the existing fracture
+
+        /*
+
+        // insert the recently created crack tips into the breakable range
+        for(Node *nct : new_crack_tips)
+        {
+            nct->PrepareFan2();
+            nct->ComputeFanVariablesAlt(prms);
+            nct->timeLoadedAboveThreshold = temporal_attenuation;
+            auto find_result = std::find(breakable_range.begin(), breakable_range.end(),nct);
+            bool already_contains = find_result!=breakable_range.end();
+
+            if(!already_contains)
+                breakable_range.push_back(nct);
+        }
+        new_crack_tips.clear();
+
+        // remove the nodes that were affected by the crack on the previous step
+        breakable_range.erase(std::remove_if(breakable_range.begin(), breakable_range.end(),
+                                          [temporal_attenuation](Node *nd)
+                {return nd->max_normal_traction==0 || (nd->timeLoadedAboveThreshold < temporal_attenuation && !nd->crack_tip);}),
+                breakable_range.end());
+
+        // update Sector in case if topology changed around this node
+        for(Node *nd : breakable_range)
+        {
+            //nd->PrepareFan2();
+            nd->ComputeFanVariablesAlt(prms);
+        }
+*/
+
+    }
+
 }
 

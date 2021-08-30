@@ -25,6 +25,7 @@ class icy::Model : public QObject, public ModelControllerInterface
 
     // ModelController
 public:
+    void Reset(unsigned setup);
     void Prepare() override;        // invoked once, at simulation start
     bool Step() override;           // either invoked by Worker or via GUI
     void RequestAbort() override;   // invoked from GUI
@@ -35,6 +36,7 @@ private:
 signals:
     void stepCompleted();
     void stepAborted();
+    void fractureProgress();
 
     // Model
 public:
@@ -45,20 +47,18 @@ public:
     int currentStep;
     double timeStepFactor, simulationTime;
 
-    void Reset(unsigned setup);
-    void InitialGuess(double timeStep, double timeStepFactor);
-    bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
-    bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
-    void GetNewMaterialPosition();      // relax the mesh to a new rest state
-
     void UnsafeUpdateGeometry();
     void SetIndenterPosition(double position);
-
     void AttachSpring(double X, double Y, double radius);   // attach spring to nodes
     void ReleaseSpring();
     void AdjustSpring(double dX, double dY);
 
+private:
     void Fracture(double timeStep);
+    void InitialGuess(double timeStep, double timeStepFactor);
+    bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
+    bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
+    void GetNewMaterialPosition();      // relax the mesh to a new rest state
 
 signals:
 //    void requestGeometryUpdate(); // request the main thread to redraw
