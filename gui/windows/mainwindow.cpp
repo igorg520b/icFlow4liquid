@@ -326,11 +326,6 @@ void MainWindow::on_actionCurrent_Space_triggered()
 }
 
 
-void MainWindow::on_actionMaterial_Space_triggered()
-{
-    model.GetNewMaterialPosition();
-    render_results();
-}
 
 
 void MainWindow::on_actionIndentation_triggered()

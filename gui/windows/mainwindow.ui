@@ -53,7 +53,6 @@
     <addaction name="actionSwap_Buffers"/>
     <addaction name="separator"/>
     <addaction name="actionClear_Velocity"/>
-    <addaction name="actionMaterial_Space"/>
    </widget>
    <widget class="QMenu" name="menuSetup">
     <property name="title">
@@ -198,11 +197,6 @@
   <action name="actionCurrent_Space">
    <property name="text">
     <string>Current Space</string>
-   </property>
-  </action>
-  <action name="actionMaterial_Space">
-   <property name="text">
-    <string>Material Space</string>
    </property>
   </action>
   <action name="actionIndentation">

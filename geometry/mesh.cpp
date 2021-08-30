@@ -834,6 +834,7 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
 void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep, bool startingFracture)
 {
     const double threashold = prms.FractureTractionThreshold;
+    const double temporal_attenuation = prms.FractureTemporalAttenuation;
 
 #pragma omp parallel for
     for(unsigned i=0;i<allNodes.size();i++)
@@ -853,7 +854,7 @@ void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep,
         {
             icy::Node *nd = allNodes[i];
             if(nd->pinned) continue;
-            if(nd->time_loaded_above_threshold >= prms.FractureTemporalAttenuation)
+            if(nd->time_loaded_above_threshold >= temporal_attenuation)
             {
                 if(nd->max_normal_traction > threashold) breakable_range.push_back(nd);
                 else nd->time_loaded_above_threshold = 0;
@@ -869,39 +870,40 @@ void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep,
     }
     else
     {
-        // continuing the existing fracture
-
-        /*
-
         // insert the recently created crack tips into the breakable range
         for(Node *nct : new_crack_tips)
         {
-            nct->PrepareFan2();
-            nct->ComputeFanVariablesAlt(prms);
-            nct->timeLoadedAboveThreshold = temporal_attenuation;
+            nct->ComputeFanVariables(prms);
+            nct->time_loaded_above_threshold = temporal_attenuation;
             auto find_result = std::find(breakable_range.begin(), breakable_range.end(),nct);
             bool already_contains = find_result!=breakable_range.end();
-
-            if(!already_contains)
-                breakable_range.push_back(nct);
+            if(!already_contains) breakable_range.push_back(nct);
         }
         new_crack_tips.clear();
 
         // remove the nodes that were affected by the crack on the previous step
         breakable_range.erase(std::remove_if(breakable_range.begin(), breakable_range.end(),
                                           [temporal_attenuation](Node *nd)
-                {return nd->max_normal_traction==0 || (nd->timeLoadedAboveThreshold < temporal_attenuation && !nd->crack_tip);}),
+                {return nd->max_normal_traction==0 || (nd->time_loaded_above_threshold < temporal_attenuation && !nd->isCrackTip);}),
                 breakable_range.end());
 
-        // update Sector in case if topology changed around this node
-        for(Node *nd : breakable_range)
+        for(Node *nd : breakable_range) nd->ComputeFanVariables(prms);
+
+        if(breakable_range.size() > 0)
         {
-            //nd->PrepareFan2();
-            nd->ComputeFanVariablesAlt(prms);
+            // take out maximal node from breakable_range
+            auto it_nd = std::max_element(breakable_range.begin(), breakable_range.end(),
+                                          [](Node *nd1, Node *nd2) {
+                    if(nd2->isCrackTip && nd2->max_normal_traction>0 && !nd1->isCrackTip) return true;
+                    return nd1->max_normal_traction < nd2->max_normal_traction; });
+
+            if((*it_nd)->max_normal_traction > 0)
+            {
+                maxNode = *it_nd;
+                maxNode->time_loaded_above_threshold = 0;
+                breakable_range.erase(it_nd);
+            }
         }
-*/
-
     }
-
 }
 

@@ -113,15 +113,9 @@ private slots:
     void on_actionClear_Velocity_triggered();
     void on_actionUse_Initial_State_triggered();
     void on_actionCurrent_Space_triggered();
-
-    void on_actionMaterial_Space_triggered();
-
     void on_actionIndentation_triggered();
-
     void on_actionShear_triggered();
-
     void on_actionStretch_triggered();
-
     void on_actionSelf_collision_triggered();
 
 private:

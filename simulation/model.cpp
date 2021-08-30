@@ -424,7 +424,7 @@ void icy::Model::Fracture(double timeStep)
     mesh.updateMinMax = false;  // temporarily disable the adaptive scale when visualizing variables (to avoid flickering)
     int fracture_step_count = 0;
 
-    while(model.floes.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
+    while(mesh.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
     {
 
     /*
