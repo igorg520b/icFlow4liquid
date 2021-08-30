@@ -24,7 +24,6 @@ public:
     void AddToEquation(const double &constTerm, const Eigen::Vector2d &linearTerm, const Eigen::Matrix2d &quadraticTerm, int id);
 
     bool Solve();   // true if successful
-    void TestSolve(); // test solve using sample data
 
     void GetTentativeResult(int idx, Eigen::Vector2d &vec);  // solution => convenient vector form
 
