@@ -25,7 +25,7 @@ void icy::Node::Reset(int locId_, double x, double y)
     intended_position = xt = xn = x_initial;
 }
 
-void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double h, Eigen::Vector2d &spring)
+void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h, Eigen::Vector2d &spring)
 {
     if(eqId<0 || spring_attached<1) return;
     double k = prms.YoungsModulus/300;
@@ -140,7 +140,7 @@ void icy::Node::PrintoutFan()
                 s.angle0, s.angle1, s.centerAngle);
 }
 
-void icy::Node::ComputeFanVariables(SimParams &prms)
+void icy::Node::ComputeFanVariables(const SimParams &prms)
 {
     if(fan.size()==0) throw std::runtime_error("invoking ComputeFanVariables on a Node without elements");
     UpdateFan();

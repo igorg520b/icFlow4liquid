@@ -76,7 +76,7 @@ void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 }
 
 
-bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double h)
+bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
     // NeoHookeanElasticity
     double lambda = prms.lambda;
@@ -194,7 +194,7 @@ void icy::Element::ComputeVisualizedVariables()
     leftCauchyGreenDeformationTensor = F*F.transpose();
 }
 
-bool icy::Element::PlasticDeformation(SimParams &prms, double timeStep)
+bool icy::Element::PlasticDeformation(const SimParams &prms, double timeStep)
 {
     constexpr double epsilon = 1e-5;
     double stressNorm = CauchyStress.norm();
@@ -261,4 +261,20 @@ const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
     short thisIdx, CWIdx, CCWIdx;
     getIdxs(nd, thisIdx, CWIdx, CCWIdx);
     return edges[thisIdx];
+}
+
+icy::Element* icy::Element::getAdjacentElementOppositeToNode(Node *nd)
+{
+    if(nds[0]==nd) return incident_elems[0];
+    else if(nds[1]==nd)  return incident_elems[1];
+    else if(nds[2]==nd)  return incident_elems[2];
+    else throw std::runtime_error("getAdjacentElementOppositeToNode");
+}
+
+short icy::Element::getNodeIdx(Node *nd)
+{
+    if(nds[0]==nd) return 0;
+    else if(nds[1]==nd) return 1;
+    else if(nds[2]==nd) return 2;
+    else throw std::runtime_error("getNodeIdx");
 }

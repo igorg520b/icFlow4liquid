@@ -31,7 +31,7 @@ struct icy::Node
     Eigen::Vector2d intended_position; // when manipulating via GUI during a running simulation
 
     // add spring forces when manipulating the deformable object via GUI
-    void AddSpringEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep, Eigen::Vector2d &spring);
+    void AddSpringEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep, Eigen::Vector2d &spring);
     double spring_attached;
     Eigen::Vector2d spring_attachment_position;
 
@@ -73,7 +73,7 @@ struct icy::Node
 
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
-    void ComputeFanVariables(SimParams &prms);
+    void ComputeFanVariables(const SimParams &prms);
 
     static uint64_t make_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
 

@@ -689,7 +689,7 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     {
         // find the smallest t; Model will discard the step
         auto iter = std::min_element(ccd_results.begin(), ccd_results.end());
-        std::cout << "CCD algorithm detected intersection;" << ccd_results.size() << "; min " << *iter << std::endl;
+        // std::cout << "CCD algorithm detected intersection;" << ccd_results.size() << "; min " << *iter << std::endl;
         return std::make_pair(false, *iter);
     }
     else if(final_state_contains_edge_intersection)
@@ -831,7 +831,12 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
     return std::make_pair(false,0);
 }
 
-void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep, bool startingFracture)
+
+
+
+// FRACTURE MODEL
+
+void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double timeStep, bool startingFracture)
 {
     const double threashold = prms.FractureTractionThreshold;
     const double temporal_attenuation = prms.FractureTemporalAttenuation;
@@ -879,7 +884,7 @@ void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep,
             bool already_contains = find_result!=breakable_range.end();
             if(!already_contains) breakable_range.push_back(nct);
         }
-        new_crack_tips.clear();
+        //new_crack_tips.clear();
 
         // remove the nodes that were affected by the crack on the previous step
         breakable_range.erase(std::remove_if(breakable_range.begin(), breakable_range.end(),
@@ -907,3 +912,137 @@ void icy::Mesh::ComputeFractureDirections(icy::SimParams &prms, double timeStep,
     }
 }
 
+void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
+                            const Edge e0, const Edge e1, Element *elem)
+{
+    icy::Node * const nd0= e0.getOtherNode(nd);
+    icy::Node * const nd1= e1.getOtherNode(nd);
+
+    const Eigen::Vector2d &nd_vec = nd->xn;
+    const Eigen::Vector2d &nd0_vec = nd0->xn;
+    const Eigen::Vector2d &nd1_vec = nd1->xn;
+
+    double factor0 = sin(phi)*(nd0_vec-nd_vec).norm();
+    double factor1 = sin(theta)*(nd1_vec-nd_vec).norm();
+    double whereToSplit = factor1/(factor0+factor1);  // ~1 means the split is near nd0, ~0 means it is near nd1
+
+    if((whereToSplit < 1e-5 && e1.isBoundary) || (whereToSplit > 1-1e-5 && e0.isBoundary))
+    {
+        // this should not happen
+        spdlog::critical("icy::Mesh::EstablishSplittingEdge: degenerate element; nd {}, param {}", nd->locId, whereToSplit);
+        throw std::runtime_error("degenerate element 1");
+    }
+
+    if(whereToSplit < fracture_epsilon && !e1.isBoundary)
+    {
+        splitEdge = e1;
+    }
+    else if(whereToSplit > 1.0-fracture_epsilon && !e0.isBoundary)
+    {
+        splitEdge = e0;
+    }
+    else
+    {
+        icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
+        if(elem_adj==nullptr)
+            SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, splitEdge);
+        else
+            SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, splitEdge);
+    }
+    splitEdge.toSplit = true;
+    splitEdge.elems[0]->edges[splitEdge.edge_in_elem_idx[0]]=splitEdge;
+    splitEdge.elems[1]->edges[splitEdge.edge_in_elem_idx[1]]=splitEdge;
+}
+
+
+void icy::Mesh::SplitNode(const SimParams &prms)
+{
+    if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
+
+    new_crack_tips.clear();
+    affected_elements_during_split.clear();
+
+    icy::Node* nd = maxNode;
+    nd->time_loaded_above_threshold = 0;
+    for(Element *e : nd->adj_elems) affected_elements_during_split.insert(e);
+
+    // subsequent calculations are based on the fracture direction where the traction is maximal
+    icy::Node::SepStressResult &ssr = nd->result_with_max_traction;
+
+    // ensure that the interior node has two split faces
+    bool isBoundary = (ssr.faces[1] == nullptr);
+    if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
+
+    // assert that the splitted node belongs to the element
+    if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
+    icy::Edge splitEdge_fw;
+    EstablishSplittingEdge(splitEdge_fw, nd, ssr.phi[0], ssr.theta[0], ssr.e[0], ssr.e[1], ssr.faces[0]);
+
+    Node *split0 = splitEdge_fw.getOtherNode(nd);
+    Node *split1 = nullptr;
+
+    icy::Edge splitEdge_bw;
+    if(!isBoundary)
+    {
+        // determine splitEdge_bw (create if necessary)
+        if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
+        EstablishSplittingEdge(splitEdge_bw, nd, ssr.phi[1], ssr.theta[1], ssr.e[2], ssr.e[3], ssr.faces[1]);
+        split1=splitEdge_bw.getOtherNode(nd);
+    }
+
+    Fix_X_Topology(nd); // split as fan.front().e[0] --- splitEdge_fw --- fan.back().e[1]
+
+    if(!isBoundary)
+    {
+        if(split1==nullptr) throw std::runtime_error("SplitNode: split1==nullptr");
+        if(split1->isBoundary)
+        {
+            Fix_X_Topology(split1);
+        }
+        else
+        {
+            split1->isCrackTip = true;
+            new_crack_tips.push_back(split1);
+            split1->weakening_direction = (split1->xn - nd->xn).normalized();
+            for(Element *e : split1->adj_elems) affected_elements_during_split.insert(e);
+        }
+    }
+
+    if(split0->isBoundary)
+    {
+        Fix_X_Topology(split0);
+    }
+    else
+    {
+        split0->isCrackTip = true;
+        new_crack_tips.push_back(split0);
+        split0->weakening_direction = (split0->xn - nd->xn).normalized();
+        for(Element *e : split0->adj_elems) affected_elements_during_split.insert(e);
+    }
+
+    UpdateEdges();
+
+    nd->weakening_direction = Eigen::Vector2d::Zero();
+    nd->isCrackTip = false;
+}
+
+void icy::Mesh::Fix_X_Topology(Node *nd)
+{
+    throw std::runtime_error("not implemented");
+}
+
+void icy::Mesh::UpdateEdges()
+{
+    throw std::runtime_error("not implemented");
+}
+
+void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge)
+{
+    throw std::runtime_error("not implemented");
+}
+
+void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
+                                 Node *nd0, Node *nd1, double where, Edge &insertedEdge)
+{
+    throw std::runtime_error("not implemented");
+}

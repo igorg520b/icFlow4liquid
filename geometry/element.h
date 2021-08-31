@@ -28,9 +28,9 @@ struct icy::Element
     void PrecomputeInitialArea();
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
-    bool ComputeEquationEntries(EquationOfMotionSolver &eq, SimParams &prms, double timeStep);
+    bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
-    bool PlasticDeformation(SimParams &prms, double timeStep);  // true if plastic deformation occurred
+    bool PlasticDeformation(const SimParams &prms, double timeStep);  // true if plastic deformation occurred
 
     Eigen::Matrix2d CauchyStress, GreenStrain;
     double area_initial, area_current;
@@ -62,6 +62,8 @@ public:
     bool containsNode(Node const *nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
     void getIdxs(const icy::Node* nd, short &thisIdx, short &CWIdx, short &CCWIdx) const;
+    Element* getAdjacentElementOppositeToNode(Node *nd);
+    short getNodeIdx(Node *nd);
 private:
 
 };

@@ -373,7 +373,7 @@ void icy::Model::GetNewMaterialPosition()
 
 void icy::Model::AttachSpring(double X, double Y, double radius)
 {
-    spdlog::debug("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
+    spdlog::info("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
     Eigen::Vector2d attachmentPos(X,Y);
     vtk_update_mutex.lock();
 #pragma omp parallel for
@@ -395,7 +395,7 @@ void icy::Model::AttachSpring(double X, double Y, double radius)
 
 void icy::Model::ReleaseSpring()
 {
-    spdlog::debug("icy::Model::ReleaseSpring");
+    spdlog::info("icy::Model::ReleaseSpring");
     vtk_update_mutex.lock();
 #pragma omp parallel for
     for(unsigned i=0;i<mesh.allNodes.size();i++)
@@ -408,7 +408,7 @@ void icy::Model::ReleaseSpring()
 
 void icy::Model::AdjustSpring(double dX, double dY)
 {
-    spdlog::debug("icy::Model::AdjustSpring {}-{}",dX,dY);
+    spdlog::info("icy::Model::AdjustSpring {}-{}",dX,dY);
     spring << dX,dY;
 }
 

@@ -15,14 +15,9 @@ EquationOfMotionSolver::EquationOfMotionSolver()
 EquationOfMotionSolver::~EquationOfMotionSolver()
 {
     MSKrescodee  r;
-
     r = MSK_deleteenv(&env);
-    if (r != MSK_RES_OK) std::cout << "~EquationOfMotionSolver MSK_deleteenv" << std::endl;
-
-    // free the elements of rows_Neighbors and rows_pcsr
-    for(std::size_t i=0;i<rows_Neighbors.size();i++) delete rows_Neighbors[i];
-    for(std::size_t i=0;i<rows_pcsr.size();i++) delete rows_pcsr[i];
-    spdlog::debug("~EquationOfMotionSolver()");
+    if (r != MSK_RES_OK) spdlog::critical("~EquationOfMotionSolver: MSK_deleteenv returned {}",r);
+    else spdlog::info("~EquationOfMotionSolver() done");
 }
 
 
@@ -30,7 +25,6 @@ void MSKAPI EquationOfMotionSolver::printstr(void *, const char str[])
 {
     spdlog::info("{}",str);
 }
-
 
 
 void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
@@ -45,10 +39,10 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
 
 
     while(rows_Neighbors.size()<N)
-        rows_Neighbors.push_back(new tbb::concurrent_vector<unsigned>(10));
+        rows_Neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(10));
 
     while(rows_pcsr.size()<N)
-        rows_pcsr.push_back(new std::vector<unsigned>(10));
+        rows_pcsr.push_back(std::make_unique<std::vector<unsigned>>(10));
 
 #pragma omp parallel for
     for(unsigned i=0;i<N;i++)
@@ -157,15 +151,17 @@ void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen
 
     // find the value array offset corresponding to the "row/column" entry
     int offset = -1;
-    tbb::concurrent_vector<unsigned>*vec = rows_Neighbors[row];
-    for(unsigned count = 0;count<vec->size();count++)
+    tbb::concurrent_vector<unsigned>&vec = *rows_Neighbors[row];
+
+    for(unsigned count = 0;count<vec.size();count++)
     {
-        if(vec->at(count) == (unsigned)column)
+        if(vec.at(count) == (unsigned)column)
         {
             offset = rows_pcsr[row]->at(count);
             break;
         }
     }
+
     if(offset<0) throw std::runtime_error("AddToQ: column index not found");
     else if((unsigned)offset >= nnz) throw std::runtime_error("AddToQ: offset >= nnz");
 
@@ -244,6 +240,7 @@ bool EquationOfMotionSolver::Solve()
     MSKrescodee  r;
     MSKtask_t    task = NULL;
     r = MSK_maketask(env, 0, N*DOFS, &task);
+    taskCount++;
     if (r != MSK_RES_OK) throw std::runtime_error("maketask");
 
     //    r = MSK_linkfunctotaskstream(task, MSK_STREAM_LOG, NULL, printstr);
@@ -282,6 +279,8 @@ bool EquationOfMotionSolver::Solve()
     if(r == MSK_RES_ERR_OBJ_Q_NOT_PSD)
     {
 //        spdlog::info("EquationOfMotionSolver: The quadratic coefficient matrix in the objective is not positive semidefinite");
+        r = MSK_deletetask(&task);
+        if (r != MSK_RES_OK) spdlog::warn("MSK_deletetask error");
         return false;
     }
     if (r != MSK_RES_OK)

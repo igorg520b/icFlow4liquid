@@ -5,6 +5,7 @@
 #include <gmsh.h>
 
 #include <vector>
+#include <unordered_set>
 #include <tbb/concurrent_vector.h>
 #include <tbb/concurrent_unordered_set.h>
 
@@ -82,12 +83,22 @@ private:
     gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
 
     // Fracture
-    void ComputeFractureDirections(SimParams &prms, double timeStep, bool startingFracture);
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
+    std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
     icy::Node *maxNode;
-    // void InferLocalSupport(SimParams &prms);
+    constexpr static double fracture_epsilon = 0.02;   // if an edge splits too close to its vertex, then just go through the vertex
+    void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
+    void SplitNode(const SimParams &prms);
+    void EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
+                                const Edge e0, const Edge e1, Element *elem);
+    void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge);
+    void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
+                                     Node *nd0, Node *nd1, double where, Edge &insertedEdge);
+    void Fix_X_Topology(Node *nd);
+    void UpdateEdges();
 
+    // void InferLocalSupport(SimParams &prms);
 
     // VTK
 public:

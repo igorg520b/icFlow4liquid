@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <memory>
 #include "mosek.h"
 #define DOFS 2
 
@@ -46,8 +47,8 @@ private:
     unsigned N;      // number of variables (divided by DOF)
     unsigned nnz;    // number of non-zero entries in Q (lower triangle)
 
-    std::vector<tbb::concurrent_vector<unsigned>*> rows_Neighbors;
-    std::vector<std::vector<unsigned>*> rows_pcsr;   // per row mappings between columns and offset in "values"
+    std::vector<std::unique_ptr<tbb::concurrent_vector<unsigned>>> rows_Neighbors;
+    std::vector<std::unique_ptr<std::vector<unsigned>>> rows_pcsr;   // per row mappings between columns and offset in "values"
 
     static void MSKAPI printstr(void *, const char str[]);
     void AddNNZEntry(int row, int column);    // reserve non-zero positions one-by-one (thread-safe)
