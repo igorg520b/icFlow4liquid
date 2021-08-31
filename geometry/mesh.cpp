@@ -1028,21 +1028,340 @@ void icy::Mesh::SplitNode(const SimParams &prms)
 
 void icy::Mesh::Fix_X_Topology(Node *nd)
 {
+    /*
+    nd->fan.clear();
+    for(unsigned k=0;k<nd->adjacent_elems.size();k++)
+    {
+        icy::Element *elem = nd->adjacent_elems[k];
+
+        Node::Sector s;
+        s.face = elem;
+        Eigen::Vector3d tcv = elem->getCenter() - nd->x_initial;
+        s.centerAngle = atan2(tcv.y(), tcv.x());
+
+        short thisIdx, CWIdx, CCWIdx;
+        elem->getIdxs(nd, thisIdx, CWIdx, CCWIdx);
+
+        s.nd[0] = elem->nds[CWIdx];
+        s.nd[1] = elem->nds[CCWIdx];
+
+        nd->fan.push_back(s);
+    }
+
+    std::sort(nd->fan.begin(), nd->fan.end(),
+              [](const Node::Sector &f0, const Node::Sector &f1)
+    {return f0.centerAngle < f1.centerAngle; });
+
+
+    auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
+                                    [nd](const Node::Sector &f){return f.face->CWEdge(nd).isBoundary;});
+    if(cw_boundary != nd->fan.end()) std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
+
+    Node *split=nullptr;
+    bool replacing = false;
+    for(unsigned i=1;i<nd->fan.size();i++)
+    {
+        Node::Sector &s = nd->fan[i];
+        if(s.face->CWEdge(nd).toSplit || s.face->CWEdge(nd).isBoundary) replacing=!replacing;
+        if(replacing) {
+            if(split==nullptr) {
+                split=AddNode();
+                split->InitializeFromAnother(nd);
+            }
+            s.face->ReplaceNode(nd, split);
+        }
+    }
+
+    if(split==nullptr) qDebug()<<"nothing to split! " << nd->locId;
+
+    for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
+*/
     throw std::runtime_error("not implemented");
 }
 
 void icy::Mesh::UpdateEdges()
 {
+    /*
+    std::unordered_set<Node*> affected_nodes_during_split; // their neighbors are also affected
+    std::unordered_set<Element *> expanded_set_elems1;
+    std::unordered_set<Element *> expanded_set_elems2;
+
+    for(Element *elem : affected_elements_during_split)
+    {
+        for(int k=0;k<3;k++)
+        {
+            affected_nodes_during_split.insert(elem->nds[k]);
+            if(elem->adj_elems[k]!=nullptr) expanded_set_elems1.insert(elem->adj_elems[k]);
+            for(Element *elem2 : elem->nds[k]->adjacent_elems) {
+                expanded_set_elems1.insert(elem2);
+                for(int m=0;m<3;m++) affected_nodes_during_split.insert(elem2->nds[m]);
+            }
+        }
+        expanded_set_elems1.insert(elem);
+    }
+
+
+    for(Node *nd : affected_nodes_during_split)
+    {
+        for(Element *elem : nd->adjacent_elems) expanded_set_elems2.insert(elem);
+        nd->adjacent_elems.clear();
+        nd->area=0;
+        nd->isBoundary=false;
+    }
+
+    for(Element *elem : expanded_set_elems1) {
+        for(int k=0;k<3;k++) {
+            if(elem->adj_elems[k]!=nullptr) expanded_set_elems2.insert(elem->adj_elems[k]);
+            elem->adj_elems[k]=nullptr;
+        }
+        expanded_set_elems2.insert(elem);
+    }
+
+    std::unordered_map<uint64_t, Edge> edges_map;
+
+    for(Element *elem : expanded_set_elems2)
+    {
+        for(int i=0;i<3;i++)
+        {
+            Node *nd = elem->nds[i];
+            // only work with the nodes in the affected_nodes set
+            if(affected_nodes_during_split.find(nd)!=affected_nodes_during_split.end())
+            {
+                nd->adjacent_elems.push_back(elem);
+            }
+            // process edges
+            int nd0idx = elem->nds[i]->locId;
+            int nd1idx = elem->nds[(i+1)%3]->locId;
+            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
+            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
+
+            icy::Node *nd0 = nodes->at(nd0idx);
+            icy::Node *nd1 = nodes->at(nd1idx);
+
+            Edge edge(nd0, nd1);
+
+            edges_map.insert({key,edge});
+        }
+    }
+
+    // note that edges_map may contain edges outside of affected_elements
+    for(Element *elem : expanded_set_elems2)
+    {
+        for(int i=0;i<3;i++)
+        {
+            int nd0idx = elem->nds[i]->locId;
+            int nd1idx = elem->nds[(i+1)%3]->locId;
+            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
+            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
+
+            icy::Edge &existing_edge = edges_map.at(key);
+            existing_edge.AddElement(elem, (i+2)%3);
+        }
+    }
+
+    std::unordered_map<uint64_t, Edge> correctly_inferred_edges;
+    // only take edges in the affected_elements set
+    for(Element *elem : expanded_set_elems1)
+    {
+        for(int i=0;i<3;i++)
+        {
+            int nd0idx = elem->nds[i]->locId;
+            int nd1idx = elem->nds[(i+1)%3]->locId;
+            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
+            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
+
+            icy::Edge &existing_edge = edges_map.at(key);
+            correctly_inferred_edges.insert({key,existing_edge});
+        }
+    }
+
+//    qDebug() << "affected elems " << affected_elements_during_split.size();
+//    qDebug() << "affected nodes " << affected_nodes_during_split.size();
+ //   qDebug() << "expanded set of elems " << expanded_set_elems.size();
+//    qDebug() << "edges_map " << edges_map.size();
+//    qDebug() << "correctly inferred edges " << correctly_inferred_edges.size();
+
+
+    boundaryEdges.erase(std::remove_if(boundaryEdges.begin(),boundaryEdges.end(),
+                   [affected_nodes_during_split](Edge e)
+    {return (affected_nodes_during_split.find(e.nds[0])!=affected_nodes_during_split.end() &&
+                affected_nodes_during_split.find(e.nds[1])!=affected_nodes_during_split.end());}),
+            boundaryEdges.end());
+
+    for(auto kvp : correctly_inferred_edges)
+    {
+        Edge &existing_edge = kvp.second;
+        icy::Element *elem_of_edge0 = existing_edge.elems[0];
+        icy::Element *elem_of_edge1 = existing_edge.elems[1];
+        short idx0 = existing_edge.edge_in_elem_idx[0];
+        short idx1 = existing_edge.edge_in_elem_idx[1];
+
+        if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("disconnected edge?");
+        existing_edge.isBoundary = (existing_edge.elems[0] == nullptr || existing_edge.elems[1] == nullptr);
+
+        if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = existing_edge;
+        if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = existing_edge;
+
+        if(!existing_edge.isBoundary)
+        {
+            elem_of_edge0->adj_elems[idx0] = elem_of_edge1;
+            elem_of_edge1->adj_elems[idx1] = elem_of_edge0;
+        }
+
+        if(existing_edge.isBoundary) boundaryEdges.push_back(existing_edge);
+    }
+
+    for(Node *nd : affected_nodes_during_split) nd->PrepareFan2();
+*/
     throw std::runtime_error("not implemented");
 }
 
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge)
 {
+    /*
+    if(!originalElem->ContainsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
+    if(!originalElem->ContainsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
+    if(!originalElem->ContainsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
+    short ndIdx = originalElem->getNodeIdx(nd);
+    short nd0Idx = originalElem->getNodeIdx(nd0);
+    short nd1Idx = originalElem->getNodeIdx(nd1);
+
+    Element *insertedFace = AddElement();
+    nd->adjacent_elems.push_back(insertedFace);
+
+    Node *split=AddNode();
+    split->InitializeFromAdjacent(nd0, nd1, where);
+    split->isBoundary=true;
+    split->adjacent_elems.push_back(originalElem);
+    split->adjacent_elems.push_back(insertedFace);
+
+    originalElem->nds[nd1Idx] = split;
+    insertedFace->nds[ndIdx] = nd;
+    insertedFace->nds[nd1Idx] = nd1;
+    insertedFace->nds[nd0Idx] = split;
+    insertedFace->edges[nd0Idx] = originalElem->edges[nd0Idx];
+
+    insertedEdge = Edge(nd, split);
+    insertedEdge.AddElement(insertedFace, nd1Idx);
+    insertedEdge.AddElement(originalElem, nd0Idx);
+    insertedEdge.isBoundary = false;
+    insertedEdge.toSplit = true;
+
+    Edge exteriorEdge1 = Edge(split, nd1);
+    exteriorEdge1.isBoundary = true;
+    exteriorEdge1.AddElement(insertedFace, ndIdx);
+    insertedFace->edges[ndIdx] = exteriorEdge1;
+
+    Edge exteriorEdge2 = Edge(split, nd0);
+    exteriorEdge2.isBoundary = true;
+    exteriorEdge2.AddElement(originalElem, ndIdx);
+    originalElem->edges[ndIdx] = exteriorEdge2;
+
+    originalElem->ComputeInitialNormal();
+    insertedFace->ComputeInitialNormal();
+
+    if(originalElem->normal_initial.z() < 0) throw std::runtime_error("CarefulSplitBoundaryElem: normal inconsistent in originalElem");
+    if(insertedFace->normal_initial.z() < 0) throw std::runtime_error("CarefulSplitBoundaryElem: normal inconsistent in insertedFace");
+
+    affected_elements_during_split.insert(originalElem);
+    affected_elements_during_split.insert(insertedFace);
+*/
     throw std::runtime_error("not implemented");
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Edge &insertedEdge)
 {
+    /*
+    originalElem->AssertEdges();
+
+    if(!originalElem->ContainsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
+    if(!originalElem->ContainsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
+    if(!originalElem->ContainsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
+    short ndIdx_orig = originalElem->getNodeIdx(nd);
+    short nd0Idx_orig = originalElem->getNodeIdx(nd0);
+    short nd1Idx_orig = originalElem->getNodeIdx(nd1);
+
+    Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
+    if(!adjElem->ContainsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
+    if(!adjElem->ContainsNode(nd0)) throw std::runtime_error("adjElem does not contain nd0");
+    if(!adjElem->ContainsNode(nd1)) throw std::runtime_error("adjElem does not contain nd1");
+    short nd0Idx_adj = adjElem->getNodeIdx(nd0);
+    short nd1Idx_adj = adjElem->getNodeIdx(nd1);
+    short oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
+
+    Element *insertedFace = AddElement();
+
+    Element *insertedFace_adj = AddElement();
+
+    Node *split=AddNode();
+    split->InitializeFromAdjacent(nd0, nd1, where);
+    split->isBoundary=false;
+    split->adjacent_elems.push_back(originalElem);
+    split->adjacent_elems.push_back(insertedFace);
+    split->adjacent_elems.push_back(adjElem);
+    split->adjacent_elems.push_back(insertedFace_adj);
+
+    originalElem->nds[nd1Idx_orig] = split;
+    insertedFace->nds[ndIdx_orig] = nd;
+    insertedFace->nds[nd1Idx_orig] = nd1;
+    insertedFace->nds[nd0Idx_orig] = split;
+    insertedFace->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig];
+    nd->adjacent_elems.push_back(insertedFace);
+    nd1->adjacent_elems.push_back(insertedFace);
+    split->adjacent_elems.push_back(insertedFace);
+
+    adjElem->nds[nd1Idx_adj] = split;
+    insertedFace_adj->nds[oppIdx_adj] = oppositeNode;
+    insertedFace_adj->nds[nd1Idx_adj] = nd1;
+    insertedFace_adj->nds[nd0Idx_adj] = split;
+    insertedFace_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj];
+    oppositeNode->adjacent_elems.push_back(insertedFace_adj);
+    nd1->adjacent_elems.push_back(insertedFace_adj);
+    split->adjacent_elems.push_back(insertedFace_adj);
+
+    insertedEdge = Edge(nd, split);
+    insertedEdge.AddElement(insertedFace, nd1Idx_orig);
+    insertedEdge.AddElement(originalElem, nd0Idx_orig);
+    insertedEdge.isBoundary = false;
+    insertedEdge.toSplit = true;
+
+    Edge insertedEdge_adj = Edge(oppositeNode, split);
+    insertedEdge_adj.AddElement(insertedFace_adj, nd1Idx_adj);
+    insertedEdge_adj.AddElement(adjElem, nd0Idx_adj);
+    insertedEdge_adj.isBoundary = false;
+    insertedEdge_adj.toSplit = false;
+    insertedFace_adj->edges[nd1Idx_adj] = insertedEdge_adj;
+    adjElem->edges[nd0Idx_adj] = insertedEdge_adj;
+
+    Edge exteriorEdge1 = Edge(split, nd1);
+    exteriorEdge1.isBoundary = false;
+    exteriorEdge1.AddElement(insertedFace, ndIdx_orig);
+    exteriorEdge1.AddElement(insertedFace_adj, oppIdx_adj);
+    insertedFace->edges[ndIdx_orig] = exteriorEdge1;
+    insertedFace_adj->edges[oppIdx_adj] = exteriorEdge1;
+
+    Edge exteriorEdge2 = Edge(split, nd0);
+    exteriorEdge2.isBoundary = false;
+    exteriorEdge2.AddElement(originalElem, ndIdx_orig);
+    exteriorEdge2.AddElement(adjElem, oppIdx_adj);
+    originalElem->edges[ndIdx_orig] = exteriorEdge2;
+    adjElem->edges[oppIdx_adj] = exteriorEdge2;
+
+    originalElem->ComputeInitialNormal();
+    insertedFace->ComputeInitialNormal();
+    adjElem->ComputeInitialNormal();
+    insertedFace_adj->ComputeInitialNormal();
+
+    if(originalElem->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in originalElem");
+    if(insertedFace->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in insertedFace");
+    if(adjElem->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in adjElem");
+    if(insertedFace_adj->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in insertedFace_adj");
+
+    affected_elements_during_split.insert(originalElem);
+    affected_elements_during_split.insert(insertedFace);
+    affected_elements_during_split.insert(adjElem);
+    affected_elements_during_split.insert(insertedFace_adj);
+*/
     throw std::runtime_error("not implemented");
 }

@@ -240,7 +240,6 @@ bool EquationOfMotionSolver::Solve()
     MSKrescodee  r;
     MSKtask_t    task = NULL;
     r = MSK_maketask(env, 0, N*DOFS, &task);
-    taskCount++;
     if (r != MSK_RES_OK) throw std::runtime_error("maketask");
 
     //    r = MSK_linkfunctotaskstream(task, MSK_STREAM_LOG, NULL, printstr);
