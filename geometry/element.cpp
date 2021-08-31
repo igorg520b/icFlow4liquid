@@ -278,3 +278,25 @@ short icy::Element::getNodeIdx(Node *nd)
     else if(nds[2]==nd) return 2;
     else throw std::runtime_error("getNodeIdx");
 }
+
+void icy::Element::AssertEdges()
+{
+    // verify that edes are correctly initialized
+    for(int i=0;i<3;i++)
+    {
+        if(!containsNode(edges[i].nds[0])) throw std::runtime_error("AssertEdges");
+        if(!containsNode(edges[i].nds[1])) throw std::runtime_error("AssertEdges");
+    }
+}
+
+icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
+{
+    for(int i=0;i<3;i++)
+    {
+        int idx_next = (i+1)%3;
+        if((nds[i] == nd0 && nds[idx_next] == nd1)||
+                (nds[i] == nd1 && nds[idx_next] == nd0))
+            return nds[(i+2)%3];
+    }
+    throw std::runtime_error("getOppositeNode: opposite node not found");
+}

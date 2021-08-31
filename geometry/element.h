@@ -64,6 +64,9 @@ public:
     void getIdxs(const icy::Node* nd, short &thisIdx, short &CWIdx, short &CCWIdx) const;
     Element* getAdjacentElementOppositeToNode(Node *nd);
     short getNodeIdx(Node *nd);
+    void AssertEdges();
+    icy::Node* getOppositeNode(Node *nd0, Node* nd1);
+
 private:
 
 };

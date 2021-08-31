@@ -1272,26 +1272,28 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Edge &insertedEdge)
 {
-    /*
     originalElem->AssertEdges();
+    if(!originalElem->containsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
+    if(!originalElem->containsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
+    if(!originalElem->containsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
 
-    if(!originalElem->ContainsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
-    if(!originalElem->ContainsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
-    if(!originalElem->ContainsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
     short ndIdx_orig = originalElem->getNodeIdx(nd);
     short nd0Idx_orig = originalElem->getNodeIdx(nd0);
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
 
+
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
-    if(!adjElem->ContainsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
-    if(!adjElem->ContainsNode(nd0)) throw std::runtime_error("adjElem does not contain nd0");
-    if(!adjElem->ContainsNode(nd1)) throw std::runtime_error("adjElem does not contain nd1");
+    if(!adjElem->containsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
+    if(!adjElem->containsNode(nd0)) throw std::runtime_error("adjElem does not contain nd0");
+    if(!adjElem->containsNode(nd1)) throw std::runtime_error("adjElem does not contain nd1");
     short nd0Idx_adj = adjElem->getNodeIdx(nd0);
     short nd1Idx_adj = adjElem->getNodeIdx(nd1);
     short oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
 
-    Element *insertedFace = AddElement();
 
+
+    /*
+    Element *insertedFace = AddElement();
     Element *insertedFace_adj = AddElement();
 
     Node *split=AddNode();
@@ -1363,5 +1365,29 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     affected_elements_during_split.insert(adjElem);
     affected_elements_during_split.insert(insertedFace_adj);
 */
+    throw std::runtime_error("not implemented");
+}
+
+icy::Node* icy::Mesh::AddNode(icy::Node *otherNd)
+{
+    /*
+    icy::Node* result = s_pool_nodes.take();
+    result->Reset();
+    result->locId = nodes->size();
+    nodes->push_back(result);
+    if(otherNd!=nullptr) result->InitializeFromAnother(otherNd);
+    return result;
+    */
+    throw std::runtime_error("not implemented");
+}
+
+icy::Element* icy::Mesh::AddElement()
+{
+    /*
+    icy::Element* result = s_pool_elems.take();
+    elems->push_back(result);
+    for(int i=0;i<3;i++) result->adj_elems[i]=nullptr;
+    return result;
+    */
     throw std::runtime_error("not implemented");
 }
