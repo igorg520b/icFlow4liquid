@@ -79,8 +79,6 @@ struct icy::Node
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);
 
-
-
     static uint64_t make_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
 
 private:

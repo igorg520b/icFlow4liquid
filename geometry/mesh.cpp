@@ -1078,7 +1078,6 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
 
 void icy::Mesh::UpdateEdges()
 {
-    /*
     std::unordered_set<Node*> affected_nodes_during_split; // their neighbors are also affected
     std::unordered_set<Element *> expanded_set_elems1;
     std::unordered_set<Element *> expanded_set_elems2;
@@ -1088,8 +1087,9 @@ void icy::Mesh::UpdateEdges()
         for(int k=0;k<3;k++)
         {
             affected_nodes_during_split.insert(elem->nds[k]);
-            if(elem->adj_elems[k]!=nullptr) expanded_set_elems1.insert(elem->adj_elems[k]);
-            for(Element *elem2 : elem->nds[k]->adjacent_elems) {
+            if(elem->incident_elems[k]!=nullptr) expanded_set_elems1.insert(elem->incident_elems[k]);
+            for(Element *elem2 : elem->nds[k]->adj_elems)
+            {
                 expanded_set_elems1.insert(elem2);
                 for(int m=0;m<3;m++) affected_nodes_during_split.insert(elem2->nds[m]);
             }
@@ -1097,19 +1097,20 @@ void icy::Mesh::UpdateEdges()
         expanded_set_elems1.insert(elem);
     }
 
-
     for(Node *nd : affected_nodes_during_split)
     {
-        for(Element *elem : nd->adjacent_elems) expanded_set_elems2.insert(elem);
-        nd->adjacent_elems.clear();
+        for(Element *elem : nd->adj_elems) expanded_set_elems2.insert(elem);
+        nd->adj_elems.clear();
         nd->area=0;
         nd->isBoundary=false;
     }
 
-    for(Element *elem : expanded_set_elems1) {
-        for(int k=0;k<3;k++) {
-            if(elem->adj_elems[k]!=nullptr) expanded_set_elems2.insert(elem->adj_elems[k]);
-            elem->adj_elems[k]=nullptr;
+    for(Element *elem : expanded_set_elems1)
+    {
+        for(int k=0;k<3;k++)
+        {
+            if(elem->incident_elems[k]!=nullptr) expanded_set_elems2.insert(elem->incident_elems[k]);
+            elem->incident_elems[k]=nullptr;
         }
         expanded_set_elems2.insert(elem);
     }
@@ -1124,35 +1125,15 @@ void icy::Mesh::UpdateEdges()
             // only work with the nodes in the affected_nodes set
             if(affected_nodes_during_split.find(nd)!=affected_nodes_during_split.end())
             {
-                nd->adjacent_elems.push_back(elem);
+                nd->adj_elems.push_back(elem);
             }
             // process edges
-            int nd0idx = elem->nds[i]->locId;
-            int nd1idx = elem->nds[(i+1)%3]->locId;
-            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
-            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
-
-            icy::Node *nd0 = nodes->at(nd0idx);
-            icy::Node *nd1 = nodes->at(nd1idx);
-
-            Edge edge(nd0, nd1);
-
-            edges_map.insert({key,edge});
-        }
-    }
-
-    // note that edges_map may contain edges outside of affected_elements
-    for(Element *elem : expanded_set_elems2)
-    {
-        for(int i=0;i<3;i++)
-        {
-            int nd0idx = elem->nds[i]->locId;
-            int nd1idx = elem->nds[(i+1)%3]->locId;
-            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
-            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
-
-            icy::Edge &existing_edge = edges_map.at(key);
-            existing_edge.AddElement(elem, (i+2)%3);
+            icy::Node *nd0 = elem->nds[i];
+            icy::Node *nd1 = elem->nds[(i+1)%3];
+            uint64_t key = Node::make_key(nd0,nd1);
+            auto result = edges_map.try_emplace(key, nd0, nd1);
+            Edge &e = result.first->second;
+            e.AddElement(elem, (i+2)%3);
         }
     }
 
@@ -1162,28 +1143,19 @@ void icy::Mesh::UpdateEdges()
     {
         for(int i=0;i<3;i++)
         {
-            int nd0idx = elem->nds[i]->locId;
-            int nd1idx = elem->nds[(i+1)%3]->locId;
-            if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
-            uint64_t key = ((uint64_t)nd0idx << 32) | nd1idx;
-
+            icy::Node *nd0 = elem->nds[i];
+            icy::Node *nd1 = elem->nds[(i+1)%3];
+            uint64_t key = Node::make_key(nd0,nd1);
             icy::Edge &existing_edge = edges_map.at(key);
             correctly_inferred_edges.insert({key,existing_edge});
         }
     }
 
-//    qDebug() << "affected elems " << affected_elements_during_split.size();
-//    qDebug() << "affected nodes " << affected_nodes_during_split.size();
- //   qDebug() << "expanded set of elems " << expanded_set_elems.size();
-//    qDebug() << "edges_map " << edges_map.size();
-//    qDebug() << "correctly inferred edges " << correctly_inferred_edges.size();
-
-
-    boundaryEdges.erase(std::remove_if(boundaryEdges.begin(),boundaryEdges.end(),
-                   [affected_nodes_during_split](Edge e)
-    {return (affected_nodes_during_split.find(e.nds[0])!=affected_nodes_during_split.end() &&
-                affected_nodes_during_split.find(e.nds[1])!=affected_nodes_during_split.end());}),
-            boundaryEdges.end());
+    allBoundaryEdges.erase(std::remove_if(allBoundaryEdges.begin(), allBoundaryEdges.end(),
+                   [affected_nodes_during_split](std::pair<Node*,Node*> e)
+    {return (affected_nodes_during_split.find(e.first)!=affected_nodes_during_split.end() &&
+                affected_nodes_during_split.find(e.second)!=affected_nodes_during_split.end());}),
+            allBoundaryEdges.end());
 
     for(auto kvp : correctly_inferred_edges)
     {
@@ -1193,7 +1165,7 @@ void icy::Mesh::UpdateEdges()
         short idx0 = existing_edge.edge_in_elem_idx[0];
         short idx1 = existing_edge.edge_in_elem_idx[1];
 
-        if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("disconnected edge?");
+        if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("icy::Mesh::UpdateEdges: disconnected edge");
         existing_edge.isBoundary = (existing_edge.elems[0] == nullptr || existing_edge.elems[1] == nullptr);
 
         if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = existing_edge;
@@ -1201,16 +1173,14 @@ void icy::Mesh::UpdateEdges()
 
         if(!existing_edge.isBoundary)
         {
-            elem_of_edge0->adj_elems[idx0] = elem_of_edge1;
-            elem_of_edge1->adj_elems[idx1] = elem_of_edge0;
+            elem_of_edge0->incident_elems[idx0] = elem_of_edge1;
+            elem_of_edge1->incident_elems[idx1] = elem_of_edge0;
         }
 
-        if(existing_edge.isBoundary) boundaryEdges.push_back(existing_edge);
+        if(existing_edge.isBoundary) allBoundaryEdges.emplace_back(existing_edge.nds[0],existing_edge.nds[1]);
     }
 
-    for(Node *nd : affected_nodes_during_split) nd->PrepareFan2();
-*/
-    throw std::runtime_error("not implemented");
+    for(Node *nd : affected_nodes_during_split) nd->PrepareFan();
 }
 
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge)
