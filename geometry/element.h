@@ -13,18 +13,14 @@ namespace icy { struct Element; struct Node; }
 
 struct icy::Element
 {
-    Element() { Reset();}
-
-
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
     int group;
     std::size_t gmshTag;        // tag of the element in the original gmsh representation
 
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
-//    boost::container::small_vector<unsigned, 22> adj_elems;
 
     void Reset(void);
-    void Reset(Node *nd0, Node *nd1, Node *nd2, std::size_t gmshTag);
+    void Initialize(Node *nd0, Node *nd1, Node *nd2);
     void PrecomputeInitialArea();
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;

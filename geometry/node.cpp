@@ -17,10 +17,8 @@ void icy::Node::Reset()
     time_loaded_above_threshold = 0;
 }
 
-void icy::Node::Reset(int locId_, double x, double y)
+void icy::Node::Initialize(double x, double y)
 {
-    Reset();
-    locId = locId_;
     x_initial << x,y;
     intended_position = xt = xn = x_initial;
 }

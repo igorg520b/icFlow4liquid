@@ -8,7 +8,7 @@
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
 
-namespace icy { class MeshFragment; }
+namespace icy { class MeshFragment; class Mesh; }
 
 class icy::MeshFragment
 {    
@@ -45,8 +45,11 @@ private:
     std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges_tmp;
     void GetFromGmsh();     // populate "nodes" and "elems"
     void KeepGmshResult();  // save gmsh representation into gmshResult
+
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
+    icy::Node* AddNode();   // automatically assign locId and fragment, then add to nodes vector; also used by Mesh class
+    icy::Element* AddElement();
 
     struct GmshEntity
     {
@@ -74,8 +77,8 @@ private:
 // FRACTURE MODEL
 public:
     void CreateEdges();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
-private:
 
+    friend icy::Mesh;
 };
 
 #endif // MESHFRAGMENT_H

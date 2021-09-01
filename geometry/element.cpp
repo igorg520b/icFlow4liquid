@@ -43,15 +43,12 @@ void icy::Element::Reset(void)
     leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
 }
 
-void icy::Element::Reset(Node *nd0, Node *nd1, Node *nd2, std::size_t gmshTag_)
+void icy::Element::Initialize(Node *nd0, Node *nd1, Node *nd2)
 {
-    Reset();
     nds[0] = nd0;
     nds[1] = nd1;
     nds[2] = nd2;
-    gmshTag = gmshTag_;
 }
-
 
 void icy::Element::PrecomputeInitialArea()
 {

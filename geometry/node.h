@@ -9,14 +9,13 @@
 #include "parameters_sim.h"
 #include "edge.h"
 
-namespace icy { struct Node; struct Element;}
+namespace icy { struct Node; struct Element; class MeshFragment;}
 
 struct icy::Node
 {
     Node(){ Reset();}
     void Reset();
-    void Reset(int locId, double x, double y);
-    void Reset(Node *other) { Reset(other->locId, other->x_initial.x(), other->x_initial.y()); }
+    void Initialize(double x, double y);
 
     int locId, globId, eqId, indId;    // id in fragment; id in mesh; id in freenode list; id in movable boundary
     std::size_t gmshTag;
@@ -37,6 +36,8 @@ struct icy::Node
 
 
 // FRACTURE MODEL
+    MeshFragment *fragment;         // mesh fragment to which the node belongs
+
     struct Sector
     {
         icy::Element *face;

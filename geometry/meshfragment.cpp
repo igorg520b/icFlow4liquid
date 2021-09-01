@@ -22,6 +22,26 @@ icy::MeshFragment::~MeshFragment()
     ElementFactory.release(elems_tmp);
 }
 
+icy::Node* icy::MeshFragment::AddNode()
+{
+    Node* result = NodeFactory.take();
+    result->Reset();
+    result->fragment = this;
+    result->locId = (int)nodes.size();
+    nodes.push_back(result);
+    return result;
+}
+
+icy::Element* icy::MeshFragment::AddElement()
+{
+    Element* elem = ElementFactory.take();
+    elem->Reset();
+    elems.push_back(elem);
+    return elem;
+}
+
+
+
 void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 {
     deformable = true;
@@ -94,11 +114,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     {
         std::size_t tag = nodeTags[i];
         if(mtags.count(tag)) continue;  // node was already added
-        int sequential_id = nodes.size();
-        mtags[tag] = sequential_id;
-        icy::Node* nd = NodeFactory.take();
-        nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
-        nodes.push_back(nd);
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
     }
 
     // place the rest of the nodes of the "first group", i.e. elastic layer
@@ -110,11 +128,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     {
         std::size_t tag = nodeTags[i];
         if(mtags.count(tag)) continue;  // node was already added
-        int sequential_id = nodes.size();
-        mtags[tag] = sequential_id;
-        icy::Node* nd = NodeFactory.take();
-        nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
-        nodes.push_back(nd);
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
     }
 
     // place the rest of the nodes
@@ -125,12 +141,9 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     {
         std::size_t tag = nodeTags[i];
         if(mtags.count(tag)) continue;  // node was already added
-
-        int sequential_id = nodes.size();
-        mtags[tag] = sequential_id;
-        icy::Node* nd = NodeFactory.take();
-        nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
-        nodes.push_back(nd);
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
     }
 
 
@@ -152,12 +165,11 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
 
         for(std::size_t i=0;i<trisTags.size();i++)
         {
-            icy::Element *elem = ElementFactory.take();
-            elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+            icy::Element *elem = AddElement();
+            elem->gmshTag = trisTags[i];
+            elem->Initialize(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                    nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
-            elem->group=k;
-            elems.push_back(elem);
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
         }
         if(k==0) nFirstGroupElems = elems.size();
     }
@@ -236,14 +248,10 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     {
         std::size_t tag = nodeTags[i];
         if(mtags.count(tag)>0) continue; // throw std::runtime_error("GetFromGmsh() node duplication in deformable");
-        unsigned sequential_idx = nodes.size();
-        mtags[tag] = sequential_idx;
-        double x = nodeCoords[i*3+0];
-        double y = nodeCoords[i*3+1];
 
-        icy::Node* nd = NodeFactory.take();
-        nodes.push_back(nd);
-        nd->Reset(sequential_idx, x, y);
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nd->gmshTag = tag;
     }
 
@@ -280,11 +288,11 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
 
     for(std::size_t i=0;i<trisTags.size();i++)
     {
-        icy::Element *elem = ElementFactory.take();
-        elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+        icy::Element *elem = AddElement();
+        elem->Initialize(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                 nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
-        elems.push_back(elem);
+                nodes[mtags.at(nodeTagsInTris[i*3+2])]);
+        elem->gmshTag = trisTags[i];
     }
 
     // BOUNDARIRES - EDGES
@@ -359,14 +367,10 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     {
         std::size_t tag = nodeTags[i];
         if(mtags.count(tag)>0) continue; // throw std::runtime_error("GetFromGmsh() node duplication in deformable");
-        unsigned sequential_idx = nodes.size();
-        mtags[tag] = sequential_idx;
-        double x = nodeCoords[i*3+0];
-        double y = nodeCoords[i*3+1];
 
-        icy::Node* nd = NodeFactory.take();
-        nodes.push_back(nd);
-        nd->Reset(sequential_idx, x, y);
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
         nd->gmshTag = tag;
     }
 
@@ -397,11 +401,11 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
 
     for(std::size_t i=0;i<trisTags.size();i++)
     {
-        icy::Element *elem = ElementFactory.take();
-        elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+        icy::Element *elem = AddElement();
+        elem->gmshTag = trisTags[i];
+        elem->Initialize(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                 nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
-        elems.push_back(elem);
+                nodes[mtags.at(nodeTagsInTris[i*3+2])]);
     }
 
     // BOUNDARIRES - EDGES
@@ -525,16 +529,11 @@ void icy::MeshFragment::GetFromGmsh()
         {
             std::size_t tag = nodeTags[i];
             if(mtags.count(tag)>0) continue; // throw std::runtime_error("GetFromGmsh() node duplication in deformable");
-            unsigned sequential_idx = nodes.size();
-            mtags[tag] = sequential_idx;
-            double x = nodeCoords[i*3+0];
-            double y = nodeCoords[i*3+1];
 
-            icy::Node* nd = NodeFactory.take();
-            nodes.push_back(nd);
-            nd->Reset(sequential_idx, x, y);
+            Node *nd = AddNode();
+            mtags[tag] = nd->locId;
+            nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
             nd->gmshTag = tag;
-            // if(y==0 || !deformable) nd->pinned=true;
         }
 
         // GET ELEMENTS
@@ -543,11 +542,11 @@ void icy::MeshFragment::GetFromGmsh()
 
         for(std::size_t i=0;i<trisTags.size();i++)
         {
-            icy::Element *elem = ElementFactory.take();
-            elem->Reset(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+            icy::Element *elem = AddElement();
+            elem->gmshTag = trisTags[i];
+            elem->Initialize(nodes[mtags.at(nodeTagsInTris[i*3+0])],
                     nodes[mtags.at(nodeTagsInTris[i*3+1])],
-                    nodes[mtags.at(nodeTagsInTris[i*3+2])], trisTags[i]);
-            elems.push_back(elem);
+                    nodes[mtags.at(nodeTagsInTris[i*3+2])]);
         }
 
     }
@@ -563,15 +562,12 @@ void icy::MeshFragment::GetFromGmsh()
         {
             std::size_t tag = nodeTags[i];
             if(mtags.count(tag)>0) continue; // throw std::runtime_error("GetFromGmsh() node duplication in boundary");
-            unsigned sequential_id = nodes.size();
-            mtags[tag] = sequential_id;
-            double x = nodeCoords[i*3+0];
-            double y = nodeCoords[i*3+1];
 
-            icy::Node* nd = NodeFactory.take();
-            nd->Reset(sequential_id, nodeCoords[i*3+0], nodeCoords[i*3+1]);
-            nodes.push_back(nd);
-            nd->pinned=true;
+            Node *nd = AddNode();
+            mtags[tag] = nd->locId;
+            nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
+            nd->gmshTag = tag;
+            nd->pinned = true;
         }
     }
 
@@ -628,6 +624,7 @@ void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
 
 void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
 {
+    /*
     std::cout << "\nicy::MeshFragment::RemeshSpecialBrick(double ElementSize)" << std::endl;
     NodeFactory.release(nodes_tmp);
     ElementFactory.release(elems_tmp);
@@ -708,7 +705,7 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
             if(mtags.count(tag)>0) continue;
             icy::Node* nd = NodeFactory.take();
             unsigned idx = nodes_tmp.size();
-            nd->Reset(idx, x, y);
+            nd->Reset(idx, x, y, this);
             mtags[tag] = idx;
             nodes_tmp.push_back(nd);
         }
@@ -743,16 +740,13 @@ void icy::MeshFragment::RemeshSpecialBrick(double ElementSize)
     gmsh::clear();
     Swap();
     PostMeshingEvaluations();
-
-    // double-check
-//    std::unordered_set<Node*> connected_nds;
-//    for(Element *e : elems) for(unsigned j=0;j<3;j++) connected_nds.insert(e->nds[j]);
-//    if(connected_nds.size() != nodes.size()) throw std::runtime_error("remeshing error");
+    */
 }
 
 
 void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
 {
+    /*
     // re-create the boundary in gmsh
     gmsh::clear();
     gmsh::option::setNumber("General.Terminal", 1);
@@ -791,30 +785,6 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     }
     gmsh::view::addHomogeneousModelData(view, 0, "background1", "ElementData", elem_tags, data);
 
-/*
-    //leftCauchyGreenDeformationTensor
-    std::vector<std::size_t> elem_tags;
-    std::vector<double> data;
-    constexpr int n_comp = 9;
-    data.resize(nodes.size()*n_comp);
-    elem_tags.resize(nodes.size());
-    const double coeff = 1.0/ElementSize;
-    for(unsigned i=0;i<nodes.size();i++)
-    {
-        elem_tags[i] = nodes[i]->gmshTag;
-        data[i*n_comp+0] = coeff/2;
-        data[i*n_comp+1] = 0;
-        data[i*n_comp+2] = 0;
-        data[i*n_comp+3] = 0;
-        data[i*n_comp+4] = coeff/10*nodes[i]->x_initial.y();
-        data[i*n_comp+5] = 0;
-        data[i*n_comp+6] = 0;
-        data[i*n_comp+7] = 0;
-        data[i*n_comp+8] = coeff/2;
-    }
-    gmsh::view::addHomogeneousModelData(view, 0, "background1", "NodeData", elem_tags, data,0,n_comp);
-*/
-
     gmsh::model::add("remesh1");
     int bg_field = gmsh::model::mesh::field::add("PostView");
     gmsh::model::mesh::field::setNumber(bg_field, "ViewIndex", 0);
@@ -848,10 +818,6 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     int surfaceTag = gmsh::model::occ::addPlaneSurface({innerLoopTag});
     gmsh::model::occ::synchronize();
 
-//    gmsh::option::setNumber("Mesh.SmoothRatio", 3);
-//    gmsh::option::setNumber("Mesh.AnisoMax", 1000);
-//    gmsh::option::setNumber("Mesh.Algorithm", 7);
-
     gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
     gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", 0);
     gmsh::option::setNumber("Mesh.MeshSizeFromPoints", 0);
@@ -864,7 +830,7 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
     NodeFactory.release(nodes);
     ElementFactory.release(elems);
     GetFromGmsh();
-
+*/
 }
 
 
@@ -888,7 +854,6 @@ void icy::MeshFragment::Swap()
     std::copy(boundary_edges_tmp.begin(),boundary_edges_tmp.end(),boundary_edges.begin());
     boundary_edges_tmp.resize(be_tmp.size());
     std::copy(be_tmp.begin(),be_tmp.end(),boundary_edges_tmp.begin());
-
 }
 
 void icy::MeshFragment::SaveFragment(std::string fileName)
@@ -1005,52 +970,6 @@ void icy::MeshFragment::PostMeshingEvaluations()
             nd->area += elem->area_initial/3;
         }
     }
-
-/*
-    if(inferConnectivity)
-    {
-#pragma omp parallel for
-        for(unsigned i=0;i<nNodes;i++)
-        {
-            icy::Node *nd = nodes[i];
-            nd->adj_elems.clear();
-        }
-
-        for(unsigned i=0;i<nElems;i++)
-        {
-            icy::Element *elem = elems[i];
-            for(int j=0;j<3;j++)
-            {
-                icy::Node *nd = elem->nds[j];
-                nd->adj_elems.push_back(i);
-            }
-            elem->adj_elems.clear();
-        }
-
-        // all adjacent elems per nodes are copied to elements (repetitions may occur)
-        for(unsigned i=0;i<nNodes;i++)
-        {
-            icy::Node *nd = nodes[i];
-            for(unsigned j : nd->adj_elems)
-            {
-                icy::Element *elem = elems[j];
-                std::copy(nd->adj_elems.begin(),nd->adj_elems.end(),std::back_inserter(elem->adj_elems));
-            }
-        }
-
-        // repetitions and self-references are eliminated
-        for(unsigned i=0;i<nElems;i++)
-        {
-            icy::Element *elem = elems[i];
-            std::sort(elem->adj_elems.begin(),elem->adj_elems.end());
-            auto unique_res = std::unique(elem->adj_elems.begin(),elem->adj_elems.end());
-            unsigned newSize = std::distance(elem->adj_elems.begin(),unique_res);
-            elem->adj_elems.resize(newSize);
-            elem->adj_elems.erase(std::remove(elem->adj_elems.begin(), elem->adj_elems.end(), i), elem->adj_elems.end());
-        }
-    }
-*/
-
 }
 
 
@@ -1150,5 +1069,4 @@ void icy::MeshFragment::CreateEdges()
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
 }
-
 
