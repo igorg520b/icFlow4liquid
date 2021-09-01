@@ -16,6 +16,9 @@ struct icy::Node
     Node(){ Reset();}
     void Reset();
     void Initialize(double x, double y);
+    void Initialize(const Node *other);
+    void InitializeLERP(const Node *nd0, const Node *nd1, double f);    // linear interpolaiton between two other nodes
+
 
     int locId, globId, eqId, indId;    // id in fragment; id in mesh; id in freenode list; id in movable boundary
     std::size_t gmshTag;
@@ -75,6 +78,8 @@ struct icy::Node
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);
+
+
 
     static uint64_t make_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
 

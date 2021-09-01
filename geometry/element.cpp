@@ -35,6 +35,7 @@ Eigen::Matrix<double,6,6> icy::Element::consistentMassMatrix =
 void icy::Element::Reset(void)
 {
     nds[0] = nds[1] = nds[2] = nullptr;
+    incident_elems[0] = incident_elems[1] = incident_elems[2] = nullptr;
     area_initial = area_current = 0;
     group = -1;
     PiMultiplier = Eigen::Matrix2d::Identity();
@@ -296,4 +297,13 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
             return nds[(i+2)%3];
     }
     throw std::runtime_error("getOppositeNode: opposite node not found");
+}
+
+void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
+{
+    if(nds[0] == replaceWhat) nds[0] = replaceWith;
+    else if(nds[1] == replaceWhat) nds[1] = replaceWith;
+    else if(nds[2] == replaceWhat) nds[2] = replaceWith;
+    else throw std::runtime_error("icy::Element::ReplaceNode: replaced node not found");
+    PrecomputeInitialArea();
 }

@@ -13,8 +13,9 @@ void icy::Node::Reset()
     pinned = false;
     spring_attached = 0;
     group.reset();
-    isCrackTip = false;
+    isBoundary = isCrackTip = false;
     time_loaded_above_threshold = 0;
+    adj_elems.clear();
 }
 
 void icy::Node::Initialize(double x, double y)
@@ -22,6 +23,15 @@ void icy::Node::Initialize(double x, double y)
     x_initial << x,y;
     intended_position = xt = xn = x_initial;
 }
+
+void icy::Node::Initialize(const Node *nd)
+{
+    x_initial = nd->x_initial;
+    xt = nd->xt;
+    xn = nd->xn;
+    vn = nd->vn;
+}
+
 
 void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h, Eigen::Vector2d &spring)
 {
@@ -327,6 +337,14 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
         double coeff = ((1-weakening_coeff)+(weakening_coeff)*pow((weakening_direction.dot(ssr.tn)+1)/2, 5));
         ssr.trac_normal*=coeff;
     }
+}
+
+void icy::Node::InitializeLERP(const Node *nd0, const Node *nd1, double f)
+{
+    x_initial = nd0->x_initial*f + nd1->x_initial*(1-f);
+    xt = nd0->xt*f + nd1->xt*(1-f);
+    xn = nd0->xn*f + nd1->xn*(1-f);
+    vn = nd0->vn*f + nd1->vn*(1-f);
 }
 
 

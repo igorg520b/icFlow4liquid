@@ -97,8 +97,6 @@ private:
                                      Node *nd0, Node *nd1, double where, Edge &insertedEdge);
     void Fix_X_Topology(Node *nd);
     void UpdateEdges();
-    icy::Node* AddNode(icy::Node *otherNd=nullptr);
-    icy::Element* AddElement(); // makes a new element
 
     // void InferLocalSupport(SimParams &prms);
 

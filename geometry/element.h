@@ -62,6 +62,8 @@ public:
     short getNodeIdx(Node *nd);
     void AssertEdges();
     icy::Node* getOppositeNode(Node *nd0, Node* nd1);
+    void ReplaceNode(Node *replaceWhat, Node *replaceWith);
+
 
 private:
 

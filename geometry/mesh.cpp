@@ -954,7 +954,6 @@ void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double p
     splitEdge.elems[1]->edges[splitEdge.edge_in_elem_idx[1]]=splitEdge;
 }
 
-
 void icy::Mesh::SplitNode(const SimParams &prms)
 {
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
@@ -1028,15 +1027,14 @@ void icy::Mesh::SplitNode(const SimParams &prms)
 
 void icy::Mesh::Fix_X_Topology(Node *nd)
 {
-    /*
     nd->fan.clear();
-    for(unsigned k=0;k<nd->adjacent_elems.size();k++)
+    for(unsigned k=0;k<nd->adj_elems.size();k++)
     {
-        icy::Element *elem = nd->adjacent_elems[k];
+        icy::Element *elem = nd->adj_elems[k];
 
         Node::Sector s;
         s.face = elem;
-        Eigen::Vector3d tcv = elem->getCenter() - nd->x_initial;
+        Eigen::Vector2d tcv = elem->getCenter() - nd->x_initial;
         s.centerAngle = atan2(tcv.y(), tcv.x());
 
         short thisIdx, CWIdx, CCWIdx;
@@ -1057,7 +1055,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
                                     [nd](const Node::Sector &f){return f.face->CWEdge(nd).isBoundary;});
     if(cw_boundary != nd->fan.end()) std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
 
-    Node *split=nullptr;
+    Node *split = nullptr;
     bool replacing = false;
     for(unsigned i=1;i<nd->fan.size();i++)
     {
@@ -1065,18 +1063,17 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         if(s.face->CWEdge(nd).toSplit || s.face->CWEdge(nd).isBoundary) replacing=!replacing;
         if(replacing) {
             if(split==nullptr) {
-                split=AddNode();
-                split->InitializeFromAnother(nd);
+                split = nd->fragment->AddNode();
+                allNodes.push_back(split);
+                split->Initialize(nd);
             }
             s.face->ReplaceNode(nd, split);
         }
     }
 
-    if(split==nullptr) qDebug()<<"nothing to split! " << nd->locId;
+    if(split==nullptr) spdlog::warn("Fix_X_Topology: nothing to split; locId {}",nd->locId);
 
     for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
-*/
-    throw std::runtime_error("not implemented");
 }
 
 void icy::Mesh::UpdateEdges()
@@ -1218,28 +1215,32 @@ void icy::Mesh::UpdateEdges()
 
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge)
 {
-    /*
-    if(!originalElem->ContainsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
-    if(!originalElem->ContainsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
-    if(!originalElem->ContainsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
+    if(!originalElem->containsNode(nd)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd");
+    if(!originalElem->containsNode(nd0)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd0");
+    if(!originalElem->containsNode(nd1)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd1");
     short ndIdx = originalElem->getNodeIdx(nd);
     short nd0Idx = originalElem->getNodeIdx(nd0);
     short nd1Idx = originalElem->getNodeIdx(nd1);
 
-    Element *insertedFace = AddElement();
-    nd->adjacent_elems.push_back(insertedFace);
+    MeshFragment *fragment = nd->fragment;
 
-    Node *split=AddNode();
-    split->InitializeFromAdjacent(nd0, nd1, where);
+    Element *insertedFace = fragment->AddElement();
+    allElems.push_back(insertedFace);
+    nd->adj_elems.push_back(insertedFace);
+
+    Node *split = fragment->AddNode();
+    allNodes.push_back(split);
+    split->InitializeLERP(nd0, nd1, where);
     split->isBoundary=true;
-    split->adjacent_elems.push_back(originalElem);
-    split->adjacent_elems.push_back(insertedFace);
+    split->adj_elems.push_back(originalElem);
+    split->adj_elems.push_back(insertedFace);
 
     originalElem->nds[nd1Idx] = split;
     insertedFace->nds[ndIdx] = nd;
     insertedFace->nds[nd1Idx] = nd1;
     insertedFace->nds[nd0Idx] = split;
     insertedFace->edges[nd0Idx] = originalElem->edges[nd0Idx];
+    insertedFace->PiMultiplier = originalElem->PiMultiplier; // TODO: test if this works
 
     insertedEdge = Edge(nd, split);
     insertedEdge.AddElement(insertedFace, nd1Idx);
@@ -1257,16 +1258,10 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     exteriorEdge2.AddElement(originalElem, ndIdx);
     originalElem->edges[ndIdx] = exteriorEdge2;
 
-    originalElem->ComputeInitialNormal();
-    insertedFace->ComputeInitialNormal();
+    originalElem->PrecomputeInitialArea();
+    insertedFace->PrecomputeInitialArea();
 
-    if(originalElem->normal_initial.z() < 0) throw std::runtime_error("CarefulSplitBoundaryElem: normal inconsistent in originalElem");
-    if(insertedFace->normal_initial.z() < 0) throw std::runtime_error("CarefulSplitBoundaryElem: normal inconsistent in insertedFace");
-
-    affected_elements_during_split.insert(originalElem);
-    affected_elements_during_split.insert(insertedFace);
-*/
-    throw std::runtime_error("not implemented");
+    affected_elements_during_split.insert({originalElem,insertedFace});
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
@@ -1281,7 +1276,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     short nd0Idx_orig = originalElem->getNodeIdx(nd0);
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
 
-
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
     if(!adjElem->containsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
     if(!adjElem->containsNode(nd0)) throw std::runtime_error("adjElem does not contain nd0");
@@ -1290,37 +1284,43 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     short nd1Idx_adj = adjElem->getNodeIdx(nd1);
     short oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
 
+    MeshFragment *fragment = nd->fragment;
 
+    Element *insertedFace = fragment->AddElement();
+    allElems.push_back(insertedFace);
+    Element *insertedFace_adj = fragment->AddElement();
+    allElems.push_back(insertedFace_adj);
+    Node *split = fragment->AddNode();
+    allNodes.push_back(split);
 
-    /*
-    Element *insertedFace = AddElement();
-    Element *insertedFace_adj = AddElement();
+    split->InitializeLERP(nd0, nd1, where);
 
-    Node *split=AddNode();
-    split->InitializeFromAdjacent(nd0, nd1, where);
-    split->isBoundary=false;
-    split->adjacent_elems.push_back(originalElem);
-    split->adjacent_elems.push_back(insertedFace);
-    split->adjacent_elems.push_back(adjElem);
-    split->adjacent_elems.push_back(insertedFace_adj);
+    split->adj_elems.push_back(originalElem);
+    split->adj_elems.push_back(insertedFace);
+    split->adj_elems.push_back(adjElem);
+    split->adj_elems.push_back(insertedFace_adj);
 
     originalElem->nds[nd1Idx_orig] = split;
     insertedFace->nds[ndIdx_orig] = nd;
     insertedFace->nds[nd1Idx_orig] = nd1;
     insertedFace->nds[nd0Idx_orig] = split;
     insertedFace->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig];
-    nd->adjacent_elems.push_back(insertedFace);
-    nd1->adjacent_elems.push_back(insertedFace);
-    split->adjacent_elems.push_back(insertedFace);
+    insertedFace->PiMultiplier = originalElem->PiMultiplier; // TODO: test if this works
+
+    nd->adj_elems.push_back(insertedFace);
+    nd1->adj_elems.push_back(insertedFace);
+    split->adj_elems.push_back(insertedFace);
 
     adjElem->nds[nd1Idx_adj] = split;
     insertedFace_adj->nds[oppIdx_adj] = oppositeNode;
     insertedFace_adj->nds[nd1Idx_adj] = nd1;
     insertedFace_adj->nds[nd0Idx_adj] = split;
     insertedFace_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj];
-    oppositeNode->adjacent_elems.push_back(insertedFace_adj);
-    nd1->adjacent_elems.push_back(insertedFace_adj);
-    split->adjacent_elems.push_back(insertedFace_adj);
+    insertedFace_adj->PiMultiplier = adjElem->PiMultiplier; // TODO: test if this works
+
+    oppositeNode->adj_elems.push_back(insertedFace_adj);
+    nd1->adj_elems.push_back(insertedFace_adj);
+    split->adj_elems.push_back(insertedFace_adj);
 
     insertedEdge = Edge(nd, split);
     insertedEdge.AddElement(insertedFace, nd1Idx_orig);
@@ -1350,44 +1350,12 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     originalElem->edges[ndIdx_orig] = exteriorEdge2;
     adjElem->edges[oppIdx_adj] = exteriorEdge2;
 
-    originalElem->ComputeInitialNormal();
-    insertedFace->ComputeInitialNormal();
-    adjElem->ComputeInitialNormal();
-    insertedFace_adj->ComputeInitialNormal();
+    originalElem->PrecomputeInitialArea();
+    insertedFace->PrecomputeInitialArea();
+    adjElem->PrecomputeInitialArea();
+    insertedFace_adj->PrecomputeInitialArea();
 
-    if(originalElem->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in originalElem");
-    if(insertedFace->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in insertedFace");
-    if(adjElem->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in adjElem");
-    if(insertedFace_adj->normal_initial.z() < 0) throw std::runtime_error("NonBoundaryElem: normal inconsistent in insertedFace_adj");
-
-    affected_elements_during_split.insert(originalElem);
-    affected_elements_during_split.insert(insertedFace);
-    affected_elements_during_split.insert(adjElem);
-    affected_elements_during_split.insert(insertedFace_adj);
-*/
-    throw std::runtime_error("not implemented");
+    affected_elements_during_split.insert({originalElem,insertedFace,adjElem,insertedFace_adj});
 }
 
-icy::Node* icy::Mesh::AddNode(icy::Node *otherNd)
-{
-    /*
-    icy::Node* result = s_pool_nodes.take();
-    result->Reset();
-    result->locId = nodes->size();
-    nodes->push_back(result);
-    if(otherNd!=nullptr) result->InitializeFromAnother(otherNd);
-    return result;
-    */
-    throw std::runtime_error("not implemented");
-}
 
-icy::Element* icy::Mesh::AddElement()
-{
-    /*
-    icy::Element* result = s_pool_elems.take();
-    elems->push_back(result);
-    for(int i=0;i<3;i++) result->adj_elems[i]=nullptr;
-    return result;
-    */
-    throw std::runtime_error("not implemented");
-}
