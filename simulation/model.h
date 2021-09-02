@@ -33,10 +33,11 @@ private:
     bool abortRequested = false;
     void Aborting();       // called before exiting Step() if aborted
     constexpr static int colWidth = 12;    // table column width when logging
+
 signals:
     void stepCompleted();
     void stepAborted();
-    void fractureProgress();
+    void fractureProgress();    // signals that the VTK view of mesh is not in sync with internal representation
 
     // Model
 public:
@@ -47,7 +48,6 @@ public:
     int currentStep;
     double timeStepFactor, simulationTime;
 
-    void UnsafeUpdateGeometry();
     void SetIndenterPosition(double position);
     void AttachSpring(double X, double Y, double radius);   // attach spring to nodes
     void ReleaseSpring();
@@ -55,13 +55,11 @@ public:
 
 private:
     void Fracture(double timeStep);
+    void Fracture_LocalSubstep(double timeStep);    // part of Fracture()
     void InitialGuess(double timeStep, double timeStepFactor);
     bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
     bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
     void GetNewMaterialPosition();      // relax the mesh to a new rest state
-
-signals:
-//    void requestGeometryUpdate(); // request the main thread to redraw
 
     // VTK visualization
 public:
@@ -72,7 +70,12 @@ public:
                   elem_area, energy_density, volume_change, velocity_div, elem_group, node_group,
                   vel_mag, adj_elems_count_nd};
     Q_ENUM(VisOpt)
-    void ChangeVisualizationOption(icy::Model::VisOpt option);
+
+    void UnsafeSynchronizeVTK();    // synchronize what VTK shows with internal mesh representation; invoke from the main thread
+    void ChangeVisualizationOption(icy::Model::VisOpt option);  // invoke from the main thread
+    bool topologyInvalid = true;
+    bool displacementsInvalid = true;
+
 private:
     QMutex vtk_update_mutex; // to prevent modifying mesh data while updating VTK representation
     bool vtk_update_requested = false;  // true when signal has been already emitted to update vtk geometry

@@ -82,6 +82,7 @@ private:
 
     gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
 
+
     // Fracture
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
@@ -98,7 +99,10 @@ private:
     void Fix_X_Topology(Node *nd);
     void UpdateEdges();
 
-    // void InferLocalSupport(SimParams &prms);
+    void InferLocalSupport(SimParams &prms);
+    void CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set);
+    std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
+    std::vector<Node*> local_support;
 
     // VTK
 public:

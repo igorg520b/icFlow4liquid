@@ -91,13 +91,9 @@ public:
     void showEvent( QShowEvent* event ) override;
     void closeEvent( QCloseEvent* event ) override;
 
-
-
-
 private slots:
     void background_worker_paused();
     void updateGUI();   // when simulation is started/stopped or when a step is advanced
-    void render_results();
 
     void sliderValueChanged(int val);
     void comboboxIndexChanged_visualizations(int index);
@@ -119,6 +115,9 @@ private slots:
     void on_actionSelf_collision_triggered();
 
 private:
+    void render_results();
+
+
 //    PreferencesGUI prefsGUI;
     icy::Model model;
     BackgroundWorker *worker;
@@ -140,18 +139,11 @@ private:
 
     // VTK
     vtkNew<vtkGenericOpenGLRenderWindow> renderWindow;
-
     QVTKOpenGLNativeWidget *qt_vtk_widget;
-
     vtkNew<vtkRenderer> renderer;
     vtkNew<SpecialSelector2D> specialSelector2D;
-
     vtkNew<vtkScalarBarActor> scalarBar;
 
-    const QString wtitle = "icFlow4: Finite Element Simulation";
-
     friend class SpecialSelector2D;
-
-
 };
 #endif // MAINWINDOW_H

@@ -13,7 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     worker = new BackgroundWorker(&model);
 
-//    connect(&controller.model, SIGNAL(requestGeometryUpdate()), SLOT(render_results()));
+    connect(&model, SIGNAL(fractureProgress()),SLOT(updateGUI()));
     connect(&model, SIGNAL(stepAborted()),SLOT(updateGUI()));
     connect(&model, SIGNAL(stepCompleted()), SLOT(updateGUI()));
     connect(worker, SIGNAL(workerPaused()), SLOT(background_worker_paused()));
@@ -233,9 +233,10 @@ void MainWindow::updateGUI()
     render_results();
 }
 
+
 void MainWindow::render_results()
 {
-    model.UnsafeUpdateGeometry();
+    model.UnsafeSynchronizeVTK();
     renderWindow->Render();
 }
 
@@ -294,17 +295,17 @@ void MainWindow::on_actionSave_Mesh_triggered()
 void MainWindow::on_actionRemesh_triggered()
 {
 //    model.mesh->allFragments[1]->RemeshSpecialBrick(model.prms.CharacteristicLength/2);
-    model.mesh.fragments[1].RemeshWithBackgroundMesh(model.prms.CharacteristicLength);
-    model.mesh.RegenerateVisualizedGeometry();
-    render_results();
+//    model.mesh.fragments[1].RemeshWithBackgroundMesh(model.prms.CharacteristicLength);
+//    model.mesh.RegenerateVisualizedGeometry();
+//    render_results();
 }
 
 
 void MainWindow::on_actionSwap_Buffers_triggered()
 {
-    model.mesh.fragments[1].Swap();
-    model.mesh.RegenerateVisualizedGeometry();
-    render_results();
+//    model.mesh.fragments[1].Swap();
+//    model.mesh.RegenerateVisualizedGeometry();
+//    render_results();
 }
 
 
@@ -316,16 +317,16 @@ void MainWindow::on_actionClear_Velocity_triggered()
 void MainWindow::on_actionUse_Initial_State_triggered()
 {
     model.mesh.showDeformation = icy::Mesh::ShowDeformationOption::initial;
+    model.displacementsInvalid = true;
     render_results();
 }
 
 void MainWindow::on_actionCurrent_Space_triggered()
 {
     model.mesh.showDeformation = icy::Mesh::ShowDeformationOption::current;
+    model.displacementsInvalid = true;
     render_results();
 }
-
-
 
 
 void MainWindow::on_actionIndentation_triggered()
@@ -334,20 +335,17 @@ void MainWindow::on_actionIndentation_triggered()
     updateGUI();
 }
 
-
 void MainWindow::on_actionShear_triggered()
 {
     model.Reset(1);
     updateGUI();
 }
 
-
 void MainWindow::on_actionStretch_triggered()
 {
     model.Reset(2);
     updateGUI();
 }
-
 
 void MainWindow::on_actionSelf_collision_triggered()
 {

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <iterator>
 #include <unordered_set>
+#include <queue>
 #include "spdlog/spdlog.h"
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
@@ -28,7 +29,6 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         movableBoundary.resize(fragments[0].boundary_edges.size());
         std::copy(fragments[0].boundary_edges.begin(),fragments[0].boundary_edges.end(),movableBoundary.begin());
     }
-
         break;
 
         // shear
@@ -84,34 +84,6 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     updateMinMax = true;
     std::clog << "icy::Mesh::Reset() done\n";
 }
-
-void icy::Mesh::SetIndenterPosition(double position)
-{
-    switch(typeOfSetup)
-    {
-    case 0:
-    case 1:
-    {
-        Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.1);
-        for(unsigned i=0;i<movableNodes.size();i++)
-        {
-            icy::Node* nd = movableNodes[i];
-            nd->intended_position = nd->x_initial + position*y_direction;
-        }
-    }
-        break;
-    case 2:
-    case 3:
-        Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
-        for(unsigned i=0;i<movableNodes.size();i++)
-        {
-            icy::Node* nd = movableNodes[i];
-            nd->intended_position = nd->x_initial + (position-0.3)*x_direction*(1+nd->x_initial.y()/3);
-        }
-        break;
-    }
-}
-
 
 icy::Mesh::Mesh()
 {
@@ -186,8 +158,36 @@ icy::Mesh::Mesh()
     mesh_root_contact.test_self_collision = mesh_root_ccd.test_self_collision = true;
 }
 
+void icy::Mesh::SetIndenterPosition(double position)
+{
+    switch(typeOfSetup)
+    {
+    case 0:
+    case 1:
+    {
+        Eigen::Vector2d y_direction = Eigen::Vector2d(0,-1.1);
+        for(unsigned i=0;i<movableNodes.size();i++)
+        {
+            icy::Node* nd = movableNodes[i];
+            nd->intended_position = nd->x_initial + position*y_direction;
+        }
+    }
+        break;
+    case 2:
+    case 3:
+        Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
+        for(unsigned i=0;i<movableNodes.size();i++)
+        {
+            icy::Node* nd = movableNodes[i];
+            nd->intended_position = nd->x_initial + (position-0.3)*x_direction*(1+nd->x_initial.y()/3);
+        }
+        break;
+    }
+}
 
 
+
+// VTK VISUALIZATION
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
@@ -258,67 +258,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     UnsafeUpdateGeometry();
 }
 
-
-void icy::Mesh::UpdateTree(float distance_threshold)
-{
-    // update leafs
-    unsigned nLeafs = global_leaves_ccd.size();
-#pragma omp parallel for
-    for(unsigned i=0;i<nLeafs;i++)
-    {
-        BVHN *leaf_ccd = global_leaves_ccd[i];
-        Node *nd1, *nd2;
-        std::tie(nd1,nd2) = allBoundaryEdges[leaf_ccd->feature_idx];
-        kDOP8 &box_ccd = leaf_ccd->box;
-        box_ccd.Reset();
-        box_ccd.Expand(nd1->xn[0], nd1->xn[1]);
-        box_ccd.Expand(nd2->xn[0], nd2->xn[1]);
-        box_ccd.Expand(nd1->xt[0], nd1->xt[1]);
-        box_ccd.Expand(nd2->xt[0], nd2->xt[1]);
-
-        BVHN *leaf_contact = global_leaves_contact[i];
-        std::tie(nd1,nd2) = allBoundaryEdges[leaf_contact->feature_idx];
-
-        kDOP8 &box_contact = leaf_contact->box;
-        box_contact.Reset();
-        box_contact.Expand(nd1->xt[0], nd1->xt[1]);
-        box_contact.Expand(nd2->xt[0], nd2->xt[1]);
-        box_contact.ExpandBy(distance_threshold);
-    }
-
-    // update or build the rest of the tree
-    // TODO: parallel
-    if(tree_update_counter%10 != 0)
-    {
-        mesh_root_ccd.Update();
-        mesh_root_contact.Update();
-    }
-    else
-    {
-        BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
-
-        if(fragmentRoots_ccd.size()>1)
-        {
-            for(MeshFragment &mf : fragments)
-            {
-                mf.root_ccd.Build(&mf.leaves_for_ccd,0);
-                mf.root_contact.Build(&mf.leaves_for_contact,0);
-            }
-            mesh_root_ccd.Build(&fragmentRoots_ccd,0);
-            mesh_root_contact.Build(&fragmentRoots_contact,0);
-        }
-        else
-        {
-            mesh_root_ccd.Build(&fragments.front().leaves_for_ccd,0);
-            mesh_root_contact.Build(&fragments.front().leaves_for_contact,0);
-        }
-    }
-    tree_update_counter++;
-}
-
-
-
-
 void icy::Mesh::UnsafeUpdateGeometry()
 {
     double x[3]={};
@@ -376,8 +315,6 @@ void icy::Mesh::UnsafeUpdateGeometry()
     ugrid_collisions->SetCells(VTK_LINE, cellArray_collisions);
     actor_collisions->Modified();
 }
-
-
 
 void icy::Mesh::ChangeVisualizationOption(int option)
 {
@@ -592,6 +529,65 @@ void icy::Mesh::UpdateValues()
 
 
 
+// COLLISION DETECTION
+
+void icy::Mesh::UpdateTree(float distance_threshold)
+{
+    // update leafs
+    unsigned nLeafs = global_leaves_ccd.size();
+#pragma omp parallel for
+    for(unsigned i=0;i<nLeafs;i++)
+    {
+        BVHN *leaf_ccd = global_leaves_ccd[i];
+        Node *nd1, *nd2;
+        std::tie(nd1,nd2) = allBoundaryEdges[leaf_ccd->feature_idx];
+        kDOP8 &box_ccd = leaf_ccd->box;
+        box_ccd.Reset();
+        box_ccd.Expand(nd1->xn[0], nd1->xn[1]);
+        box_ccd.Expand(nd2->xn[0], nd2->xn[1]);
+        box_ccd.Expand(nd1->xt[0], nd1->xt[1]);
+        box_ccd.Expand(nd2->xt[0], nd2->xt[1]);
+
+        BVHN *leaf_contact = global_leaves_contact[i];
+        std::tie(nd1,nd2) = allBoundaryEdges[leaf_contact->feature_idx];
+
+        kDOP8 &box_contact = leaf_contact->box;
+        box_contact.Reset();
+        box_contact.Expand(nd1->xt[0], nd1->xt[1]);
+        box_contact.Expand(nd2->xt[0], nd2->xt[1]);
+        box_contact.ExpandBy(distance_threshold);
+    }
+
+    // update or build the rest of the tree
+    // TODO: parallel
+    if(tree_update_counter%10 != 0)
+    {
+        mesh_root_ccd.Update();
+        mesh_root_contact.Update();
+    }
+    else
+    {
+        BVHN::BVHNFactory.releaseAll(); // does not release the leaves and roots
+
+        if(fragmentRoots_ccd.size()>1)
+        {
+            for(MeshFragment &mf : fragments)
+            {
+                mf.root_ccd.Build(&mf.leaves_for_ccd,0);
+                mf.root_contact.Build(&mf.leaves_for_contact,0);
+            }
+            mesh_root_ccd.Build(&fragmentRoots_ccd,0);
+            mesh_root_contact.Build(&fragmentRoots_contact,0);
+        }
+        else
+        {
+            mesh_root_ccd.Build(&fragments.front().leaves_for_ccd,0);
+            mesh_root_contact.Build(&fragments.front().leaves_for_contact,0);
+        }
+    }
+    tree_update_counter++;
+}
+
 void icy::Mesh::AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, double distance_threshold)
 {
     Node *ndA, *ndB, *ndP;
@@ -703,7 +699,6 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     }
 }
 
-
 bool icy::Mesh::EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2)
 {
     Node *ndA, *ndB, *ndC, *ndD;
@@ -724,7 +719,6 @@ bool icy::Mesh::EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2)
     bool result = mTIQuery(seg1, seg2).intersect;
     return result;
 }
-
 
 std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
 {
@@ -830,7 +824,6 @@ std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
     }
     return std::make_pair(false,0);
 }
-
 
 
 
@@ -1328,4 +1321,65 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     affected_elements_during_split.insert({originalElem,insertedFace,adjElem,insertedFace_adj});
 }
 
+void icy::Mesh::InferLocalSupport(SimParams &prms)
+{
+    if(maxNode==nullptr) throw std::runtime_error("InferLocalSupport: maxNode==nullptr");
 
+    local_elems.clear();
+    std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems));
+    CreateSupportRange(prms.FractureSubstepLevels, local_elems);
+
+    std::unordered_set<Node*> local_support_set;
+    for(Element *elem : local_elems) for(int k=0;k<3;k++) local_support_set.insert(elem->nds[k]);
+    local_support.clear();
+    std::copy(local_support_set.begin(), local_support_set.end(),std::back_inserter(local_support));
+
+    // reset the loading timer in the vicinity of the crack
+    local_elems2.clear();
+    std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems2));
+    CreateSupportRange(prms.FractureTimerLevels, local_elems2);
+    for(icy::Node *nd : allNodes) nd->reset_timing = nd->isSupportNode = false;
+    for(Element *e : local_elems2)
+        for(int k=0;k<3;k++)
+        {
+            e->nds[k]->time_loaded_above_threshold = 0;
+            e->nds[k]->reset_timing=true;
+        }
+
+    // for visualization - mark support range (stored in breakable_range)
+    for(icy::Node *nd : local_support) nd->isSupportNode = true; // for visualization
+}
+
+void icy::Mesh::CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set)
+{
+    for(unsigned i=0;i<allElems.size();i++) allElems[i]->traversal=0;
+
+    std::queue<Element*> q_wave;
+    for(Element *e : initial_set)
+    {
+        e->traversal=1;
+        q_wave.push(e);
+    }
+    initial_set.clear();
+
+    while(q_wave.size() > 0)
+    {
+        icy::Element *elem = q_wave.front();
+        q_wave.pop();
+        initial_set.push_back(elem);
+
+        unsigned short level = elem->traversal;
+        if(level < neighborLevel)
+        {
+            for(int i=0;i<3;i++)
+            {
+                icy::Element *adj_e = elem->incident_elems[i];
+                if(adj_e!= nullptr && adj_e->traversal==0)
+                {
+                    adj_e->traversal=level+1;
+                    q_wave.push(adj_e);
+                }
+            }
+        }
+    }
+}

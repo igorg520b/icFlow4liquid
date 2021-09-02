@@ -4,6 +4,7 @@
 #include "mesh.h"
 #include "spdlog/spdlog.h"
 
+// CONTROLLER - RESET, STEP, ABORT
 
 void icy::Model::Reset(unsigned setup)
 {
@@ -11,10 +12,9 @@ void icy::Model::Reset(unsigned setup)
     timeStepFactor = 1;
     simulationTime = 0;
 
-    vtk_update_mutex.lock();
     mesh.Reset(prms.CharacteristicLength, prms.InteractionDistance, setup);
-    vtk_update_mutex.unlock();
-    std::clog << "icy::Model::Reset() done\n";
+    topologyInvalid = true;
+    spdlog::info("icy::Model::Reset() done");
 }
 
 void icy::Model::Prepare()
@@ -60,7 +60,7 @@ bool icy::Model::Step()
     "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
             iter++;
         }
-        spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
+        // spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
 
         if(!ccd_res)
         {
@@ -107,27 +107,86 @@ void icy::Model::Aborting()
     emit stepAborted();
 }
 
-void icy::Model::UnsafeUpdateGeometry()
+
+
+// CONTROLLER - VTK VISUALIZATION
+
+void icy::Model::UnsafeSynchronizeVTK()
 {
     vtk_update_mutex.lock();
-    mesh.UnsafeUpdateGeometry();
+    {
+        if(topologyInvalid) mesh.RegenerateVisualizedGeometry();
+        else if(displacementsInvalid) mesh.UnsafeUpdateGeometry();
+    }
     vtk_update_mutex.unlock();
+    topologyInvalid = false;
+    displacementsInvalid = false;
 }
 
 void icy::Model::ChangeVisualizationOption(icy::Model::VisOpt option)
 {
+    UnsafeSynchronizeVTK();
     vtk_update_mutex.lock();
     mesh.ChangeVisualizationOption((int)option);
     vtk_update_mutex.unlock();
 }
+
+
+
+// CONTROLLER - GUI SPRING AND INDENTER
 
 void icy::Model::SetIndenterPosition(double position)
 {
     vtk_update_mutex.lock();
     mesh.SetIndenterPosition(position);
     vtk_update_mutex.unlock();
+    displacementsInvalid = true;
 }
 
+void icy::Model::AttachSpring(double X, double Y, double radius)
+{
+    spdlog::info("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
+    Eigen::Vector2d attachmentPos(X,Y);
+    vtk_update_mutex.lock();
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh.allNodes.size();i++)
+    {
+        icy::Node *nd = mesh.allNodes[i];
+        if((nd->xn-attachmentPos).norm()<radius)
+        {
+            nd->spring_attached = 1;
+            nd->spring_attachment_position = nd->xn;
+        }
+        else
+        {
+            nd->spring_attached = 0;
+        }
+    }
+    vtk_update_mutex.unlock();
+}
+
+void icy::Model::ReleaseSpring()
+{
+    spdlog::info("icy::Model::ReleaseSpring");
+    vtk_update_mutex.lock();
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh.allNodes.size();i++)
+    {
+        icy::Node *nd = mesh.allNodes[i];
+        nd->spring_attached=0;
+    }
+    vtk_update_mutex.unlock();
+}
+
+void icy::Model::AdjustSpring(double dX, double dY)
+{
+    spdlog::info("icy::Model::AdjustSpring {}-{}",dX,dY);
+    spring << dX,dY;
+}
+
+
+
+// SOLVING - ELASTICITY AND FRACTURE MODEL
 
 void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
 {
@@ -250,6 +309,7 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     simulationTime+=timeStep;
     mesh.area_current = std::accumulate(mesh.allElems.begin(), mesh.allElems.end(),0.0,
                                          [](double a, Element* m){return a+m->area_current;});
+    displacementsInvalid = true;
     return plasticDeformation;
 }
 
@@ -270,9 +330,7 @@ void icy::Model::GetNewMaterialPosition()
         unsigned nNodes = mf.nodes.size();
         unsigned nElems = mf.elems.size();
 
-
         // solve the equation iteratively (as usual, but without collisions)
-
         int attempt = 0;
         bool converges=false;
         bool sln_res; // false if matrix is not PSD
@@ -371,47 +429,6 @@ void icy::Model::GetNewMaterialPosition()
     }
 }
 
-void icy::Model::AttachSpring(double X, double Y, double radius)
-{
-    spdlog::info("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
-    Eigen::Vector2d attachmentPos(X,Y);
-    vtk_update_mutex.lock();
-#pragma omp parallel for
-    for(unsigned i=0;i<mesh.allNodes.size();i++)
-    {
-        icy::Node *nd = mesh.allNodes[i];
-        if((nd->xn-attachmentPos).norm()<radius)
-        {
-            nd->spring_attached = 1;
-            nd->spring_attachment_position = nd->xn;
-        }
-        else
-        {
-            nd->spring_attached = 0;
-        }
-    }
-    vtk_update_mutex.unlock();
-}
-
-void icy::Model::ReleaseSpring()
-{
-    spdlog::info("icy::Model::ReleaseSpring");
-    vtk_update_mutex.lock();
-#pragma omp parallel for
-    for(unsigned i=0;i<mesh.allNodes.size();i++)
-    {
-        icy::Node *nd = mesh.allNodes[i];
-        nd->spring_attached=0;
-    }
-    vtk_update_mutex.unlock();
-}
-
-void icy::Model::AdjustSpring(double dX, double dY)
-{
-    spdlog::info("icy::Model::AdjustSpring {}-{}",dX,dY);
-    spring << dX,dY;
-}
-
 void icy::Model::Fracture(double timeStep)
 {
     vtk_update_mutex.lock();
@@ -429,25 +446,22 @@ void icy::Model::Fracture(double timeStep)
 
     /*
     // ComputeFractureDirections must be invoked prior to this
-    if(floes.maxNode == nullptr) throw std::runtime_error("FractureStep");
 
     mutex.lock();
     b_split += floes.SplitNodeAlt(prms);
     mutex.unlock();
-    topologyInvalid = true;
     b_support += floes.InferLocalSupport(prms);
 
     b_substep += LocalSubstep(prms, timeStep, totalTime);
 
-    mutex.lock();
-    b_compute_fracture_directions += floes.ComputeFractureDirections(prms);
-    mutex.unlock();
 
-    displacementsInvalid = true;
-
-    if(!updateRequested) {updateRequested = true; emit requestGeometryUpdate(); }                           */
+*/
+        vtk_update_mutex.lock();
+        mesh.ComputeFractureDirections(prms, 0, false);
+        vtk_update_mutex.unlock();
 
         fracture_step_count++;
+        topologyInvalid = true;
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }
     mesh.updateMinMax = true;
@@ -458,3 +472,48 @@ void icy::Model::Fracture(double timeStep)
     }
 }
 
+void icy::Model::Fracture_LocalSubstep(double timeStep)
+{
+
+
+ /*
+    double localTimeStep = timeStep*prms.substepping_timestep_factor;
+    if(floes.local_support.size() == 0)
+    {
+        // this may occur in manual "testing" situation
+        qDebug() << "LocalSubstep: support size is zero, aborting";
+        return 0;
+    }
+
+    for(icy::Node *nd : *floes.nodes) nd->lsId=-1;
+    int count = 0;
+    for(icy::Node *nd : floes.local_support) nd->lsId = count++;
+
+    //support_range1
+    // similar to AssembleAndSolve, but only run on the local domain
+    std::size_t nNodesLocal = floes.local_support.size();
+    std::size_t nElemsLocal = floes.local_elems.size();
+    for(int i=0;i<prms.substep_iterations;i++)
+    {
+        ls.ClearAndResize(count);
+
+#pragma omp parallel for
+    for(std::size_t i=0;i<nElemsLocal;i++) floes.local_elems[i]->UpdateSparseSystemEntries(ls);
+
+        ls.CreateStructure();
+
+#pragma omp parallel for
+        for(std::size_t i=0;i<nElemsLocal;i++)
+            floes.local_elems[i]->ComputeElasticForce(ls, prms, timeStep, floes.elasticityMatrix, floes.D_mats);
+
+#pragma omp parallel for
+        for(std::size_t i=0;i<nNodesLocal;i++)
+            floes.local_support[i]->ComputeElasticForce(ls, prms, localTimeStep, totalTime);
+
+        ls.Solve();
+        PullFromLinearSystem(localTimeStep, prms.NewmarkBeta, prms.NewmarkGamma);
+    }
+
+    floes.EvaluateStresses(prms, floes.local_elems);
+*/
+}

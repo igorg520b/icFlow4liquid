@@ -69,6 +69,7 @@ struct icy::Node
     double fan_angle_span;  // assigned in UpdateFan();
     bool isCrackTip;
     bool isBoundary;
+    bool isSupportNode, reset_timing;
     SepStressResult result_with_max_traction;
     Eigen::Vector2d dir;
     Eigen::Vector2d weakening_direction;    // used when isCrackTip==true

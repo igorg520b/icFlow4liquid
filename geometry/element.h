@@ -51,6 +51,7 @@ private:
 public:
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
     icy::Edge edges[3];
+    unsigned traversal;     // used for identifying disjoint regions and n-regions around crack tips
     const Edge& CWEdge(const Node* nd) const;   // clockwise edge
     const Edge& CCWEdge(const Node* nd) const;  // counter-clockwise edge
     const Edge& OppositeEdge(const Node* nd) const;
