@@ -24,7 +24,7 @@ void icy::Model::Prepare()
 
 bool icy::Model::Step()
 {
-    mesh.UpdateTree(prms.InteractionDistance);
+    if(prms.EnableCollisions) mesh.UpdateTree(prms.InteractionDistance);
 
     int attempt = 0;
     bool converges=false;
@@ -47,7 +47,7 @@ bool icy::Model::Step()
         while((!prms.EnableCollisions || ccd_res) && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
             if(abortRequested) {Aborting(); return false;}
-            sln_res = AssembleAndSolve(h);
+            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.allNodes, mesh.allElems);
             if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
             ccd_res = ccd_result.first;
 
@@ -61,7 +61,7 @@ bool icy::Model::Step()
                          "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
             iter++;
         }
-        // spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
+        spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
 
         if(!ccd_res)
         {
@@ -211,30 +211,36 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
     }
 }
 
-bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
+bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool enable_spring,
+                                  std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems)
 {
-    eqOfMotion.ClearAndResize(mesh.freeNodeCount);
+    unsigned nElems = elems.size();
+    unsigned nNodes = nodes.size();
 
-    unsigned nElems = mesh.allElems.size();
-    unsigned nNodes = mesh.allNodes.size();
-
-#pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++) mesh.allElems[i]->AddToSparsityStructure(eqOfMotion);
-
-    unsigned nInteractions;
-    if(prms.EnableCollisions)
+    // assign sequential indices to free nodes
+    unsigned freeNodeCount = 0;
+    for(unsigned i=0;i<nNodes;i++)
     {
-        if(!restShape)
-        {
-            mesh.UpdateTree(prms.InteractionDistance);
-            vtk_update_mutex.lock();
-            mesh.DetectContactPairs(prms.InteractionDistance);
-            vtk_update_mutex.unlock();
-            nInteractions = mesh.collision_interactions.size();
+        Node *nd = nodes[i];
+        if(nd->pinned) nd->eqId = -1;
+        else nd->eqId = freeNodeCount++;
+    }
+
+    eqOfMotion.ClearAndResize(freeNodeCount);
 
 #pragma omp parallel for
-            for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
-        }
+    for(unsigned i=0;i<nElems;i++) elems[i]->AddToSparsityStructure(eqOfMotion);
+
+    unsigned nInteractions = 0;
+    if(enable_collisions)
+    {
+        mesh.UpdateTree(prms.InteractionDistance);
+        vtk_update_mutex.lock();
+        mesh.DetectContactPairs(prms.InteractionDistance);
+        vtk_update_mutex.unlock();
+        nInteractions = mesh.collision_interactions.size();
+#pragma omp parallel for
+        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
     }
 
     eqOfMotion.CreateStructure();
@@ -244,37 +250,33 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
-        bool elem_entry_ok = mesh.allElems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+        bool elem_entry_ok = elems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
         if(!elem_entry_ok) mesh_iversion_detected = true;
     }
+    if(mesh_iversion_detected)
+    {
+        spdlog::info("mesh inversion detected while assembling elements");
+        return false; // mesh inversion
+    }
 
-    if(mesh_iversion_detected) return false; // mesh inversion
-
-    if(!restShape)
+    if(enable_spring)
     {
 #pragma omp parallel for
-        for(unsigned i=0;i<nNodes;i++)
-        {
-            Node *nd = mesh.allNodes[i];
-            nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
-        }
-
-        if(prms.EnableCollisions)
-        {
-#pragma omp parallel for
-            for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
-        }
+        for(unsigned i=0;i<nNodes;i++) nodes[i]->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
     }
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
 
     // solve
     bool solve_result = eqOfMotion.Solve();
     if(!solve_result) return false;
 
-    // pull
+    // pull into Node::xt
 #pragma omp parallel for
     for(std::size_t i=0;i<nNodes;i++)
     {
-        icy::Node *nd = mesh.allNodes[i];
+        icy::Node *nd = nodes[i];
         Eigen::Vector2d delta_x;
         if(!nd->pinned)
         {
@@ -282,7 +284,6 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
             nd->xt+=delta_x;
         }
     }
-
     return true;
 }
 
@@ -371,7 +372,7 @@ void icy::Model::GetNewMaterialPosition()
 
             while(sln_res && iter < prms.MaxIter*5 && (iter < prms.MinIter || !converges))
             {
-                sln_res = AssembleAndSolve(h, true);
+                sln_res = AssembleAndSolve(h, false, false, mesh.allNodes, mesh.allElems);
 
                 double ratio = 0;
                 if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
@@ -434,14 +435,6 @@ void icy::Model::GetNewMaterialPosition()
 
         mf.PostMeshingEvaluations();
     }
-
-    mesh.freeNodeCount=0;
-    for(unsigned i=0;i<mesh.allNodes.size();i++)
-    {
-        Node *nd = mesh.allNodes[i];
-        if(nd->pinned) nd->eqId=-1;
-        else nd->eqId=mesh.freeNodeCount++;
-    }
 }
 
 void icy::Model::Fracture(double timeStep)
@@ -449,6 +442,8 @@ void icy::Model::Fracture(double timeStep)
     vtk_update_mutex.lock();
     mesh.ComputeFractureDirections(prms, timeStep, true);   // even if fracture is disabled, compute for visualization
     vtk_update_mutex.unlock();
+
+    spdlog::info("step {}; maxNode {}", this->currentStep, (void*)mesh.maxNode);
 
     if(!prms.EnableFracture) return;
 
@@ -458,8 +453,6 @@ void icy::Model::Fracture(double timeStep)
     while(mesh.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
     {
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
-
-
         vtk_update_mutex.lock();
         mesh.SplitNode(prms);
         vtk_update_mutex.unlock();
@@ -485,46 +478,30 @@ void icy::Model::Fracture(double timeStep)
 
 void icy::Model::Fracture_LocalSubstep(double timeStep)
 {
+    constexpr double substepping_timestep_factor = 0.001;
+    constexpr unsigned substep_iterations = 2;
+    if(mesh.local_support.size() == 0) throw std::runtime_error("Fracture_LocalSubstep: local node range is zero");
+    double localTimeStep = timeStep*substepping_timestep_factor;
 
-
- /*
-    double localTimeStep = timeStep*prms.substepping_timestep_factor;
-    if(floes.local_support.size() == 0)
-    {
-        // this may occur in manual "testing" situation
-        qDebug() << "LocalSubstep: support size is zero, aborting";
-        return 0;
-    }
-
-    for(icy::Node *nd : *floes.nodes) nd->lsId=-1;
+    for(icy::Node *nd : mesh.allNodes) nd->eqId=-1;
     int count = 0;
-    for(icy::Node *nd : floes.local_support) nd->lsId = count++;
-
-    //support_range1
-    // similar to AssembleAndSolve, but only run on the local domain
-    std::size_t nNodesLocal = floes.local_support.size();
-    std::size_t nElemsLocal = floes.local_elems.size();
-    for(int i=0;i<prms.substep_iterations;i++)
+    for(icy::Node *nd : mesh.local_support)
     {
-        ls.ClearAndResize(count);
-
-#pragma omp parallel for
-    for(std::size_t i=0;i<nElemsLocal;i++) floes.local_elems[i]->UpdateSparseSystemEntries(ls);
-
-        ls.CreateStructure();
-
-#pragma omp parallel for
-        for(std::size_t i=0;i<nElemsLocal;i++)
-            floes.local_elems[i]->ComputeElasticForce(ls, prms, timeStep, floes.elasticityMatrix, floes.D_mats);
-
-#pragma omp parallel for
-        for(std::size_t i=0;i<nNodesLocal;i++)
-            floes.local_support[i]->ComputeElasticForce(ls, prms, localTimeStep, totalTime);
-
-        ls.Solve();
-        PullFromLinearSystem(localTimeStep, prms.NewmarkBeta, prms.NewmarkGamma);
+        if(nd->pinned) nd->eqId = -1;
+        else nd->eqId = count++;
     }
 
-    floes.EvaluateStresses(prms, floes.local_elems);
-*/
+    // run a local substep - no plasticity
+    InitialGuess(localTimeStep, timeStepFactor*substepping_timestep_factor);
+    for(int i=0;i<substep_iterations;i++)
+    {
+        bool sln_res = AssembleAndSolve(localTimeStep, prms.EnableCollisions, false, mesh.local_support, mesh.local_elems);
+        if(!sln_res) throw std::runtime_error("local subste error");
+//        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
+//        ccd_res = ccd_result.first;
+
+        // TODO: reduce timestep when needed, ensure no intersections
+    }
+
+    // TODO: after the step is completed, reassign xt to xn and re-evaluate CauchyStress
 }

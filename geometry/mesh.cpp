@@ -196,7 +196,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     allElems.clear();
     allBoundaryEdges.clear();
     unsigned count = 0;
-    freeNodeCount = 0;
 
     global_leaves_ccd.clear();
     global_leaves_contact.clear();
@@ -209,8 +208,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         {
             Node *nd = mf.nodes[i];
             nd->globId = count++;
-            if(nd->pinned) nd->eqId=-1;
-            else nd->eqId=freeNodeCount++;
             allNodes.push_back(nd);
         }
         mf.GenerateLeaves(allBoundaryEdges.size());
@@ -843,7 +840,7 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
     }
 
     maxNode = nullptr;
-    if(!prms.FractureEnable) return;
+    if(!prms.EnableFracture) return;
 
     if(startingFracture)
     {
@@ -877,7 +874,6 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
             bool already_contains = find_result!=breakable_range.end();
             if(!already_contains) breakable_range.push_back(nct);
         }
-        //new_crack_tips.clear();
 
         // remove the nodes that were affected by the crack on the previous step
         breakable_range.erase(std::remove_if(breakable_range.begin(), breakable_range.end(),
@@ -887,20 +883,22 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
 
         for(Node *nd : breakable_range) nd->ComputeFanVariables(prms);
 
-        if(breakable_range.size() > 0)
-        {
-            // take out maximal node from breakable_range
-            auto it_nd = std::max_element(breakable_range.begin(), breakable_range.end(),
-                                          [](Node *nd1, Node *nd2) {
-                    if(nd2->isCrackTip && nd2->max_normal_traction>0 && !nd1->isCrackTip) return true;
-                    return nd1->max_normal_traction < nd2->max_normal_traction; });
 
-            if((*it_nd)->max_normal_traction > 0)
-            {
-                maxNode = *it_nd;
-                maxNode->time_loaded_above_threshold = 0;
-                breakable_range.erase(it_nd);
-            }
+    }
+
+    if(breakable_range.size() > 0)
+    {
+        // take out maximal node from breakable_range
+        auto it_nd = std::max_element(breakable_range.begin(), breakable_range.end(),
+                                      [](Node *nd1, Node *nd2) {
+                if(nd2->isCrackTip && nd2->max_normal_traction>0 && !nd1->isCrackTip) return true;
+                return nd1->max_normal_traction < nd2->max_normal_traction; });
+
+        if((*it_nd)->max_normal_traction > 0)
+        {
+            maxNode = *it_nd;
+            maxNode->time_loaded_above_threshold = 0;
+            breakable_range.erase(it_nd);
         }
     }
 }
@@ -949,6 +947,7 @@ void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double p
 
 void icy::Mesh::SplitNode(const SimParams &prms)
 {
+    spdlog::info("SplitNode {}",maxNode->globId);
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
     new_crack_tips.clear();

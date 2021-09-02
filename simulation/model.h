@@ -57,7 +57,8 @@ private:
     void Fracture(double timeStep);
     void Fracture_LocalSubstep(double timeStep);    // part of Fracture()
     void InitialGuess(double timeStep, double timeStepFactor);
-    bool AssembleAndSolve(double timeStep, bool restShape = false);  // return true if solved
+    bool AssembleAndSolve(double timeStep, bool enable_collisions, bool enable_spring,
+                          std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems);  // return true if solved
     bool AcceptTentativeValues(double timeStep);    // return true if plastic deformation occurred
     void GetNewMaterialPosition();      // relax the mesh to a new rest state
 

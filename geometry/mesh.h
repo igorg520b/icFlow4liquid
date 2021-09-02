@@ -48,7 +48,6 @@ public:
     std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;
-    unsigned freeNodeCount;
 
     Mesh();
     void Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_);
