@@ -35,7 +35,8 @@ bool icy::Model::Step()
         int iter = 0;
         h = prms.InitialTimeStep*timeStepFactor; // time step
         InitialGuess(h, timeStepFactor);
-        std::pair<bool, double> ccd_result = mesh.EnsureNoIntersectionViaCCD();
+        std::pair<bool, double> ccd_result(true,0.0);
+        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
         ccd_res = ccd_result.first;
         spdlog::info("\n┌{2:─^{1}}┬{3:─^{1}}┬{4:─^{1}}┬{5:─^{1}}┬{6:─^{1}}┐ ST {7:>}-{8:<2}"
                      ,"",colWidth, " it "," obj "," sln "," tsf "," ra ", currentStep,attempt);
@@ -43,11 +44,11 @@ bool icy::Model::Step()
         sln_res=true;
         double first_solution_norm = 0;
 
-        while(ccd_res && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
+        while((!prms.EnableCollisions || ccd_res) && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
             if(abortRequested) {Aborting(); return false;}
             sln_res = AssembleAndSolve(h);
-            ccd_result = mesh.EnsureNoIntersectionViaCCD();
+            if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
             ccd_res = ccd_result.first;
 
             double ratio = 0;
@@ -57,7 +58,7 @@ bool icy::Model::Step()
                          (ratio > 0 && ratio < prms.ConvergenceEpsilon));
 
             spdlog::info("│{2: ^{1}d}│{3: ^{1}.3e}│{4: ^{1}.3e}│{5: ^{1}.3e}│{6: ^{1}.3e}│",
-    "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
+                         "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
             iter++;
         }
         // spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
@@ -221,20 +222,22 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
     for(unsigned i=0;i<nElems;i++) mesh.allElems[i]->AddToSparsityStructure(eqOfMotion);
 
     unsigned nInteractions;
-    if(!restShape)
+    if(prms.EnableCollisions)
     {
-        mesh.UpdateTree(prms.InteractionDistance);
-        vtk_update_mutex.lock();
-        mesh.DetectContactPairs(prms.InteractionDistance);
-        vtk_update_mutex.unlock();
-        nInteractions = mesh.collision_interactions.size();
+        if(!restShape)
+        {
+            mesh.UpdateTree(prms.InteractionDistance);
+            vtk_update_mutex.lock();
+            mesh.DetectContactPairs(prms.InteractionDistance);
+            vtk_update_mutex.unlock();
+            nInteractions = mesh.collision_interactions.size();
 
 #pragma omp parallel for
-        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+            for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+        }
     }
 
     eqOfMotion.CreateStructure();
-
 
     // assemble
     bool mesh_iversion_detected = false;
@@ -256,8 +259,11 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool restShape)
             nd->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
         }
 
+        if(prms.EnableCollisions)
+        {
 #pragma omp parallel for
-        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+            for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+        }
     }
 
     // solve
@@ -297,13 +303,22 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     // plastic behavior
     unsigned nElems = mesh.allElems.size();
     bool plasticDeformation = false;
-#pragma omp parallel for
-    for(unsigned i=0;i<nElems;i++)
+
+    if(prms.EnablePlasticity)
     {
-        icy::Element *elem = mesh.allElems[i];
-        bool result = elem->PlasticDeformation(prms, timeStep);
-        if(result) plasticDeformation = true;
-        elem->ComputeVisualizedVariables();
+#pragma omp parallel for
+        for(unsigned i=0;i<nElems;i++)
+        {
+            icy::Element *elem = mesh.allElems[i];
+            bool result = elem->PlasticDeformation(prms, timeStep);
+            if(result) plasticDeformation = true;
+            elem->ComputeVisualizedVariables();
+        }
+    }
+    else
+    {
+#pragma omp parallel for
+        for(unsigned i=0;i<nElems;i++) mesh.allElems[i]->ComputeVisualizedVariables();
     }
 
     simulationTime+=timeStep;
@@ -435,7 +450,7 @@ void icy::Model::Fracture(double timeStep)
     mesh.ComputeFractureDirections(prms, timeStep, true);   // even if fracture is disabled, compute for visualization
     vtk_update_mutex.unlock();
 
-    if(!prms.FractureEnable) return;
+    if(!prms.EnableFracture) return;
 
     mesh.updateMinMax = false;  // temporarily disable the adaptive scale when visualizing variables (to avoid flickering)
     int fracture_step_count = 0;
@@ -444,18 +459,14 @@ void icy::Model::Fracture(double timeStep)
     {
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
 
-    /*
-    // ComputeFractureDirections must be invoked prior to this
 
-    mutex.lock();
-    b_split += floes.SplitNodeAlt(prms);
-    mutex.unlock();
-    b_support += floes.InferLocalSupport(prms);
+        vtk_update_mutex.lock();
+        mesh.SplitNode(prms);
+        vtk_update_mutex.unlock();
 
-    b_substep += LocalSubstep(prms, timeStep, totalTime);
+        mesh.InferLocalSupport(prms);
+        Fracture_LocalSubstep(timeStep);
 
-
-*/
         vtk_update_mutex.lock();
         mesh.ComputeFractureDirections(prms, 0, false);
         vtk_update_mutex.unlock();

@@ -33,16 +33,18 @@ class icy::SimParams : public QObject
     Q_PROPERTY(double p_YoungsModulus READ getYoungsModulus WRITE setYoungsModulus)
     Q_PROPERTY(double p_PoissonsRatio READ getPoissonsRatio WRITE setPoissonsRatio)
     Q_PROPERTY(double p_Kappa READ getKappa)
+    Q_PROPERTY(double p_Thickness MEMBER Thickness NOTIFY propertyChanged)
 
     Q_PROPERTY(double p_PlasticYieldThreshold MEMBER PlasticYieldThreshold NOTIFY propertyChanged)
     Q_PROPERTY(double p_PlasticFlowRate MEMBER PlasticFlowRate NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnablePlasticity MEMBER EnablePlasticity NOTIFY propertyChanged)
 
-    Q_PROPERTY(double p_Thickness MEMBER Thickness NOTIFY propertyChanged)
     Q_PROPERTY(double p_InteractionDistance MEMBER InteractionDistance NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnableCollisions MEMBER EnableCollisions NOTIFY propertyChanged)
 
     // fracture
     Q_PROPERTY(double f_WeakeningCoeff MEMBER FractureWeakeningCoeff NOTIFY propertyChanged)
-    Q_PROPERTY(bool f_EnableFracture MEMBER FractureEnable NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnableFracture MEMBER EnableFracture NOTIFY propertyChanged)
     Q_PROPERTY(double f_TemporalAttenuation MEMBER FractureTemporalAttenuation NOTIFY propertyChanged)
     Q_PROPERTY(int f_MaxSubsteps MEMBER FractureMaxSubsteps NOTIFY propertyChanged)
     Q_PROPERTY(double f_TractionThreshold MEMBER FractureTractionThreshold NOTIFY propertyChanged)
@@ -53,15 +55,21 @@ public:
     int MaxSteps, MinIter, MaxIter;
     double InitialTimeStep;
     double Gravity, Density, PoissonsRatio, YoungsModulus, Thickness;
-    double PlasticYieldThreshold, PlasticFlowRate;
     double CharacteristicLength;
 
     double ConvergenceEpsilon, ConvergenceCutoff;
+
+    // collisions
     double InteractionDistance;
+    bool EnableCollisions;
+
+    // plasticity
+    double PlasticYieldThreshold, PlasticFlowRate;
+    bool EnablePlasticity;
 
     // fracture
     double FractureWeakeningCoeff;
-    bool FractureEnable;
+    bool EnableFracture;
     double FractureTemporalAttenuation;
     int FractureMaxSubsteps;
     double FractureTractionThreshold;
@@ -107,6 +115,7 @@ public:
 
         PoissonsRatio = 0.3;
         YoungsModulus = 1000;
+
         InteractionDistance = 0.01;
 
         CharacteristicLength = 0.06;
@@ -122,12 +131,16 @@ public:
 
         // fracture
         FractureWeakeningCoeff = 0.75;
-        FractureEnable = true;
         FractureTemporalAttenuation = 0.2;
         FractureMaxSubsteps = 1000;
         FractureTractionThreshold = 1;
         FractureSubstepLevels = 10;
         FractureTimerLevels = 30;
+
+        // features
+        EnableCollisions = false;
+        EnablePlasticity = false;
+        EnableFracture = true;
     }
 
 
