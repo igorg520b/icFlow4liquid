@@ -55,7 +55,7 @@ public:
 //  void OnMiddleButtonUp() override;
 
 private:
-    double selectionRadius = 0.25;
+    double selectionRadius = 0.15;
     double centerX = 0;
     double centerY = 0;
 

@@ -874,6 +874,7 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
             bool already_contains = find_result!=breakable_range.end();
             if(!already_contains) breakable_range.push_back(nct);
         }
+        // new_crack_tips.clear();
 
         // remove the nodes that were affected by the crack on the previous step
         breakable_range.erase(std::remove_if(breakable_range.begin(), breakable_range.end(),

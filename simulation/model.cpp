@@ -470,6 +470,9 @@ void icy::Model::Fracture(double timeStep)
     }
     mesh.updateMinMax = true;
 
+
+    // set xt=xn, re-evaluate Cauchy Stress
+
     if(fracture_step_count > 0)
     {
         // TODO: identify disconnected regions
@@ -478,30 +481,78 @@ void icy::Model::Fracture(double timeStep)
 
 void icy::Model::Fracture_LocalSubstep(double timeStep)
 {
-    constexpr double substepping_timestep_factor = 0.001;
-    constexpr unsigned substep_iterations = 2;
     if(mesh.local_support.size() == 0) throw std::runtime_error("Fracture_LocalSubstep: local node range is zero");
-    double localTimeStep = timeStep*substepping_timestep_factor;
 
-    for(icy::Node *nd : mesh.allNodes) nd->eqId=-1;
-    int count = 0;
-    for(icy::Node *nd : mesh.local_support)
+    double substepping_timestep_factor = 0.001;
+    int attempt = 0;
+    bool converges=false;
+    bool sln_res, ccd_res; // false if matrix is not PSD
+    double h;
+    if(prms.EnableCollisions) mesh.UpdateTree(prms.InteractionDistance);
+
+    do
     {
-        if(nd->pinned) nd->eqId = -1;
-        else nd->eqId = count++;
-    }
+        int iter = 0;
+        h = prms.InitialTimeStep*timeStepFactor*substepping_timestep_factor; // time step
+        InitialGuess(h, timeStepFactor*substepping_timestep_factor);
+        std::pair<bool, double> ccd_result(true,0.0);
+        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
+        ccd_res = ccd_result.first;
+        spdlog::info("\n┏{2:━^{1}}┬{3:━^{1}}┬{4:━^{1}}┬{5:━^{1}}┬{6:━^{1}}┐ FR-ST {7:>}-{8:<2}"
+                     ,"",colWidth, " it "," obj "," sln "," tsf "," ra ", currentStep,attempt);
 
-    // run a local substep - no plasticity
-    InitialGuess(localTimeStep, timeStepFactor*substepping_timestep_factor);
-    for(int i=0;i<substep_iterations;i++)
-    {
-        bool sln_res = AssembleAndSolve(localTimeStep, prms.EnableCollisions, false, mesh.local_support, mesh.local_elems);
-        if(!sln_res) throw std::runtime_error("local subste error");
-//        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
-//        ccd_res = ccd_result.first;
+        sln_res=true;
+        double first_solution_norm = 0;
 
-        // TODO: reduce timestep when needed, ensure no intersections
-    }
+        while((!prms.EnableCollisions || ccd_res) && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
+        {
+            if(abortRequested) {Aborting(); return;}
+            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.local_support, mesh.local_elems);
+            if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
+            ccd_res = ccd_result.first;
 
-    // TODO: after the step is completed, reassign xt to xn and re-evaluate CauchyStress
+            double ratio = 0;
+            if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
+            else if(first_solution_norm > prms.ConvergenceCutoff) ratio = eqOfMotion.solution_norm/first_solution_norm;
+            converges = (eqOfMotion.solution_norm < prms.ConvergenceCutoff ||
+                         (ratio > 0 && ratio < prms.ConvergenceEpsilon));
+
+            spdlog::info("│{2: ^{1}d}│{3: ^{1}.3e}│{4: ^{1}.3e}│{5: ^{1}.3e}│{6: ^{1}.3e}│",
+                         "",colWidth, iter, eqOfMotion.objective_value,eqOfMotion.solution_norm, timeStepFactor, ratio);
+            iter++;
+        }
+        spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
+
+        if(!ccd_res || !sln_res || !converges)
+        {
+            substepping_timestep_factor*=0.2;
+            spdlog::info("discarding attempt {}; ccd_res {}; sln_res {}; converges {}; stf {.3e}",
+                         attempt, ccd_res, sln_res, converges, substepping_timestep_factor);
+            attempt++;
+        }
+        if(attempt > 20) throw std::runtime_error("Fracture_LocalSubstep: could not solve");
+    } while (!ccd_res || !sln_res || !converges);
+
+
+
+
+
+
+
 }
+
+
+/*
+
+
+    // accept step
+    bool plasticDeformation = AcceptTentativeValues(h);
+    if(plasticDeformation) GetNewMaterialPosition();
+    Fracture(h);
+    currentStep++;
+
+    // gradually increase the time step
+    if(timeStepFactor < 1) timeStepFactor *= 1.2;
+    if(timeStepFactor > 1) timeStepFactor = 1;
+
+*/
