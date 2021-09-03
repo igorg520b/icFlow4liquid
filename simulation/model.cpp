@@ -147,6 +147,7 @@ void icy::Model::SetIndenterPosition(double position)
 void icy::Model::AttachSpring(double X, double Y, double radius)
 {
     spdlog::info("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
+    spring = Eigen::Vector2d::Zero();
     Eigen::Vector2d attachmentPos(X,Y);
     vtk_update_mutex.lock();
 #pragma omp parallel for
@@ -170,19 +171,16 @@ void icy::Model::ReleaseSpring()
 {
     spdlog::info("icy::Model::ReleaseSpring");
     vtk_update_mutex.lock();
-#pragma omp parallel for
-    for(unsigned i=0;i<mesh.allNodes.size();i++)
-    {
-        icy::Node *nd = mesh.allNodes[i];
-        nd->spring_attached=0;
-    }
+    for(unsigned i=0;i<mesh.allNodes.size();i++) mesh.allNodes[i]->spring_attached=0;
     vtk_update_mutex.unlock();
 }
 
 void icy::Model::AdjustSpring(double dX, double dY)
 {
     spdlog::info("icy::Model::AdjustSpring {}-{}",dX,dY);
+    vtk_update_mutex.lock();
     spring << dX,dY;
+    vtk_update_mutex.unlock();
 }
 
 
@@ -455,6 +453,7 @@ void icy::Model::Fracture(double timeStep)
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
         vtk_update_mutex.lock();
         mesh.SplitNode(prms);
+        topologyInvalid = true;
         vtk_update_mutex.unlock();
 
         mesh.InferLocalSupport(prms);
@@ -465,7 +464,6 @@ void icy::Model::Fracture(double timeStep)
         vtk_update_mutex.unlock();
 
         fracture_step_count++;
-        topologyInvalid = true;
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }
     mesh.updateMinMax = true;
@@ -533,7 +531,8 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         if(attempt > 20) throw std::runtime_error("Fracture_LocalSubstep: could not solve");
     } while (!ccd_res || !sln_res || !converges);
 
-
+#pragma omp parallel for
+        for(unsigned i=0;i<mesh.local_elems.size();i++) mesh.local_elems[i]->ComputeVisualizedVariables();
 
 
 
@@ -541,18 +540,3 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
 
 }
 
-
-/*
-
-
-    // accept step
-    bool plasticDeformation = AcceptTentativeValues(h);
-    if(plasticDeformation) GetNewMaterialPosition();
-    Fracture(h);
-    currentStep++;
-
-    // gradually increase the time step
-    if(timeStepFactor < 1) timeStepFactor *= 1.2;
-    if(timeStepFactor > 1) timeStepFactor = 1;
-
-*/

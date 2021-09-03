@@ -53,13 +53,10 @@ public:
     void Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_);
     void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
     void SetIndenterPosition(double position);
-
     double area_initial, area_current;
-private:
-    void UpdateValues();
-    void UnsafeUpdateGeometry();
 
-    // Collision detection
+
+    // COLLISION DETECTION
 public:
     tbb::concurrent_vector<Interaction> collision_interactions;
     void DetectContactPairs(double distance_threshold);
@@ -82,7 +79,8 @@ private:
     gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
 
 
-    // Fracture
+    // FRACTURE
+private:
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
     std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
@@ -117,6 +115,8 @@ public:
     bool updateMinMax;
 
 private:
+    void UpdateValues();
+    void UnsafeUpdateGeometry();
 
     int VisualizingVariable = 0;
 

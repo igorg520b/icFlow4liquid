@@ -220,7 +220,10 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         fragmentRoots_contact.push_back(&mf.root_contact);
     }
 
+    spdlog::info("RegenerateVisualizedGeometry(): loop completed");
+
     points_deformable->SetNumberOfPoints(allNodes.size());
+    spdlog::info("points_deformable->SetNumberOfPoints(allNodes.size());");
     cellArray_deformable->Reset();
 
     // deformable material - elements
@@ -231,6 +234,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     }
     ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);
 
+    spdlog::info("ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);");
 
     // all boundaries
     cellArray_boundary_all->Reset();
@@ -252,7 +256,11 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     }
     ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);
 
+    spdlog::info("ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);");
+
     UnsafeUpdateGeometry();
+
+    spdlog::info("UnsafeUpdateGeometry();");
 }
 
 void icy::Mesh::UnsafeUpdateGeometry()
