@@ -8,6 +8,7 @@
 #include <vector>
 #include <utility>
 #include <cmath>
+#include <tuple>
 
 #include "spdlog/spdlog.h"
 
@@ -254,6 +255,35 @@ const icy::Edge& icy::Element::CCWEdge(const Node* nd) const
     return edges[CWIdx];
 }
 
+std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    return {nds[(idx+1)%3],nds[(idx+2)%3]};
+}
+
+bool icy::Element::isOnBoundary(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    short cw_idx = (idx+1)%3;
+    short ccw_idx = (idx+2)%3;
+    return isBoundary(cw_idx) || isBoundary(ccw_idx);
+}
+
+bool icy::Element::isCWBoundary(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    short cw_idx = (idx+2)%3;
+    return isBoundary(cw_idx);
+}
+
+bool icy::Element::isCCWBoundary(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    short ccw_idx = (idx+1)%3;
+    return isBoundary(ccw_idx);
+}
+
+
 const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
 {
     short thisIdx, CWIdx, CCWIdx;
@@ -269,7 +299,7 @@ icy::Element* icy::Element::getAdjacentElementOppositeToNode(Node *nd)
     else throw std::runtime_error("getAdjacentElementOppositeToNode");
 }
 
-short icy::Element::getNodeIdx(Node *nd)
+short icy::Element::getNodeIdx(const Node *nd) const
 {
     if(nds[0]==nd) return 0;
     else if(nds[1]==nd) return 1;

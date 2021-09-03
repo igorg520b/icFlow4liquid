@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     renderer->SetBackground(1.0,1.0,1.0);
     renderer->AddActor(model.mesh.actor_collisions);
     renderer->AddActor(model.mesh.actor_mesh_deformable);
-    renderer->AddActor(model.mesh.actor_boundary_all);
+//    renderer->AddActor(model.mesh.actor_boundary_all);
     renderer->AddActor(model.mesh.actor_boundary_intended_indenter);
 
     renderWindow->AddRenderer(renderer);

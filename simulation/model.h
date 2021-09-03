@@ -64,7 +64,7 @@ private:
 
     // VTK visualization
 public:
-    enum VisOpt { none, plasticity_norm, plasticity_gamma, plasticity_tau_ratio, nd_max_normal_traction,
+    enum VisOpt { none, plasticity_norm, plasticity_gamma, plasticity_tau_ratio, nd_max_normal_traction, nd_isBoundary,
                   stress_xx, stress_yy, stress_hydrostatic, ps1, ps2, shear_stress,
                   Green_strain_xx, Green_strain_yy, Green_strain_xy,
                   QM1, avg_edge_len,

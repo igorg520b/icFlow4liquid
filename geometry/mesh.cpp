@@ -220,10 +220,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         fragmentRoots_contact.push_back(&mf.root_contact);
     }
 
-    spdlog::info("RegenerateVisualizedGeometry(): loop completed");
-
     points_deformable->SetNumberOfPoints(allNodes.size());
-    spdlog::info("points_deformable->SetNumberOfPoints(allNodes.size());");
     cellArray_deformable->Reset();
 
     // deformable material - elements
@@ -233,8 +230,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         cellArray_deformable->InsertNextCell(3, pts);
     }
     ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);
-
-    spdlog::info("ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);");
 
     // all boundaries
     cellArray_boundary_all->Reset();
@@ -256,11 +251,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     }
     ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);
 
-    spdlog::info("ugrid_indenter_intended->SetCells(VTK_LINE, cellArray_indenter_intended);");
-
     UnsafeUpdateGeometry();
-
-    spdlog::info("UnsafeUpdateGeometry();");
 }
 
 void icy::Mesh::UnsafeUpdateGeometry()
@@ -338,6 +329,7 @@ void icy::Mesh::ChangeVisualizationOption(int option)
     case icy::Model::VisOpt::vel_mag:
     case icy::Model::VisOpt::adj_elems_count_nd:
     case icy::Model::VisOpt::nd_max_normal_traction:
+    case icy::Model::VisOpt::nd_isBoundary:
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
         ugrid_deformable->GetPointData()->SetActiveScalars("visualized_values");
@@ -391,6 +383,10 @@ void icy::Mesh::UpdateValues()
         for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->max_normal_traction);
         break;
 
+    case icy::Model::VisOpt::nd_isBoundary:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->isBoundary ? 1 : 0);
+        break;
 
         // plasticity
     case icy::Model::VisOpt::plasticity_norm:
@@ -915,8 +911,8 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
 void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
                             const Edge e0, const Edge e1, Element *elem)
 {
-    icy::Node * const nd0= e0.getOtherNode(nd);
-    icy::Node * const nd1= e1.getOtherNode(nd);
+    icy::Node *nd0, *nd1;
+    std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
 
     const Eigen::Vector2d &nd_vec = nd->xn;
     const Eigen::Vector2d &nd0_vec = nd0->xn;
@@ -926,18 +922,22 @@ void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double p
     double factor1 = sin(theta)*(nd1_vec-nd_vec).norm();
     double whereToSplit = factor1/(factor0+factor1);  // ~1 means the split is near nd0, ~0 means it is near nd1
 
-    if((whereToSplit < 1e-5 && e1.isBoundary) || (whereToSplit > 1-1e-5 && e0.isBoundary))
+    constexpr double epsilon = 1e-7;
+    if((whereToSplit < epsilon && elem->isCCWBoundary(nd)) || (whereToSplit > 1-epsilon && elem->isCWBoundary(nd)))
     {
         // this should not happen
         spdlog::critical("icy::Mesh::EstablishSplittingEdge: degenerate element; nd {}, param {}", nd->locId, whereToSplit);
+        spdlog::critical("phi {}; theta {}; factor0 {}; factor1 {}", phi, theta, factor0, factor1);
+        spdlog::critical("elem {}-{}-{}", elem->nds[0]->locId, elem->nds[1]->locId, elem->nds[2]->locId);
+        nd->PrintoutFan();
         throw std::runtime_error("degenerate element 1");
     }
 
-    if(whereToSplit < fracture_epsilon && !e1.isBoundary)
+    if(whereToSplit < fracture_epsilon && !elem->isCCWBoundary(nd))
     {
         splitEdge = e1;
     }
-    else if(whereToSplit > 1.0-fracture_epsilon && !e0.isBoundary)
+    else if(whereToSplit > 1.0-fracture_epsilon && !elem->isCWBoundary(nd))
     {
         splitEdge = e0;
     }
@@ -1151,13 +1151,13 @@ void icy::Mesh::UpdateEdges()
             correctly_inferred_edges.insert({key,existing_edge});
         }
     }
-
+/*
     allBoundaryEdges.erase(std::remove_if(allBoundaryEdges.begin(), allBoundaryEdges.end(),
                    [affected_nodes_during_split](std::pair<Node*,Node*> e)
     {return (affected_nodes_during_split.find(e.first)!=affected_nodes_during_split.end() &&
                 affected_nodes_during_split.find(e.second)!=affected_nodes_during_split.end());}),
             allBoundaryEdges.end());
-
+*/
     for(auto kvp : correctly_inferred_edges)
     {
         Edge &existing_edge = kvp.second;
@@ -1178,7 +1178,7 @@ void icy::Mesh::UpdateEdges()
             elem_of_edge1->incident_elems[idx1] = elem_of_edge0;
         }
 
-        if(existing_edge.isBoundary) allBoundaryEdges.emplace_back(existing_edge.nds[0],existing_edge.nds[1]);
+//        if(existing_edge.isBoundary) allBoundaryEdges.emplace_back(existing_edge.nds[0],existing_edge.nds[1]);
     }
 
     for(Node *nd : affected_nodes_during_split) nd->PrepareFan();
@@ -1196,6 +1196,7 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     MeshFragment *fragment = nd->fragment;
 
     Element *insertedFace = fragment->AddElement();
+    insertedFace->PiMultiplier = originalElem->PiMultiplier;
     allElems.push_back(insertedFace);
     nd->adj_elems.push_back(insertedFace);
 
@@ -1261,6 +1262,7 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     allElems.push_back(insertedFace);
     Element *insertedFace_adj = fragment->AddElement();
     allElems.push_back(insertedFace_adj);
+    insertedFace->PiMultiplier = insertedFace_adj->PiMultiplier = originalElem->PiMultiplier;
     Node *split = fragment->AddNode();
     allNodes.push_back(split);
 

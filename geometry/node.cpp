@@ -74,9 +74,7 @@ void icy::Node::PrepareFan()
         s.nd[0] = elem->nds[CWIdx];
         s.nd[1] = elem->nds[CCWIdx];
 
-        const Edge &e0 = elem->CWEdge(this);
-        const Edge &e1 = elem->CCWEdge(this);
-        if(e0.isBoundary || e1.isBoundary) isBoundary = true;
+        if(elem->isOnBoundary(this)) isBoundary = true;
     }
 
     std::sort(fan.begin(), fan.end(), [](const Sector &f0, const Sector &f1) {return f0.centerAngle < f1.centerAngle; });
@@ -120,15 +118,18 @@ void icy::Node::UpdateFan()
     for(Sector &f : fan)
     {
         // TODO: this can be simplified by using icy::Element::getIdxs()
-        f.u_normalized = f.face->CWEdge(this).getVec(this).normalized();
-        f.v_normalized = f.face->CCWEdge(this).getVec(this).normalized();
+        Node *cw_node, *ccw_node;
+        std::tie(cw_node,ccw_node) = f.face->CW_CCW_Node(this);
+
+        f.u_normalized = (cw_node->xt-this->xt).normalized();
+        f.v_normalized = (ccw_node->xt-this->xt).normalized();
 
         f.angle0 = fan_angle_span;
         fan_angle_span += get_angle(f.u_normalized,f.v_normalized);
         f.angle1 = fan_angle_span;
 
-        f.u_p << -f.u_normalized.y(), f.u_normalized.x();
-        f.v_p << -f.v_normalized.y(), f.v_normalized.x();
+        f.u_p << -f.u_normalized[1], f.u_normalized[0];
+        f.v_p << -f.v_normalized[1], f.v_normalized[0];
 
         f.t0 = f.face->CauchyStress * f.u_p;
         f.t1 = f.face->CauchyStress * f.v_p;
@@ -141,11 +142,15 @@ void icy::Node::PrintoutFan()
     spdlog::info("Printing fan for node {}; isCrackTip: {}; isBoundary: {}", locId, isCrackTip, isBoundary);
     spdlog::info("fan.size {}; adj_elems.size {}", fan.size(), adj_elems.size());
     spdlog::info("fan_angle_span: {}", fan_angle_span);
+
+    spdlog::info("┌ {0: ^9} ┬ {1: ^14} ┬ {2: ^14} ┬ {3: ^6} ┬ {4: ^6} ┬ {5: ^8} ┬ {6: ^8}",
+                 "nd1-nd2", "nds 0-1-2", "angle0-angle1", "cAngle", "area", "CWB", "CCWB");
+
     for(Sector &s : fan)
-        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3: >4}-{4: <4} │ {5:6.4f}-{6:6.4f} │ {7:6.4f}",
+        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3: >4}-{4: <4} │ {5:>6.4f}-{6:<6.4f} │ {7:^6.4f} | {8:^6.4e} | {9:^8} | {10:^8}",
                      s.nd[0]->locId, s.nd[1]->locId,
                      s.face->nds[0]->locId,s.face->nds[1]->locId,s.face->nds[2]->locId,
-                s.angle0, s.angle1, s.centerAngle);
+                s.angle0, s.angle1, s.centerAngle, s.face->area_initial, s.face->isCWBoundary(this), s.face->isCCWBoundary(this));
 }
 
 void icy::Node::ComputeFanVariables(const SimParams &prms)
@@ -219,9 +224,8 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
         spdlog::critical("evaluate_tractions: face0=={}; face1=={}",
                          (void*)result_with_max_traction.faces[0],
                 (void*)result_with_max_traction.faces[1]);
-        spdlog::critical("fracture_angle: {}; ",fracture_angle);
+        spdlog::critical("fracture_angle: {}; fan_angle_span {}",fracture_angle, fan_angle_span);
         PrintoutFan();
-        EvaluateTractions(fracture_angle, result_with_max_traction, weakening_coeff);
         throw std::runtime_error("evaluate_tractions: face0==face1");
     }
 
@@ -259,7 +263,7 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
     ssr.traction[0] = ssr.traction[1] = Eigen::Vector2d::Zero();
     ssr.faces[0] = ssr.faces[1] = nullptr;
 
-    if(angle_fwd == fan_angle_span) angle_fwd -= 1e-4;
+    if(angle_fwd == fan_angle_span) angle_fwd = std::max(0.0,angle_fwd-1e-11);
     ssr.angle_fwd = angle_fwd;
 
     double angle_bwd = angle_fwd+fan_angle_span/2;
