@@ -1033,17 +1033,8 @@ void icy::MeshFragment::CreateEdges()
     }
 
     std::vector<Edge> edges_as_vector;
-    edges_as_vector.resize(edges_map.size());
-//    boundaryEdges.clear();
-
-    std::size_t count = 0;
-    for(auto &kvpair : edges_map)
-    {
-        icy::Edge &e = kvpair.second;
-        e.isBoundary = (e.elems[0] == nullptr || e.elems[1] == nullptr);
-//        if(e.isBoundary) boundaryEdges.push_back(e);
-        edges_as_vector[count++] = e;
-    }
+    edges_as_vector.reserve(edges_map.size());
+    for(auto &kvpair : edges_map) edges_as_vector.push_back(kvpair.second);
 
 #pragma omp parallel for
     for(std::size_t i=0;i<edges_as_vector.size();i++)

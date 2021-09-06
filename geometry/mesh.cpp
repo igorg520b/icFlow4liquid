@@ -908,55 +908,8 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
     }
 }
 
-void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
-                            const Edge e0, const Edge e1, Element *elem)
-{
-    icy::Node *nd0, *nd1;
-    std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
-
-    const Eigen::Vector2d &nd_vec = nd->xn;
-    const Eigen::Vector2d &nd0_vec = nd0->xn;
-    const Eigen::Vector2d &nd1_vec = nd1->xn;
-
-    double factor0 = sin(phi)*(nd0_vec-nd_vec).norm();
-    double factor1 = sin(theta)*(nd1_vec-nd_vec).norm();
-    double whereToSplit = factor1/(factor0+factor1);  // ~1 means the split is near nd0, ~0 means it is near nd1
-
-    constexpr double epsilon = 1e-7;
-    if((whereToSplit < epsilon && elem->isCCWBoundary(nd)) || (whereToSplit > 1-epsilon && elem->isCWBoundary(nd)))
-    {
-        // this should not happen
-        spdlog::critical("icy::Mesh::EstablishSplittingEdge: degenerate element; nd {}, param {}", nd->locId, whereToSplit);
-        spdlog::critical("phi {}; theta {}; factor0 {}; factor1 {}", phi, theta, factor0, factor1);
-        spdlog::critical("elem {}-{}-{}", elem->nds[0]->locId, elem->nds[1]->locId, elem->nds[2]->locId);
-        nd->PrintoutFan();
-        throw std::runtime_error("degenerate element 1");
-    }
-
-    if(whereToSplit < fracture_epsilon && !elem->isCCWBoundary(nd))
-    {
-        splitEdge = e1;
-    }
-    else if(whereToSplit > 1.0-fracture_epsilon && !elem->isCWBoundary(nd))
-    {
-        splitEdge = e0;
-    }
-    else
-    {
-        icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
-        if(elem_adj==nullptr)
-            SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, splitEdge);
-        else
-            SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, splitEdge);
-    }
-    splitEdge.toSplit = true;
-    splitEdge.elems[0]->edges[splitEdge.edge_in_elem_idx[0]]=splitEdge;
-    splitEdge.elems[1]->edges[splitEdge.edge_in_elem_idx[1]]=splitEdge;
-}
-
 void icy::Mesh::SplitNode(const SimParams &prms)
 {
-    spdlog::info("SplitNode {}",maxNode->globId);
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
     new_crack_tips.clear();
@@ -972,9 +925,8 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     // ensure that the interior node has two split faces
     bool isBoundary = (ssr.faces[1] == nullptr);
     if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
-
-    // assert that the splitted node belongs to the element
     if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
+
     icy::Edge splitEdge_fw;
     EstablishSplittingEdge(splitEdge_fw, nd, ssr.phi[0], ssr.theta[0], ssr.e[0], ssr.e[1], ssr.faces[0]);
 
@@ -1026,6 +978,53 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     nd->isCrackTip = false;
 }
 
+void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
+                            const Edge e0, const Edge e1, Element *elem)
+{
+    icy::Node *nd0, *nd1;
+    std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
+
+    const Eigen::Vector2d &nd_vec = nd->xn;
+    const Eigen::Vector2d &nd0_vec = nd0->xn;
+    const Eigen::Vector2d &nd1_vec = nd1->xn;
+
+    double factor0 = sin(phi)*(nd0_vec-nd_vec).norm();
+    double factor1 = sin(theta)*(nd1_vec-nd_vec).norm();
+    double whereToSplit = factor1/(factor0+factor1);  // ~1 means the split is near nd0, ~0 means it is near nd1
+
+    constexpr double epsilon = 1e-7;
+    if((whereToSplit < epsilon && elem->isCCWBoundary(nd)) || (whereToSplit > 1-epsilon && elem->isCWBoundary(nd)))
+    {
+        // this should not happen
+        spdlog::critical("icy::Mesh::EstablishSplittingEdge: degenerate element; nd {}, param {}\n"
+                            "phi {}; theta {}; factor0 {}; factor1 {}; elem {}-{}-{}",
+                            nd->locId, whereToSplit, phi, theta, factor0, factor1, elem->nds[0]->locId,
+                            elem->nds[1]->locId, elem->nds[2]->locId);
+        nd->PrintoutFan();
+        throw std::runtime_error("degenerate element 1");
+    }
+
+    if(whereToSplit < fracture_epsilon && !elem->isCCWBoundary(nd))
+    {
+        splitEdge = e1;
+    }
+    else if(whereToSplit > 1.0-fracture_epsilon && !elem->isCWBoundary(nd))
+    {
+        splitEdge = e0;
+    }
+    else
+    {
+        icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
+        if(elem_adj==nullptr)
+            SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, splitEdge);
+        else
+            SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, splitEdge);
+    }
+    splitEdge.toSplit = true;
+    splitEdge.elems[0]->edges[splitEdge.edge_in_elem_idx[0]]=splitEdge;
+    splitEdge.elems[1]->edges[splitEdge.edge_in_elem_idx[1]]=splitEdge;
+}
+
 void icy::Mesh::Fix_X_Topology(Node *nd)
 {
     nd->fan.clear();
@@ -1052,8 +1051,12 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
     {return f0.centerAngle < f1.centerAngle; });
 
 
+    //auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
+    //                                [nd](const Node::Sector &f){return f.face->CWEdge(nd).isBoundary;});
+
     auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
-                                    [nd](const Node::Sector &f){return f.face->CWEdge(nd).isBoundary;});
+                                    [nd](const Node::Sector &f){return f.face->isCWBoundary(nd);});
+
     if(cw_boundary != nd->fan.end()) std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
 
     Node *split = nullptr;
@@ -1061,7 +1064,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
     for(unsigned i=1;i<nd->fan.size();i++)
     {
         Node::Sector &s = nd->fan[i];
-        if(s.face->CWEdge(nd).toSplit || s.face->CWEdge(nd).isBoundary) replacing=!replacing;
+        if(s.face->CWEdge(nd).toSplit || s.face->isCWBoundary(nd)) replacing=!replacing;
         if(replacing) {
             if(split==nullptr) {
                 split = nd->fragment->AddNode();
@@ -1195,51 +1198,56 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 
     MeshFragment *fragment = nd->fragment;
 
-    Element *insertedFace = fragment->AddElement();
-    insertedFace->PiMultiplier = originalElem->PiMultiplier;
-    allElems.push_back(insertedFace);
-    nd->adj_elems.push_back(insertedFace);
+    Element *insertedElem = fragment->AddElement();
+    allElems.push_back(insertedElem);
+    nd->adj_elems.push_back(insertedElem);
 
     Node *split = fragment->AddNode();
     allNodes.push_back(split);
     split->InitializeLERP(nd0, nd1, where);
     split->isBoundary=true;
     split->adj_elems.push_back(originalElem);
-    split->adj_elems.push_back(insertedFace);
+    split->adj_elems.push_back(insertedElem);
 
+    // TODO: re-evaluate PiMultiplier on both elements
+
+    // Assign nodes and incident elements
     originalElem->nds[nd1Idx] = split;
-    insertedFace->nds[ndIdx] = nd;
-    insertedFace->nds[nd1Idx] = nd1;
-    insertedFace->nds[nd0Idx] = split;
-    insertedFace->edges[nd0Idx] = originalElem->edges[nd0Idx];
-    insertedFace->PiMultiplier = originalElem->PiMultiplier; // TODO: test if this works
+
+    insertedElem->nds[ndIdx] = nd;
+    insertedElem->nds[nd1Idx] = nd1;
+    insertedElem->nds[nd0Idx] = split;
+    insertedElem->edges[nd0Idx] = originalElem->edges[nd0Idx];  // TODO: trying to eliminate Elem::edges
+
+    if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
+    insertedElem->incident_elems[ndIdx] = nullptr;
+    insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
+    insertedElem->incident_elems[nd1Idx] = originalElem;
+    originalElem->incident_elems[nd0Idx] = insertedElem;
 
     insertedEdge = Edge(nd, split);
-    insertedEdge.AddElement(insertedFace, nd1Idx);
+    insertedEdge.AddElement(insertedElem, nd1Idx);
     insertedEdge.AddElement(originalElem, nd0Idx);
-    insertedEdge.isBoundary = false;
     insertedEdge.toSplit = true;
 
     Edge exteriorEdge1 = Edge(split, nd1);
-    exteriorEdge1.isBoundary = true;
-    exteriorEdge1.AddElement(insertedFace, ndIdx);
-    insertedFace->edges[ndIdx] = exteriorEdge1;
+    exteriorEdge1.AddElement(insertedElem, ndIdx);
+    insertedElem->edges[ndIdx] = exteriorEdge1; // TODO: trying to eliminate Elem::edges
 
     Edge exteriorEdge2 = Edge(split, nd0);
-    exteriorEdge2.isBoundary = true;
     exteriorEdge2.AddElement(originalElem, ndIdx);
-    originalElem->edges[ndIdx] = exteriorEdge2;
+    originalElem->edges[ndIdx] = exteriorEdge2; // TODO: trying to eliminate Elem::edges
 
     originalElem->PrecomputeInitialArea();
-    insertedFace->PrecomputeInitialArea();
+    insertedElem->PrecomputeInitialArea();
 
-    affected_elements_during_split.insert({originalElem,insertedFace});
+    affected_elements_during_split.insert({originalElem,insertedElem});
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Edge &insertedEdge)
 {
-    originalElem->AssertEdges();
+    originalElem->AssertEdges();// TODO: trying to eliminate Elem::edges
     if(!originalElem->containsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
     if(!originalElem->containsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
     if(!originalElem->containsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
@@ -1247,6 +1255,9 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     short ndIdx_orig = originalElem->getNodeIdx(nd);
     short nd0Idx_orig = originalElem->getNodeIdx(nd0);
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
+
+    if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
+
 
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
     if(!adjElem->containsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
@@ -1258,77 +1269,78 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
 
     MeshFragment *fragment = nd->fragment;
 
-    Element *insertedFace = fragment->AddElement();
-    allElems.push_back(insertedFace);
-    Element *insertedFace_adj = fragment->AddElement();
-    allElems.push_back(insertedFace_adj);
-    insertedFace->PiMultiplier = insertedFace_adj->PiMultiplier = originalElem->PiMultiplier;
+    Element *insertedElem = fragment->AddElement();
+    Element *insertedElem_adj = fragment->AddElement();
+    allElems.push_back(insertedElem);
+    allElems.push_back(insertedElem_adj);
     Node *split = fragment->AddNode();
     allNodes.push_back(split);
 
     split->InitializeLERP(nd0, nd1, where);
 
-    split->adj_elems.push_back(originalElem);
-    split->adj_elems.push_back(insertedFace);
-    split->adj_elems.push_back(adjElem);
-    split->adj_elems.push_back(insertedFace_adj);
+    split->adj_elems.insert(split->adj_elems.end(),{originalElem,insertedElem,adjElem,insertedElem_adj});
 
     originalElem->nds[nd1Idx_orig] = split;
-    insertedFace->nds[ndIdx_orig] = nd;
-    insertedFace->nds[nd1Idx_orig] = nd1;
-    insertedFace->nds[nd0Idx_orig] = split;
-    insertedFace->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig];
-    insertedFace->PiMultiplier = originalElem->PiMultiplier; // TODO: test if this works
+    insertedElem->nds[ndIdx_orig] = nd;
+    insertedElem->nds[nd1Idx_orig] = nd1;
+    insertedElem->nds[nd0Idx_orig] = split;
+    insertedElem->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig]; // TODO: trying to eliminate Elem::edges
 
-    nd->adj_elems.push_back(insertedFace);
-    nd1->adj_elems.push_back(insertedFace);
-    split->adj_elems.push_back(insertedFace);
+    insertedElem->incident_elems[ndIdx_orig] = originalElem->incident_elems[ndIdx_orig];
+    insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
+    insertedElem->incident_elems[nd1Idx_orig] = originalElem;
+    originalElem->incident_elems[nd0Idx_orig] = insertedElem;
+
+    nd->adj_elems.push_back(insertedElem);
+    nd1->adj_elems.push_back(insertedElem);
+//    split->adj_elems.push_back(insertedFace);
 
     adjElem->nds[nd1Idx_adj] = split;
-    insertedFace_adj->nds[oppIdx_adj] = oppositeNode;
-    insertedFace_adj->nds[nd1Idx_adj] = nd1;
-    insertedFace_adj->nds[nd0Idx_adj] = split;
-    insertedFace_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj];
-    insertedFace_adj->PiMultiplier = adjElem->PiMultiplier; // TODO: test if this works
+    insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
+    insertedElem_adj->nds[nd1Idx_adj] = nd1;
+    insertedElem_adj->nds[nd0Idx_adj] = split;
+    insertedElem_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj]; // TODO: trying to eliminate Elem::edges
 
-    oppositeNode->adj_elems.push_back(insertedFace_adj);
-    nd1->adj_elems.push_back(insertedFace_adj);
-    split->adj_elems.push_back(insertedFace_adj);
+    insertedElem_adj->incident_elems[oppIdx_adj] = adjElem->incident_elems[oppIdx_adj];
+    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
+    insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
+    adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
+
+
+    oppositeNode->adj_elems.push_back(insertedElem_adj);
+    nd1->adj_elems.push_back(insertedElem_adj);
+//    split->adj_elems.push_back(insertedElem_adj);
 
     insertedEdge = Edge(nd, split);
-    insertedEdge.AddElement(insertedFace, nd1Idx_orig);
+    insertedEdge.AddElement(insertedElem, nd1Idx_orig);
     insertedEdge.AddElement(originalElem, nd0Idx_orig);
-    insertedEdge.isBoundary = false;
     insertedEdge.toSplit = true;
 
     Edge insertedEdge_adj = Edge(oppositeNode, split);
-    insertedEdge_adj.AddElement(insertedFace_adj, nd1Idx_adj);
+    insertedEdge_adj.AddElement(insertedElem_adj, nd1Idx_adj);
     insertedEdge_adj.AddElement(adjElem, nd0Idx_adj);
-    insertedEdge_adj.isBoundary = false;
     insertedEdge_adj.toSplit = false;
-    insertedFace_adj->edges[nd1Idx_adj] = insertedEdge_adj;
-    adjElem->edges[nd0Idx_adj] = insertedEdge_adj;
+    insertedElem_adj->edges[nd1Idx_adj] = insertedEdge_adj;         // TODO: trying to eliminate Elem::edges
+    adjElem->edges[nd0Idx_adj] = insertedEdge_adj;                  // TODO: trying to eliminate Elem::edges
 
     Edge exteriorEdge1 = Edge(split, nd1);
-    exteriorEdge1.isBoundary = false;
-    exteriorEdge1.AddElement(insertedFace, ndIdx_orig);
-    exteriorEdge1.AddElement(insertedFace_adj, oppIdx_adj);
-    insertedFace->edges[ndIdx_orig] = exteriorEdge1;
-    insertedFace_adj->edges[oppIdx_adj] = exteriorEdge1;
+    exteriorEdge1.AddElement(insertedElem, ndIdx_orig);
+    exteriorEdge1.AddElement(insertedElem_adj, oppIdx_adj);
+    insertedElem->edges[ndIdx_orig] = exteriorEdge1;                // TODO: trying to eliminate Elem::edges
+    insertedElem_adj->edges[oppIdx_adj] = exteriorEdge1;            // TODO: trying to eliminate Elem::edges
 
     Edge exteriorEdge2 = Edge(split, nd0);
-    exteriorEdge2.isBoundary = false;
     exteriorEdge2.AddElement(originalElem, ndIdx_orig);
     exteriorEdge2.AddElement(adjElem, oppIdx_adj);
-    originalElem->edges[ndIdx_orig] = exteriorEdge2;
-    adjElem->edges[oppIdx_adj] = exteriorEdge2;
+    originalElem->edges[ndIdx_orig] = exteriorEdge2;                // TODO: trying to eliminate Elem::edges
+    adjElem->edges[oppIdx_adj] = exteriorEdge2;                     // TODO: trying to eliminate Elem::edges
 
     originalElem->PrecomputeInitialArea();
-    insertedFace->PrecomputeInitialArea();
+    insertedElem->PrecomputeInitialArea();
     adjElem->PrecomputeInitialArea();
-    insertedFace_adj->PrecomputeInitialArea();
+    insertedElem_adj->PrecomputeInitialArea();
 
-    affected_elements_during_split.insert({originalElem,insertedFace,adjElem,insertedFace_adj});
+    affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});
 }
 
 void icy::Mesh::InferLocalSupport(SimParams &prms)

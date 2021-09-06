@@ -27,6 +27,8 @@ void icy::Edge::AddElement(icy::Element* elem, short idx)
     if(elem1_isCCW && elems[0] == nullptr) { elems[0] = elem; edge_in_elem_idx[0] = idx; }
     else if(!elem1_isCCW && elems[1] == nullptr) { elems[1] = elem; edge_in_elem_idx[1] = idx; }
     else throw std::runtime_error("AddElement: mesh topology error");
+
+    isBoundary = (elems[0] == nullptr || elems[1] == nullptr);
 }
 
 icy::Node* icy::Edge::getOtherNode(const icy::Node* const nd) const

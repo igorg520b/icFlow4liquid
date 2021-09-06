@@ -85,7 +85,7 @@ private:
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
     std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
     icy::Node *maxNode;
-    constexpr static double fracture_epsilon = 0.05;   // if an edge splits too close to its vertex, then just go through the vertex
+    constexpr static double fracture_epsilon = 0.09;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
     void SplitNode(const SimParams &prms);
     void EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,

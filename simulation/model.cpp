@@ -441,7 +441,6 @@ void icy::Model::Fracture(double timeStep)
     mesh.ComputeFractureDirections(prms, timeStep, true);   // even if fracture is disabled, compute for visualization
     vtk_update_mutex.unlock();
 
-    spdlog::info("step {}; maxNode {}", this->currentStep, (void*)mesh.maxNode);
 
     if(!prms.EnableFracture) return;
 
@@ -450,6 +449,8 @@ void icy::Model::Fracture(double timeStep)
 
     while(mesh.maxNode != nullptr && fracture_step_count < prms.FractureMaxSubsteps && !abortRequested)
     {
+        spdlog::info("Step {}; FR-Step {}; maxNode {}", this->currentStep, fracture_step_count, mesh.maxNode->globId);
+
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
         vtk_update_mutex.lock();
         mesh.SplitNode(prms);
@@ -533,10 +534,5 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
 
 #pragma omp parallel for
         for(unsigned i=0;i<mesh.local_elems.size();i++) mesh.local_elems[i]->ComputeVisualizedVariables();
-
-
-
-
-
 }
 

@@ -134,8 +134,8 @@ public:
         FractureTemporalAttenuation = 0.025;
         FractureMaxSubsteps = 1000;
         FractureTractionThreshold = 500;
-        FractureSubstepLevels = 10;
-        FractureTimerLevels = 30;
+        FractureSubstepLevels = 4;
+        FractureTimerLevels = 10;
 
         // features
         EnableCollisions = false;
