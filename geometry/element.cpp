@@ -54,6 +54,9 @@ void icy::Element::Initialize(Node *nd0, Node *nd1, Node *nd2)
 
 void icy::Element::PrecomputeInitialArea()
 {
+    auto get_angle = [](Eigen::Vector2d u, Eigen::Vector2d v)
+    { return (180.0/M_PI)*acos(std::clamp((double)u.normalized().dot(v.normalized()),-1.0,1.0)); };
+
     // reference shape matrix
     Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
     area_initial = area_current = Dm.determinant()/2;
@@ -66,6 +69,19 @@ void icy::Element::PrecomputeInitialArea()
         area_initial = area_current = Dm.determinant()/2;
     }
     DmInv = Dm.inverse();
+
+
+    double angles[3];
+    for(int i=0;i<3;i++) angles[i] = get_angle(nds[i]->x_initial-nds[(i+1)%3]->x_initial,
+            nds[i]->x_initial-nds[(i+2)%3]->x_initial);
+    constexpr double angle_thredhold = 3;
+    if(angles[0]<angle_thredhold || angles[1]<angle_thredhold || angles[2]<angle_thredhold || area_initial < threshold_area)
+    {
+        spdlog::critical("Area {0} of elem {1}-{2}-{3}\nangles: {4:.1f}; {5:.1f}; {6:.1f}",
+                         area_initial, nds[0]->locId,nds[1]->locId,nds[2]->locId,angles[0],angles[1],angles[2]);
+        throw std::runtime_error("PrecomputeInitialArea(): degenerate element created");
+    }
+
 }
 
 
@@ -331,9 +347,21 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
 
 void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
 {
+    //spdlog::info("Replacing Node {} with {} in elem {}-{}-{}",
+    //             replaceWhat->locId,replaceWith->locId, nds[0]->locId,nds[1]->locId,nds[2]->locId);
     if(nds[0] == replaceWhat) nds[0] = replaceWith;
     else if(nds[1] == replaceWhat) nds[1] = replaceWith;
     else if(nds[2] == replaceWhat) nds[2] = replaceWith;
     else throw std::runtime_error("icy::Element::ReplaceNode: replaced node not found");
     PrecomputeInitialArea();
+    //spdlog::info("Replaced Node {} with {}; elem {}-{}-{}",
+    //             replaceWhat->locId,replaceWith->locId, nds[0]->locId,nds[1]->locId,nds[2]->locId);
+}
+
+void icy::Element::DisconnectFromElem(Element* other)
+{
+    if(incident_elems[0]==other) incident_elems[0]=nullptr;
+    else if(incident_elems[1]==other) incident_elems[1]=nullptr;
+    else if(incident_elems[2]==other) incident_elems[2]=nullptr;
+    else throw std::runtime_error("DisconnectFromElem: incident elem not found");
 }

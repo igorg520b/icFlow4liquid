@@ -68,11 +68,12 @@ public:
     short getNodeIdx(const Node* nd) const;
     void AssertEdges();
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
-    void ReplaceNode(Node *replaceWhat, Node *replaceWith);
+    void ReplaceNode(Node* replaceWhat, Node* replaceWith);
+    void DisconnectFromElem(Element* other);
 
 
 private:
-
+    constexpr static double threshold_area = 1e-7;
 };
 
 #endif // ELEMENT123_H

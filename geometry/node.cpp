@@ -77,7 +77,7 @@ void icy::Node::PrepareFan()
         if(elem->isOnBoundary(this)) isBoundary = true;
     }
 
-    std::sort(fan.begin(), fan.end(), [](const Sector &f0, const Sector &f1) {return f0.centerAngle < f1.centerAngle; });
+    std::sort(fan.begin(), fan.end());
 
     // if boundary, then ensure that sectors start with a boundary element and end with a boundary element
     if(isBoundary)
@@ -147,7 +147,7 @@ void icy::Node::PrintoutFan()
                  "nd1-nd2", "nds 0-1-2", "angle0-angle1", "cAngle", "area", "CWB", "CCWB");
 
     for(Sector &s : fan)
-        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3: >4}-{4: <4} │ {5:>6.4f}-{6:<6.4f} │ {7:^6.4f} | {8:^6.4e} | {9:^8} | {10:^8}",
+        spdlog::info("│ {0:>4}-{1:<4} │ {2: >4}-{3: >4}-{4: <4} │ {5:>6.4f}-{6:<6.4f} │ {7: ^6.4f} | {8:^6.4e} | {9:^8} | {10:^8}",
                      s.nd[0]->locId, s.nd[1]->locId,
                      s.face->nds[0]->locId,s.face->nds[1]->locId,s.face->nds[2]->locId,
                 s.angle0, s.angle1, s.centerAngle, s.face->area_initial, s.face->isCWBoundary(this), s.face->isCCWBoundary(this));
@@ -156,10 +156,11 @@ void icy::Node::PrintoutFan()
 void icy::Node::ComputeFanVariables(const SimParams &prms)
 {
     if(fan.size()==0) throw std::runtime_error("invoking ComputeFanVariables on a Node without elements");
-    UpdateFan();
-
     dir = Eigen::Vector2d::Zero();
     max_normal_traction = 0;
+    UpdateFan();
+    if(fan_angle_span<dont_split_nearly_degenerate_elems) return;
+
     unsigned nFan = fan.size();
 
     double weakening_coeff = prms.FractureWeakeningCoeff;
@@ -235,7 +236,7 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
         throw std::runtime_error("ComputeFanVariables: mesh topology error 0");
     }
 
-    if(result_with_max_traction.faces[1]!= nullptr && !result_with_max_traction.faces[1]->containsNode(this))
+    if(result_with_max_traction.faces[1] != nullptr && !result_with_max_traction.faces[1]->containsNode(this))
     {
         spdlog::critical("ComputeFanVariables: mesh topology error 1");
         throw std::runtime_error("ComputeFanVariables: mesh topology error 1");
@@ -244,11 +245,47 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
     max_normal_traction = result_with_max_traction.trac_normal;
     dir = result_with_max_traction.tn;
 
-    const double threshold_angle = fan_angle_span*0.1;
+    // don't break nearly-degenerate sectors
+    double span0 = result_with_max_traction.sectorSpan(0);
+    if(result_with_max_traction.phi[0] < dont_split_nearly_degenerate_elems)
+    {
+            result_with_max_traction.phi[0] = 0;
+            result_with_max_traction.theta[0] = span0;
+            fracture_angle = result_with_max_traction.angle0[0];
+    }
+    else if(result_with_max_traction.theta[0] < dont_split_nearly_degenerate_elems)
+    {
+        result_with_max_traction.theta[0] = 0;
+        result_with_max_traction.phi[0] = span0;
+        fracture_angle = result_with_max_traction.angle1[0];
+    }
+
+    const double threshold_angle = dont_split_nearly_degenerate_elems/2; // fan_angle_span*0.1;
     if(isBoundary && (fracture_angle < threshold_angle ||
-                      fracture_angle > fan_angle_span-threshold_angle || fan_angle_span < M_PI/2))
+                      fracture_angle > fan_angle_span-threshold_angle))
     {max_normal_traction=0; return;}
 
+    if(!isBoundary)
+    {
+        double fracture_angle_bwd;
+        // similar snap on the other side
+        // TODO: there is a narrow case that may result in invalid topology
+        double span1 = result_with_max_traction.sectorSpan(1);
+        if(result_with_max_traction.phi[1] < dont_split_nearly_degenerate_elems)
+        {
+                result_with_max_traction.phi[1] = 0;
+                result_with_max_traction.theta[1] = span1;
+                fracture_angle_bwd = result_with_max_traction.angle0[1];
+                if(fracture_angle_bwd == fracture_angle) {max_normal_traction=0; return;}
+        }
+        else if(result_with_max_traction.theta[1] < dont_split_nearly_degenerate_elems)
+        {
+            result_with_max_traction.theta[1] = 0;
+            result_with_max_traction.phi[1] = span1;
+            fracture_angle_bwd = result_with_max_traction.angle1[1];
+            if(fracture_angle_bwd == fracture_angle) {max_normal_traction=0; return;}
+        }
+    }
 }
 
 double icy::Node::NormalTraction(double angle_fwd, double weakening_coeff) const
@@ -288,6 +325,8 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
 
             double phi = ssr.phi[0] = angle_fwd - fp.angle0;
             ssr.theta[0] = fp.angle1 - angle_fwd;
+            ssr.angle0[0] = fp.angle0;
+            ssr.angle1[0] = fp.angle1;
 
             double ratio = phi/(fp.angle1-fp.angle0);
             ssr.tn = (fp.u_normalized*(1-ratio) + fp.v_normalized*ratio).normalized();
@@ -307,8 +346,10 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
 
             float phi = ssr.phi[1] = angle_bwd - fp.angle0;
             ssr.theta[1] = fp.angle1 - angle_bwd;
+            ssr.angle0[1] = fp.angle0;
+            ssr.angle1[1] = fp.angle1;
 
-            float ratio = phi/(fp.angle1-fp.angle0);
+            double ratio = phi/(fp.angle1-fp.angle0);
             Eigen::Vector2d tn_p = (fp.u_p*(1-ratio) + fp.v_p*ratio).normalized(); // perpendicular to tn
 
             Eigen::Vector2d tmult = fp.face->CauchyStress * tn_p;

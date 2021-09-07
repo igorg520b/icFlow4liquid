@@ -7,6 +7,7 @@
 #include "element.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
+#include "spdlog/spdlog.h"
 
 namespace icy { class MeshFragment; class Mesh; }
 

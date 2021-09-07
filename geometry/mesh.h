@@ -85,7 +85,7 @@ private:
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
     std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
     icy::Node *maxNode;
-    constexpr static double fracture_epsilon = 0.09;   // if an edge splits too close to its vertex, then just go through the vertex
+    constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
     void SplitNode(const SimParams &prms);
     void EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
@@ -98,6 +98,10 @@ private:
 
     void InferLocalSupport(SimParams &prms);
     void CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set);
+
+    static double get_angle(const Eigen::Vector2d u, const Eigen::Vector2d v)
+    { return (180.0/M_PI)*abs(acos(std::clamp((double)u.normalized().dot(v.normalized()),-1.0,1.0))); };
+
     std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
     std::vector<Node*> local_support;
 

@@ -29,6 +29,7 @@ icy::Node* icy::MeshFragment::AddNode()
     result->fragment = this;
     result->locId = (int)nodes.size();
     nodes.push_back(result);
+//    spdlog::info("Added nod {}", result->locId);
     return result;
 }
 

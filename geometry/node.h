@@ -49,6 +49,7 @@ struct icy::Node
         double angle0, angle1;
         Eigen::Vector2d u_normalized, v_normalized, u_p, v_p;   // u is CW, v is CCW
         Eigen::Vector2d t0, t1;
+        bool operator<(const Sector& other) const {return centerAngle < other.centerAngle;}
     };
 
     // separation stress
@@ -62,6 +63,8 @@ struct icy::Node
         double trac_normal, trac_tangential;
         icy::Edge e[4];
         icy::Edge e_opposite[2]; // edges that lie opposite of the center node
+        double angle0[2], angle1[2];
+        double sectorSpan(const int idx) const {return theta[idx]+phi[idx];}
     };
 
     boost::container::small_vector<icy::Element*, 8> adj_elems;
@@ -79,6 +82,7 @@ struct icy::Node
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);
+    constexpr static double dont_split_nearly_degenerate_elems = 15.0*M_PI/180.0;
 
     static uint64_t make_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
 
