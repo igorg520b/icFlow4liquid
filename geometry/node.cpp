@@ -83,7 +83,7 @@ void icy::Node::PrepareFan()
     if(isBoundary)
     {
         // find the fan element with the border on the CW direction
-        auto cw_boundary = std::find_if(fan.begin(), fan.end(), [this](const Sector &f){return f.face->CWEdge(this).isBoundary;});
+        auto cw_boundary = std::find_if(fan.begin(), fan.end(), [this](const Sector &f){return f.face->isCWBoundary(this);});
         if(cw_boundary == fan.end())
         {
             PrintoutFan();
@@ -326,9 +326,9 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
         if (angle_fwd >= fp.angle0 && angle_fwd < fp.angle1)
         {
             ssr.faces[0] = fp.face;
-            ssr.e[0] = fp.face->CWEdge(this);
-            ssr.e[1] = fp.face->CCWEdge(this);
-            ssr.e_opposite[0] = fp.face->OppositeEdge(this);
+//            ssr.e[0] = fp.face->CWEdge(this);
+//            ssr.e[1] = fp.face->CCWEdge(this);
+//            ssr.e_opposite[0] = fp.face->OppositeEdge(this);
 
             double phi = ssr.phi[0] = angle_fwd - fp.angle0;
             ssr.theta[0] = fp.angle1 - angle_fwd;
@@ -347,9 +347,9 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
         else if (!isBoundary && angle_bwd >= fp.angle0 && angle_bwd < fp.angle1)
         {
             ssr.faces[1] = fp.face;
-            ssr.e[2] = fp.face->CWEdge(this);
-            ssr.e[3] = fp.face->CCWEdge(this);
-            ssr.e_opposite[1] = fp.face->OppositeEdge(this);
+//            ssr.e[2] = fp.face->CWEdge(this);
+//            ssr.e[3] = fp.face->CCWEdge(this);
+//            ssr.e_opposite[1] = fp.face->OppositeEdge(this);
 
             float phi = ssr.phi[1] = angle_bwd - fp.angle0;
             ssr.theta[1] = fp.angle1 - angle_bwd;

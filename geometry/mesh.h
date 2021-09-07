@@ -88,11 +88,10 @@ private:
     constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
     void SplitNode(const SimParams &prms);
-    void EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
-                                const Edge e0, const Edge e1, Element *elem);
-    void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge);
+    void EstablishSplittingEdge(Node* nd, const double phi, const double theta, Element *elem, Node* &adjacentNode);
+    void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& insertedNode);
     void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
-                                     Node *nd0, Node *nd1, double where, Edge &insertedEdge);
+                                     Node *nd0, Node *nd1, double where, Node*& insertedNode);
     void Fix_X_Topology(Node *nd);
     void UpdateEdges();
 

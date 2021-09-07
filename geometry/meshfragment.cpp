@@ -1046,8 +1046,8 @@ void icy::MeshFragment::CreateEdges()
         short idx1 = e.edge_in_elem_idx[1];
         if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("CreateEdges(): disconnected edge");
 
-        if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = e;
-        if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = e;
+        //if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = e;
+        //if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = e;
 
         // ensure that each element "knows" its incident elements (remains nullptr if element is on the boundary)
         if(!e.isBoundary)

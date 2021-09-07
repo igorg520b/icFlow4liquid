@@ -61,8 +61,8 @@ struct icy::Node
         Eigen::Vector2d tn, tn_p;
         double phi[2], theta[2];
         double trac_normal, trac_tangential;
-        icy::Edge e[4];
-        icy::Edge e_opposite[2]; // edges that lie opposite of the center node
+//        icy::Edge e[4];
+//        icy::Edge e_opposite[2]; // edges that lie opposite of the center node
         double angle0[2], angle1[2];
         double sectorSpan(const int idx) const {return theta[idx]+phi[idx];}
     };

@@ -927,22 +927,22 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
     if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
 
-    icy::Edge splitEdge_fw;
-    EstablishSplittingEdge(splitEdge_fw, nd, ssr.phi[0], ssr.theta[0], ssr.e[0], ssr.e[1], ssr.faces[0]);
+//    icy::Edge splitEdge_fw;
+    Node *split0, *split1 = nullptr;
+    EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], split0);
 
-    Node *split0 = splitEdge_fw.getOtherNode(nd);
-    Node *split1 = nullptr;
+//    Node *split0 = splitEdge_fw.getOtherNode(nd);
 
-    icy::Edge splitEdge_bw;
+//    icy::Edge splitEdge_bw;
     if(!isBoundary)
     {
         // determine splitEdge_bw (create if necessary)
         if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
-        EstablishSplittingEdge(splitEdge_bw, nd, ssr.phi[1], ssr.theta[1], ssr.e[2], ssr.e[3], ssr.faces[1]);
-        split1=splitEdge_bw.getOtherNode(nd);
+        EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], split1);
+//        split1=splitEdge_bw.getOtherNode(nd);
     }
 
-    Fix_X_Topology(nd); // split as fan.front().e[0] --- splitEdge_fw --- fan.back().e[1]
+    Fix_X_Topology(nd);
 
     if(!isBoundary)
     {
@@ -978,8 +978,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     nd->isCrackTip = false;
 }
 
-void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double phi, const double theta,
-                            const Edge e0, const Edge e1, Element *elem)
+void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double theta, Element *elem, Node* &adjacentNode)
 {
     icy::Node *nd0, *nd1;
     std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
@@ -1000,26 +999,23 @@ void icy::Mesh::EstablishSplittingEdge(Edge &splitEdge, Node* nd, const double p
         short idx = elem->getNodeIdx(nd0);
         elem->incident_elems[idx]->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
-        splitEdge = e1;
+        adjacentNode = nd1;
     }
     else if(phi == 0 && !elem->isCWBoundary(nd))
     {
         short idx = elem->getNodeIdx(nd1);
         elem->incident_elems[idx]->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
-        splitEdge = e0;
+        adjacentNode = nd0;
     }
     else
     {
         icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
         if(elem_adj==nullptr)
-            SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, splitEdge);
+            SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, adjacentNode);
         else
-            SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, splitEdge);
+            SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, adjacentNode);
     }
-    splitEdge.toSplit = true;
-    splitEdge.elems[0]->edges[splitEdge.edge_in_elem_idx[0]]=splitEdge;
-    splitEdge.elems[1]->edges[splitEdge.edge_in_elem_idx[1]]=splitEdge;
 }
 
 void icy::Mesh::Fix_X_Topology(Node *nd)
@@ -1170,8 +1166,8 @@ void icy::Mesh::UpdateEdges()
         if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("icy::Mesh::UpdateEdges: disconnected edge");
         existing_edge.isBoundary = (existing_edge.elems[0] == nullptr || existing_edge.elems[1] == nullptr);
 
-        if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = existing_edge;
-        if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = existing_edge;
+        //if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = existing_edge;
+        //if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = existing_edge;
 
         if(!existing_edge.isBoundary)
         {
@@ -1185,7 +1181,8 @@ void icy::Mesh::UpdateEdges()
     for(Node *nd : affected_nodes_during_split) nd->PrepareFan();
 }
 
-void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Edge &insertedEdge)
+void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1,
+                                  double where, Node*& insertedNode)
 {
     if(!originalElem->containsNode(nd)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd");
     if(!originalElem->containsNode(nd0)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd0");
@@ -1201,16 +1198,12 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     nd->adj_elems.push_back(insertedElem);
 
     Node *split = fragment->AddNode();
+    insertedNode = split;
     allNodes.push_back(split);
     split->InitializeLERP(nd0, nd1, where);
     split->isBoundary=true;
     split->adj_elems.push_back(originalElem);
     split->adj_elems.push_back(insertedElem);
-
-    double angle0 = get_angle(nd0->x_initial-nd->x_initial,split->x_initial-nd->x_initial);
-    double angle1 = get_angle(nd1->x_initial-nd->x_initial,split->x_initial-nd->x_initial);
-    if(angle0 < 3 || angle1 < 3)
-        spdlog::critical("angle0 {} angle1 {}", angle0, angle1);
 
     // TODO: re-evaluate PiMultiplier on both elements
 
@@ -1220,7 +1213,7 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->nds[ndIdx] = nd;
     insertedElem->nds[nd1Idx] = nd1;
     insertedElem->nds[nd0Idx] = split;
-    insertedElem->edges[nd0Idx] = originalElem->edges[nd0Idx];  // TODO: trying to eliminate Elem::edges
+//    insertedElem->edges[nd0Idx] = originalElem->edges[nd0Idx];  // TODO: trying to eliminate Elem::edges
 
     if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
     insertedElem->incident_elems[ndIdx] = nullptr;
@@ -1228,31 +1221,23 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->incident_elems[nd1Idx] = nullptr; // originalElem;
     originalElem->incident_elems[nd0Idx] = nullptr; // insertedElem;
 
-    insertedEdge = Edge(nd, split);
-    insertedEdge.AddElement(insertedElem, nd1Idx);
-    insertedEdge.AddElement(originalElem, nd0Idx);
-    insertedEdge.toSplit = true;
-
     Edge exteriorEdge1 = Edge(split, nd1);
     exteriorEdge1.AddElement(insertedElem, ndIdx);
-    insertedElem->edges[ndIdx] = exteriorEdge1; // TODO: trying to eliminate Elem::edges
+//    insertedElem->edges[ndIdx] = exteriorEdge1; // TODO: trying to eliminate Elem::edges
 
     Edge exteriorEdge2 = Edge(split, nd0);
     exteriorEdge2.AddElement(originalElem, ndIdx);
-    originalElem->edges[ndIdx] = exteriorEdge2; // TODO: trying to eliminate Elem::edges
+//    originalElem->edges[ndIdx] = exteriorEdge2; // TODO: trying to eliminate Elem::edges
 
-    spdlog::info("SplitBoundaryElem: originalElem");
     originalElem->PrecomputeInitialArea();
-    spdlog::info("SplitBoundaryElem: insertedElem");
     insertedElem->PrecomputeInitialArea();
 
     affected_elements_during_split.insert({originalElem,insertedElem});
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
-                                 Node *nd0, Node *nd1, double where, Edge &insertedEdge)
+                                 Node *nd0, Node *nd1, double where, Node*& insertedNode)
 {
-    originalElem->AssertEdges();// TODO: trying to eliminate Elem::edges
     if(!originalElem->containsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
     if(!originalElem->containsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
     if(!originalElem->containsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
@@ -1279,16 +1264,10 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     allElems.push_back(insertedElem);
     allElems.push_back(insertedElem_adj);
     Node *split = fragment->AddNode();
+    insertedNode = split;
     allNodes.push_back(split);
 
     split->InitializeLERP(nd0, nd1, where);
-
-    double angle0 = get_angle(nd0->x_initial-nd->x_initial,split->x_initial-nd->x_initial);
-    double angle1 = get_angle(nd1->x_initial-nd->x_initial,split->x_initial-nd->x_initial);
-    double angle2 = get_angle(nd0->x_initial-oppositeNode->x_initial,split->x_initial-oppositeNode->x_initial);
-    double angle3 = get_angle(nd1->x_initial-oppositeNode->x_initial,split->x_initial-oppositeNode->x_initial);
-    if(angle0 < 3 || angle1 < 3 || angle2 < 3 || angle3 < 3)
-        spdlog::critical("angle0 {} angle1 {} angle2 {} angle3 {}", angle0, angle1, angle2, angle3);
 
     split->adj_elems.insert(split->adj_elems.end(),{originalElem,insertedElem,adjElem,insertedElem_adj});
 
@@ -1296,7 +1275,7 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->nds[ndIdx_orig] = nd;
     insertedElem->nds[nd1Idx_orig] = nd1;
     insertedElem->nds[nd0Idx_orig] = split;
-    insertedElem->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig]; // TODO: trying to eliminate Elem::edges
+//    insertedElem->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig];
 
     insertedElem->incident_elems[ndIdx_orig] = originalElem->incident_elems[ndIdx_orig];
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
@@ -1305,56 +1284,24 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
 
     nd->adj_elems.push_back(insertedElem);
     nd1->adj_elems.push_back(insertedElem);
-//    split->adj_elems.push_back(insertedFace);
 
     adjElem->nds[nd1Idx_adj] = split;
     insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
     insertedElem_adj->nds[nd1Idx_adj] = nd1;
     insertedElem_adj->nds[nd0Idx_adj] = split;
-    insertedElem_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj]; // TODO: trying to eliminate Elem::edges
+//    insertedElem_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj]; // TODO: trying to eliminate Elem::edges
 
     insertedElem_adj->incident_elems[oppIdx_adj] = adjElem->incident_elems[oppIdx_adj];
     insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
     insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
     adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
 
-
     oppositeNode->adj_elems.push_back(insertedElem_adj);
     nd1->adj_elems.push_back(insertedElem_adj);
-//    split->adj_elems.push_back(insertedElem_adj);
 
-    insertedEdge = Edge(nd, split);
-    insertedEdge.AddElement(insertedElem, nd1Idx_orig);
-    insertedEdge.AddElement(originalElem, nd0Idx_orig);
-    insertedEdge.toSplit = true;
-
-    Edge insertedEdge_adj = Edge(oppositeNode, split);
-    insertedEdge_adj.AddElement(insertedElem_adj, nd1Idx_adj);
-    insertedEdge_adj.AddElement(adjElem, nd0Idx_adj);
-    insertedEdge_adj.toSplit = false;
-    insertedElem_adj->edges[nd1Idx_adj] = insertedEdge_adj;         // TODO: trying to eliminate Elem::edges
-    adjElem->edges[nd0Idx_adj] = insertedEdge_adj;                  // TODO: trying to eliminate Elem::edges
-
-    Edge exteriorEdge1 = Edge(split, nd1);
-    exteriorEdge1.AddElement(insertedElem, ndIdx_orig);
-    exteriorEdge1.AddElement(insertedElem_adj, oppIdx_adj);
-    insertedElem->edges[ndIdx_orig] = exteriorEdge1;                // TODO: trying to eliminate Elem::edges
-    insertedElem_adj->edges[oppIdx_adj] = exteriorEdge1;            // TODO: trying to eliminate Elem::edges
-
-    Edge exteriorEdge2 = Edge(split, nd0);
-    exteriorEdge2.AddElement(originalElem, ndIdx_orig);
-    exteriorEdge2.AddElement(adjElem, oppIdx_adj);
-    originalElem->edges[ndIdx_orig] = exteriorEdge2;                // TODO: trying to eliminate Elem::edges
-    adjElem->edges[oppIdx_adj] = exteriorEdge2;                     // TODO: trying to eliminate Elem::edges
-
-    spdlog::info("SplitNonBoundaryElem: originalElem; angle0 {} angle1 {} angle2 {} angle3 {}; where {}",
-                 angle0, angle1, angle2, angle3, where);
     originalElem->PrecomputeInitialArea();
-    spdlog::info("SplitNonBoundaryElem: insertedElem");
     insertedElem->PrecomputeInitialArea();
-    spdlog::info("SplitNonBoundaryElem: adjElem");
     adjElem->PrecomputeInitialArea();
-    spdlog::info("SplitNonBoundaryElem: insertedElem_adj");
     insertedElem_adj->PrecomputeInitialArea();
 
     affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});

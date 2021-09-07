@@ -257,6 +257,7 @@ void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, sho
     CCWIdx = (thisIdx+2)%3;
 }
 
+/*
 const icy::Edge& icy::Element::CWEdge(const Node* nd) const
 {
     short thisIdx, CWIdx, CCWIdx;
@@ -270,6 +271,15 @@ const icy::Edge& icy::Element::CCWEdge(const Node* nd) const
     getIdxs(nd, thisIdx, CWIdx, CCWIdx);
     return edges[CWIdx];
 }
+
+const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
+{
+    short thisIdx, CWIdx, CCWIdx;
+    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
+    return edges[thisIdx];
+}
+
+*/
 
 std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
 {
@@ -300,12 +310,6 @@ bool icy::Element::isCCWBoundary(const Node* nd) const
 }
 
 
-const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
-{
-    short thisIdx, CWIdx, CCWIdx;
-    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
-    return edges[thisIdx];
-}
 
 icy::Element* icy::Element::getAdjacentElementOppositeToNode(Node *nd)
 {
@@ -321,16 +325,6 @@ short icy::Element::getNodeIdx(const Node *nd) const
     else if(nds[1]==nd) return 1;
     else if(nds[2]==nd) return 2;
     else throw std::runtime_error("getNodeIdx");
-}
-
-void icy::Element::AssertEdges()
-{
-    // verify that edes are correctly initialized
-    for(int i=0;i<3;i++)
-    {
-        if(!containsNode(edges[i].nds[0])) throw std::runtime_error("AssertEdges");
-        if(!containsNode(edges[i].nds[1])) throw std::runtime_error("AssertEdges");
-    }
 }
 
 icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
