@@ -618,7 +618,6 @@ void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
         leaves_for_ccd.push_back(leaf_ccd);
         leaves_for_contact.push_back(leaf_contact);
     }
-    std::clog << "GenerateLeaves() " << leaves_for_ccd.size() << " " << leaves_for_contact.size() << '\n';
 }
 
 
