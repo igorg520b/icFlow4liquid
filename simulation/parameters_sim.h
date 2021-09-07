@@ -50,6 +50,8 @@ class icy::SimParams : public QObject
     Q_PROPERTY(double f_TractionThreshold MEMBER FractureTractionThreshold NOTIFY propertyChanged)
     Q_PROPERTY(unsigned f_SubstepLevels MEMBER FractureSubstepLevels NOTIFY propertyChanged)
     Q_PROPERTY(unsigned f_TimerLevels MEMBER FractureTimerLevels NOTIFY propertyChanged)
+    Q_PROPERTY(double f_AreaThreshold MEMBER FractureAreaThreshold NOTIFY propertyChanged)
+    Q_PROPERTY(double f_AngleThreshold MEMBER FractureAngleThreshold NOTIFY propertyChanged)
 
 public:
     int MaxSteps, MinIter, MaxIter;
@@ -74,6 +76,7 @@ public:
     int FractureMaxSubsteps;
     double FractureTractionThreshold;
     unsigned FractureSubstepLevels, FractureTimerLevels;
+    double FractureAngleThreshold, FractureAreaThreshold;
 
     double lambda, mu, Kappa;
     double getKappa() {return Kappa;}
@@ -131,11 +134,13 @@ public:
 
         // fracture
         FractureWeakeningCoeff = 0.75;
-        FractureTemporalAttenuation = 0;//0.025;
+        FractureTemporalAttenuation = 0.025;
         FractureMaxSubsteps = 1000;
         FractureTractionThreshold = 500;
         FractureSubstepLevels = 4;
         FractureTimerLevels = 10;
+        FractureAngleThreshold = 5;
+        FractureAreaThreshold = 1e-4;
 
         // features
         EnableCollisions = false;

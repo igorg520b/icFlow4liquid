@@ -79,7 +79,7 @@ void icy::Element::PrecomputeInitialArea()
     {
         spdlog::critical("Area {0} of elem {1}-{2}-{3}\nangles: {4:.1f}; {5:.1f}; {6:.1f}",
                          area_initial, nds[0]->locId,nds[1]->locId,nds[2]->locId,angles[0],angles[1],angles[2]);
-        throw std::runtime_error("PrecomputeInitialArea(): degenerate element created");
+        //throw std::runtime_error("PrecomputeInitialArea(): degenerate element created");
     }
 
 }

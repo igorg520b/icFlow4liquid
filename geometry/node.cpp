@@ -155,16 +155,16 @@ void icy::Node::PrintoutFan()
 
 void icy::Node::ComputeFanVariables(const SimParams &prms)
 {
+    double dont_split_nearly_degenerate_elems = prms.FractureAngleThreshold*M_PI/180;
+
     if(fan.size()==0) throw std::runtime_error("invoking ComputeFanVariables on a Node without elements");
     dir = Eigen::Vector2d::Zero();
     max_normal_traction = 0;
     UpdateFan();
-    if(fan_angle_span<dont_split_nearly_degenerate_elems) return;
-
     unsigned nFan = fan.size();
+    if(nFan==1 || fan_angle_span < dont_split_nearly_degenerate_elems) return;
 
     double weakening_coeff = prms.FractureWeakeningCoeff;
-
     unsigned gridPts = isBoundary ? nFan+1 : nFan;
 
     double grid_results[gridPts];
@@ -188,9 +188,9 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
     // sectors
     int sector1, sector2;
 
-    if(isBoundary && (idx == 0 || idx==gridPts-1))
+    if(isBoundary && (idx==0 || idx==gridPts-1))
     {
-        sector1 = idx == 0 ? 0 : gridPts-2;
+        sector1 = idx==0 ? 0 : gridPts-2;
         sector2 = -1;
     }
     else
@@ -219,7 +219,6 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
 
     EvaluateTractions(fracture_angle, result_with_max_traction, weakening_coeff);
 
-
     if(result_with_max_traction.faces[0]==result_with_max_traction.faces[1] || result_with_max_traction.faces[0]==nullptr)
     {
         spdlog::critical("evaluate_tractions: face0=={}; face1=={}",
@@ -247,20 +246,24 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
 
     // don't break nearly-degenerate sectors
     double span0 = result_with_max_traction.sectorSpan(0);
-    if(result_with_max_traction.phi[0] < dont_split_nearly_degenerate_elems)
+    if(result_with_max_traction.phi[0] < dont_split_nearly_degenerate_elems ||
+            (result_with_max_traction.faces[0]->area_initial < prms.FractureAreaThreshold &&
+             result_with_max_traction.phi[0] < result_with_max_traction.theta[0]))
     {
             result_with_max_traction.phi[0] = 0;
             result_with_max_traction.theta[0] = span0;
             fracture_angle = result_with_max_traction.angle0[0];
     }
-    else if(result_with_max_traction.theta[0] < dont_split_nearly_degenerate_elems)
+    else if(result_with_max_traction.theta[0] < dont_split_nearly_degenerate_elems ||
+            (result_with_max_traction.faces[0]->area_initial < prms.FractureAreaThreshold &&
+             result_with_max_traction.phi[0] > result_with_max_traction.theta[0]))
     {
         result_with_max_traction.theta[0] = 0;
         result_with_max_traction.phi[0] = span0;
         fracture_angle = result_with_max_traction.angle1[0];
     }
 
-    const double threshold_angle = dont_split_nearly_degenerate_elems/2; // fan_angle_span*0.1;
+    const double threshold_angle = dont_split_nearly_degenerate_elems;
     if(isBoundary && (fracture_angle < threshold_angle ||
                       fracture_angle > fan_angle_span-threshold_angle))
     {max_normal_traction=0; return;}
@@ -271,14 +274,18 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
         // similar snap on the other side
         // TODO: there is a narrow case that may result in invalid topology
         double span1 = result_with_max_traction.sectorSpan(1);
-        if(result_with_max_traction.phi[1] < dont_split_nearly_degenerate_elems)
+        if(result_with_max_traction.phi[1] < dont_split_nearly_degenerate_elems ||
+                (result_with_max_traction.faces[1]->area_initial < prms.FractureAreaThreshold &&
+                 result_with_max_traction.phi[1] < result_with_max_traction.theta[1]))
         {
                 result_with_max_traction.phi[1] = 0;
                 result_with_max_traction.theta[1] = span1;
                 fracture_angle_bwd = result_with_max_traction.angle0[1];
                 if(fracture_angle_bwd == fracture_angle) {max_normal_traction=0; return;}
         }
-        else if(result_with_max_traction.theta[1] < dont_split_nearly_degenerate_elems)
+        else if(result_with_max_traction.theta[1] < dont_split_nearly_degenerate_elems ||
+                (result_with_max_traction.faces[1]->area_initial < prms.FractureAreaThreshold &&
+                 result_with_max_traction.phi[1] > result_with_max_traction.theta[1]))
         {
             result_with_max_traction.theta[1] = 0;
             result_with_max_traction.phi[1] = span1;

@@ -82,7 +82,6 @@ struct icy::Node
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);
-    constexpr static double dont_split_nearly_degenerate_elems = 15.0*M_PI/180.0;
 
     static uint64_t make_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
 
