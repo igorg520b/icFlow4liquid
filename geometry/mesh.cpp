@@ -1213,7 +1213,6 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->nds[ndIdx] = nd;
     insertedElem->nds[nd1Idx] = nd1;
     insertedElem->nds[nd0Idx] = split;
-//    insertedElem->edges[nd0Idx] = originalElem->edges[nd0Idx];  // TODO: trying to eliminate Elem::edges
 
     if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
     insertedElem->incident_elems[ndIdx] = nullptr;
@@ -1223,11 +1222,9 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 
     Edge exteriorEdge1 = Edge(split, nd1);
     exteriorEdge1.AddElement(insertedElem, ndIdx);
-//    insertedElem->edges[ndIdx] = exteriorEdge1; // TODO: trying to eliminate Elem::edges
 
     Edge exteriorEdge2 = Edge(split, nd0);
     exteriorEdge2.AddElement(originalElem, ndIdx);
-//    originalElem->edges[ndIdx] = exteriorEdge2; // TODO: trying to eliminate Elem::edges
 
     originalElem->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
@@ -1275,7 +1272,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->nds[ndIdx_orig] = nd;
     insertedElem->nds[nd1Idx_orig] = nd1;
     insertedElem->nds[nd0Idx_orig] = split;
-//    insertedElem->edges[nd0Idx_orig] = originalElem->edges[nd0Idx_orig];
 
     insertedElem->incident_elems[ndIdx_orig] = originalElem->incident_elems[ndIdx_orig];
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
@@ -1289,7 +1285,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
     insertedElem_adj->nds[nd1Idx_adj] = nd1;
     insertedElem_adj->nds[nd0Idx_adj] = split;
-//    insertedElem_adj->edges[nd0Idx_adj] = adjElem->edges[nd0Idx_adj]; // TODO: trying to eliminate Elem::edges
 
     insertedElem_adj->incident_elems[oppIdx_adj] = adjElem->incident_elems[oppIdx_adj];
     insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
