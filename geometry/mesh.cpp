@@ -927,19 +927,16 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
     if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
 
-//    icy::Edge splitEdge_fw;
     Node *split0, *split1 = nullptr;
+    Node *nd0 = ssr.faces[0]->nds[0];
+    Node *nd1 = ssr.faces[0]->nds[1];
+    Node *nd2 = ssr.faces[0]->nds[2];
     EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], split0);
 
-//    Node *split0 = splitEdge_fw.getOtherNode(nd);
-
-//    icy::Edge splitEdge_bw;
     if(!isBoundary)
     {
-        // determine splitEdge_bw (create if necessary)
         if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
         EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], split1);
-//        split1=splitEdge_bw.getOtherNode(nd);
     }
 
     Fix_X_Topology(nd);
@@ -972,6 +969,11 @@ void icy::Mesh::SplitNode(const SimParams &prms)
         for(Element *e : split0->adj_elems) affected_elements_during_split.insert(e);
     }
 
+//    nd0->PrepareFan();
+//    nd1->PrepareFan();
+//    nd2->PrepareFan();
+    split0->PrepareFan();
+    if(split1!=nullptr)split1->PrepareFan();
     UpdateEdges();
 
     nd->weakening_direction = Eigen::Vector2d::Zero();
@@ -1044,7 +1046,8 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
     if(cw_boundary != nd->fan.end())
     {
         std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
-
+        nd->adj_elems.clear();
+        nd->adj_elems.push_back(nd->fan[0].face);
 
         for(unsigned i=1;i<nd->fan.size();i++)
         {
@@ -1061,7 +1064,8 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
                 else throw std::runtime_error("not X-topology");
             }
 
-            if(split != nullptr) s.face->ReplaceNode(nd, split);
+            if(split != nullptr) { s.face->ReplaceNode(nd, split); split->adj_elems.push_back(s.face);}
+            else { nd->adj_elems.push_back(s.face); }
         }
     }
 
@@ -1069,6 +1073,11 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
     {
         spdlog::warn("Fix_X_Topology: nothing to split; locId {}",nd->locId);
         nd->PrintoutFan();
+    }
+    else
+    {
+        split->PrepareFan();
+        nd->PrepareFan();
     }
 
     for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
@@ -1148,13 +1157,13 @@ void icy::Mesh::UpdateEdges()
             correctly_inferred_edges.insert({key,existing_edge});
         }
     }
-/*
-    allBoundaryEdges.erase(std::remove_if(allBoundaryEdges.begin(), allBoundaryEdges.end(),
-                   [affected_nodes_during_split](std::pair<Node*,Node*> e)
-    {return (affected_nodes_during_split.find(e.first)!=affected_nodes_during_split.end() &&
-                affected_nodes_during_split.find(e.second)!=affected_nodes_during_split.end());}),
-            allBoundaryEdges.end());
-*/
+
+//    allBoundaryEdges.erase(std::remove_if(allBoundaryEdges.begin(), allBoundaryEdges.end(),
+//                   [affected_nodes_during_split](std::pair<Node*,Node*> e)
+//    {return (affected_nodes_during_split.find(e.first)!=affected_nodes_during_split.end() &&
+ //               affected_nodes_during_split.find(e.second)!=affected_nodes_during_split.end());}),
+ //           allBoundaryEdges.end());
+
     for(auto kvp : correctly_inferred_edges)
     {
         Edge &existing_edge = kvp.second;
@@ -1166,30 +1175,24 @@ void icy::Mesh::UpdateEdges()
         if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("icy::Mesh::UpdateEdges: disconnected edge");
         existing_edge.isBoundary = (existing_edge.elems[0] == nullptr || existing_edge.elems[1] == nullptr);
 
-        //if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = existing_edge;
-        //if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = existing_edge;
-
         if(!existing_edge.isBoundary)
         {
             elem_of_edge0->incident_elems[idx0] = elem_of_edge1;
             elem_of_edge1->incident_elems[idx1] = elem_of_edge0;
         }
-
-//        if(existing_edge.isBoundary) allBoundaryEdges.emplace_back(existing_edge.nds[0],existing_edge.nds[1]);
     }
 
     for(Node *nd : affected_nodes_during_split) nd->PrepareFan();
+
 }
 
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1,
                                   double where, Node*& insertedNode)
 {
-    if(!originalElem->containsNode(nd)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd");
-    if(!originalElem->containsNode(nd0)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd0");
-    if(!originalElem->containsNode(nd1)) throw std::runtime_error("SplitBoundaryElem: originalElem does not contain nd1");
     short ndIdx = originalElem->getNodeIdx(nd);
     short nd0Idx = originalElem->getNodeIdx(nd0);
     short nd1Idx = originalElem->getNodeIdx(nd1);
+    if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
 
     MeshFragment *fragment = nd->fragment;
 
@@ -1209,12 +1212,14 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 
     // Assign nodes and incident elements
     originalElem->nds[nd1Idx] = split;
+    auto iter = std::find(nd1->adj_elems.begin(),nd1->adj_elems.end(),originalElem);
+    if(iter == nd1->adj_elems.end()) throw std::runtime_error("SplitBoundaryElem: tolopogy error 3");
+    else *iter = insertedElem;
 
     insertedElem->nds[ndIdx] = nd;
     insertedElem->nds[nd1Idx] = nd1;
     insertedElem->nds[nd0Idx] = split;
 
-    if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
     insertedElem->incident_elems[ndIdx] = nullptr;
     insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
     insertedElem->incident_elems[nd1Idx] = nullptr; // originalElem;
@@ -1230,26 +1235,19 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->PrecomputeInitialArea();
 
     affected_elements_during_split.insert({originalElem,insertedElem});
+    nd1->PrepareFan();
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Node*& insertedNode)
 {
-    if(!originalElem->containsNode(nd)) throw std::runtime_error("originalElem does not contain nd");
-    if(!originalElem->containsNode(nd0)) throw std::runtime_error("originalElem does not contain nd0");
-    if(!originalElem->containsNode(nd1)) throw std::runtime_error("originalElem does not contain nd1");
-
     short ndIdx_orig = originalElem->getNodeIdx(nd);
     short nd0Idx_orig = originalElem->getNodeIdx(nd0);
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
 
     if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
 
-
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
-    if(!adjElem->containsNode(oppositeNode)) throw std::runtime_error("adjElem does not contain opposite node");
-    if(!adjElem->containsNode(nd0)) throw std::runtime_error("adjElem does not contain nd0");
-    if(!adjElem->containsNode(nd1)) throw std::runtime_error("adjElem does not contain nd1");
     short nd0Idx_adj = adjElem->getNodeIdx(nd0);
     short nd1Idx_adj = adjElem->getNodeIdx(nd1);
     short oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
@@ -1269,30 +1267,35 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     split->adj_elems.insert(split->adj_elems.end(),{originalElem,insertedElem,adjElem,insertedElem_adj});
 
     originalElem->nds[nd1Idx_orig] = split;
+    auto iter = std::find(nd1->adj_elems.begin(),nd1->adj_elems.end(),originalElem);
+    if(iter == nd1->adj_elems.end()) throw std::runtime_error("SNBE: tolopogy error 3");
+    else *iter = insertedElem;
+
     insertedElem->nds[ndIdx_orig] = nd;
     insertedElem->nds[nd1Idx_orig] = nd1;
     insertedElem->nds[nd0Idx_orig] = split;
 
-    insertedElem->incident_elems[ndIdx_orig] = originalElem->incident_elems[ndIdx_orig];
+    nd->adj_elems.push_back(insertedElem);
+
+    insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
     insertedElem->incident_elems[nd1Idx_orig] = nullptr; // originalElem;
     originalElem->incident_elems[nd0Idx_orig] = nullptr; // insertedElem;
-
-    nd->adj_elems.push_back(insertedElem);
-    nd1->adj_elems.push_back(insertedElem);
 
     adjElem->nds[nd1Idx_adj] = split;
     insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
     insertedElem_adj->nds[nd1Idx_adj] = nd1;
     insertedElem_adj->nds[nd0Idx_adj] = split;
 
-    insertedElem_adj->incident_elems[oppIdx_adj] = adjElem->incident_elems[oppIdx_adj];
-    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
+    insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
     insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
+    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
     adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
 
     oppositeNode->adj_elems.push_back(insertedElem_adj);
-    nd1->adj_elems.push_back(insertedElem_adj);
+    iter = std::find(nd1->adj_elems.begin(),nd1->adj_elems.end(),adjElem);
+    if(iter == nd1->adj_elems.end()) throw std::runtime_error("SNBE: tolopogy error 4");
+    else *iter = insertedElem_adj;
 
     originalElem->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
@@ -1300,6 +1303,8 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem_adj->PrecomputeInitialArea();
 
     affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});
+    oppositeNode->PrepareFan();
+    nd1->PrepareFan();
 }
 
 void icy::Mesh::InferLocalSupport(SimParams &prms)

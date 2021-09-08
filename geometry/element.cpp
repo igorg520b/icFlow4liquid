@@ -336,6 +336,9 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
                 (nds[i] == nd1 && nds[idx_next] == nd0))
             return nds[(i+2)%3];
     }
+
+    spdlog::critical("getOppositeNode: trying to find edge {}-{} in element {}-{}-{}",
+                     nd0->locId,nd1->locId,nds[0]->locId,nds[1]->locId,nds[2]->locId);
     throw std::runtime_error("getOppositeNode: opposite node not found");
 }
 
