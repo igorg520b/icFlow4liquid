@@ -974,16 +974,9 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     nd2->PrepareFan();
     split0->PrepareFan();
     if(split1!=nullptr)split1->PrepareFan();
-    // UpdateEdges();
 
-    MeshFragment *f = maxNode->fragment;
-
-    for(std::size_t k=0;k<f->elems.size();k++)
-    {
-        icy::Element *elem = f->elems[k];
-        elem->AssertIncidentElems();
-    }
-
+    for(std::size_t k=0;k<maxNode->fragment->elems.size();k++)
+        maxNode->fragment->elems[k]->AssertIncidentElems();
 
     nd->weakening_direction = Eigen::Vector2d::Zero();
     nd->isCrackTip = false;
@@ -1007,7 +1000,6 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
 
     if(theta == 0 && !elem->isCCWBoundary(nd))
     {
-        spdlog::info("EstablishSplittingEdge: along CCW side");
         short idx = elem->getNodeIdx(nd0);
         elem->incident_elems[idx]->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
@@ -1015,7 +1007,6 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     }
     else if(phi == 0 && !elem->isCWBoundary(nd))
     {
-        spdlog::info("EstablishSplittingEdge: along CW side");
         short idx = elem->getNodeIdx(nd1);
         elem->incident_elems[idx]->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
@@ -1070,7 +1061,6 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
                     split = nd->fragment->AddNode();
                     allNodes.push_back(split);
                     split->Initialize(nd);
-                    //spdlog::info("FixX: Added node {}", split->locId);
                 }
                 else throw std::runtime_error("not X-topology");
             }
@@ -1098,13 +1088,6 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1,
                                   double where, Node*& insertedNode)
 {
-    spdlog::info("SplitBoundaryElem: oE {}-{}-{}; over {}-{}",
-                 originalElem->nds[0]->locId,originalElem->nds[1]->locId,originalElem->nds[2]->locId,
-            nd0->locId,nd1->locId);
-
-
-    originalElem->isOriginal = true;
-
     short ndIdx = originalElem->getNodeIdx(nd);
     short nd0Idx = originalElem->getNodeIdx(nd0);
     short nd1Idx = originalElem->getNodeIdx(nd1);
@@ -1114,7 +1097,6 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     MeshFragment *fragment = nd->fragment;
 
     Element *insertedElem = fragment->AddElement();
-    insertedElem->isInserted1 = true;
     allElems.push_back(insertedElem);
     nd->adj_elems.push_back(insertedElem);
 
@@ -1160,22 +1142,9 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Node*& insertedNode)
 {
-    spdlog::info("SplitNonBoundaryElem: oE {}-{}-{}; adj {}-{}-{}; over {}-{}",
-                 originalElem->nds[0]->locId,originalElem->nds[1]->locId,originalElem->nds[2]->locId,
-            adjElem->nds[0]->locId,adjElem->nds[1]->locId,adjElem->nds[2]->locId,
-            nd0->locId,nd1->locId);
-
-    originalElem->isOriginal = true;
-    adjElem->isOriginalAdj = true;
-
     short ndIdx_orig = originalElem->getNodeIdx(nd);
     short nd0Idx_orig = originalElem->getNodeIdx(nd0);
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
-    if(ndIdx_orig == nd0Idx_orig || ndIdx_orig == nd1Idx_orig || nd0Idx_orig == nd1Idx_orig)
-        throw std::runtime_error("SplitNonBoundaryElem idx error");
-
-    spdlog::info("SplitNonBoundaryElem idxs_orig {}-{}-{}",ndIdx_orig, nd0Idx_orig,nd1Idx_orig);
-
 
     if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
 
@@ -1187,12 +1156,9 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     MeshFragment *fragment = nd->fragment;
 
     Element *insertedElem = fragment->AddElement();
-    insertedElem->isInserted2 = true;
-    insertedElem->isInserted1 = true;
 
     nd->adj_elems.push_back(insertedElem);
     Element *insertedElem_adj = fragment->AddElement();
-    insertedElem_adj->isInserted2 = true;
     allElems.push_back(insertedElem);
     allElems.push_back(insertedElem_adj);
     Node *split = fragment->AddNode();
@@ -1215,7 +1181,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     if(originalElem->incident_elems[nd0Idx_orig]!=nullptr)
     {
         originalElem->incident_elems[nd0Idx_orig]->ReplaceIncidentElem(originalElem,insertedElem);
-        originalElem->incident_elems[nd0Idx_orig]->isIncidentReplaced = true;
     }
     insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
@@ -1230,7 +1195,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     if(adjElem->incident_elems[nd0Idx_adj]!=nullptr)
     {
         adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
-        adjElem->incident_elems[nd0Idx_adj]->isIncidentReplaced = true;
     }
     insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
     insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;

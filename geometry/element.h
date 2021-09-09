@@ -50,16 +50,12 @@ private:
 // FRACTURE ALGORITHM
 public:
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
-//    icy::Edge edges[3];
     unsigned traversal;     // used for identifying disjoint regions and n-regions around crack tips
     bool isBoundary(const short idx) const {return incident_elems[idx]==nullptr;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;
     std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
-//    const Edge& CWEdge(const Node* nd) const;   // clockwise edge
-//    const Edge& CCWEdge(const Node* nd) const;  // counter-clockwise edge
-//    const Edge& OppositeEdge(const Node* nd) const;
 
     bool containsNode(const Node* nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
@@ -70,12 +66,6 @@ public:
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
     void DisconnectFromElem(Element* other);
     void ReplaceIncidentElem(Element* which, Element* withWhat);
-
-
-    bool isOriginal;
-    bool isInserted1, isInserted2;
-    bool isOriginalAdj;
-    bool isIncidentReplaced;
 
     void AssertIncidentElems();
 

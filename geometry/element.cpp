@@ -43,8 +43,6 @@ void icy::Element::Reset(void)
     gmshTag = 0; // cannot stay zero
     quality_measure_Wicke = 1;
     leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
-
-    isOriginal = isInserted1 = isInserted2 = isOriginalAdj = isIncidentReplaced = false;
 }
 
 void icy::Element::Initialize(Node *nd0, Node *nd1, Node *nd2)
