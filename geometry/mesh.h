@@ -93,7 +93,6 @@ private:
     void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                      Node *nd0, Node *nd1, double where, Node*& insertedNode);
     void Fix_X_Topology(Node *nd);
-    void UpdateEdges();
 
     void InferLocalSupport(SimParams &prms);
     void CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set);

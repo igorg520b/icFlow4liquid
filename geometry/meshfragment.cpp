@@ -1058,5 +1058,12 @@ void icy::MeshFragment::CreateEdges()
 
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
+
+
+    for(std::size_t k=0;k<elems.size();k++)
+    {
+        icy::Element *elem = elems[k];
+        elem->AssertIncidentElems();
+    }
 }
 

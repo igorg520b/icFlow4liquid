@@ -69,7 +69,15 @@ public:
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
     void DisconnectFromElem(Element* other);
+    void ReplaceIncidentElem(Element* which, Element* withWhat);
 
+
+    bool isOriginal;
+    bool isInserted1, isInserted2;
+    bool isOriginalAdj;
+    bool isIncidentReplaced;
+
+    void AssertIncidentElems();
 
 private:
     constexpr static double threshold_area = 1e-7;

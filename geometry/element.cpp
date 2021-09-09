@@ -43,6 +43,8 @@ void icy::Element::Reset(void)
     gmshTag = 0; // cannot stay zero
     quality_measure_Wicke = 1;
     leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
+
+    isOriginal = isInserted1 = isInserted2 = isOriginalAdj = isIncidentReplaced = false;
 }
 
 void icy::Element::Initialize(Node *nd0, Node *nd1, Node *nd2)
@@ -257,30 +259,6 @@ void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, sho
     CCWIdx = (thisIdx+2)%3;
 }
 
-/*
-const icy::Edge& icy::Element::CWEdge(const Node* nd) const
-{
-    short thisIdx, CWIdx, CCWIdx;
-    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
-    return edges[CCWIdx];
-}
-
-const icy::Edge& icy::Element::CCWEdge(const Node* nd) const
-{
-    short thisIdx, CWIdx, CCWIdx;
-    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
-    return edges[CWIdx];
-}
-
-const icy::Edge& icy::Element::OppositeEdge(const Node* nd) const
-{
-    short thisIdx, CWIdx, CCWIdx;
-    getIdxs(nd, thisIdx, CWIdx, CCWIdx);
-    return edges[thisIdx];
-}
-
-*/
-
 std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
 {
     short idx = getNodeIdx(nd);
@@ -324,7 +302,12 @@ short icy::Element::getNodeIdx(const Node *nd) const
     if(nds[0]==nd) return 0;
     else if(nds[1]==nd) return 1;
     else if(nds[2]==nd) return 2;
-    else throw std::runtime_error("getNodeIdx");
+    else
+    {
+        spdlog::critical("getNodeIdx: trying to obtain index of the node {} in element {}-{}-{}",
+                         nd->locId,nds[0]->locId,nds[1]->locId,nds[2]->locId);
+        throw std::runtime_error("getNodeIdx");
+    }
 }
 
 icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
@@ -361,4 +344,31 @@ void icy::Element::DisconnectFromElem(Element* other)
     else if(incident_elems[1]==other) incident_elems[1]=nullptr;
     else if(incident_elems[2]==other) incident_elems[2]=nullptr;
     else throw std::runtime_error("DisconnectFromElem: incident elem not found");
+}
+
+void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
+{
+    if(incident_elems[0]==which) incident_elems[0]=withWhat;
+    else if(incident_elems[1]==which) incident_elems[1]=withWhat;
+    else if(incident_elems[2]==which) incident_elems[2]=withWhat;
+    else throw std::runtime_error("ReplaceIncidentElem: incident elem not found");
+}
+
+void icy::Element::AssertIncidentElems()
+{
+    for(int i=0;i<3;i++)
+    {
+        Element* incident = incident_elems[i];
+
+        if(incident!=nullptr)
+        {
+            Node* nd0 = nds[(i+1)%3];
+            Node* nd1 = nds[(i+2)%3];
+            if(!incident->containsNode(nd0) || !incident->containsNode(nd1))
+                throw std::runtime_error("AssertIncidentElems: topology error 1");
+            if(incident->incident_elems[0]!=this && incident->incident_elems[1]!=this && incident->incident_elems[2]!=this )
+                throw std::runtime_error("AssertIncidentElems: topology error 2");
+
+        }
+    }
 }

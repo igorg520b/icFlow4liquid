@@ -139,7 +139,7 @@ public:
         FractureTractionThreshold = 500;
         FractureSubstepLevels = 4;
         FractureTimerLevels = 10;
-        FractureAngleThreshold = 5;
+        FractureAngleThreshold = 10;    // in degrees
         FractureAreaThreshold = 1e-4;
 
         // features
