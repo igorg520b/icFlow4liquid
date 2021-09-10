@@ -178,15 +178,17 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
 
-    boundary_edges.clear();
+//    boundary_edges.clear();
     inner_boundary_edges.clear();
+    boundaryEdgesMap.clear();
     for(std::size_t i=0;i<nodeTagsInEdges.size()/2;i++)
     {
         int idx1 = mtags.at(nodeTagsInEdges[i*2+0]);
         int idx2 = mtags.at(nodeTagsInEdges[i*2+1]);
         Node *nd1 = nodes[idx1];
         Node *nd2 = nodes[idx2];
-        if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
+//        if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
+        if(nd1->group.test(0) && nd2->group.test(0)) boundaryEdgesMap.try_emplace(Node::make_local_key(nd1,nd2),nd1,nd2);
         else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
     PostMeshingEvaluations();
@@ -298,14 +300,16 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     // BOUNDARIRES - EDGES
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-    boundary_edges.clear();
-    boundary_edges.reserve(edgeTags.size());
+//    boundary_edges.clear();
+//    boundary_edges.reserve(edgeTags.size());
+    boundaryEdgesMap.clear();
 
     for(std::size_t i=0;i<edgeTags.size();i++)
     {
         icy::Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
         icy::Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
-        boundary_edges.emplace_back(nd0,nd1);
+        boundaryEdgesMap.try_emplace(Node::make_local_key(nd0,nd1),nd0,nd1);
+//        boundary_edges.emplace_back(nd0,nd1);
         if(nd0->group.test(0) && nd1->group.test(0))
             special_boundary.emplace_back(nd0,nd1);
     }
@@ -313,7 +317,7 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
-    CreateEdges();
+    ConnectIncidentElements();
 }
 
 void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double width, double height)
@@ -411,14 +415,15 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     // BOUNDARIRES - EDGES
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-    boundary_edges.clear();
-    boundary_edges.reserve(edgeTags.size());
+//    boundary_edges.clear();
+//    boundary_edges.reserve(edgeTags.size());
 
     for(std::size_t i=0;i<edgeTags.size();i++)
     {
         icy::Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
         icy::Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
-        boundary_edges.emplace_back(nd0,nd1);
+        boundaryEdgesMap.try_emplace(Node::make_local_key(nd0,nd1),nd0,nd1);
+//        boundary_edges.emplace_back(nd0,nd1);
         if(nd0->group.test(0) && nd1->group.test(0))
             special_boundary.emplace_back(nd0,nd1);
     }
@@ -426,7 +431,7 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     PostMeshingEvaluations();
     if(deformable) KeepGmshResult();
     gmsh::clear();
-    CreateEdges();
+    ConnectIncidentElements();
 }
 
 void icy::MeshFragment::GenerateBrick_Simple(double ElementSize, double width, double height)
@@ -511,7 +516,7 @@ void icy::MeshFragment::GenerateBall(double x, double y, double r1, double r2, d
 
 void icy::MeshFragment::GetFromGmsh()
 {
-    if(elems.size() || nodes.size() || boundary_edges.size()) throw std::runtime_error("GetFromGmsh(): elem/node/edge arrays not empty");
+    if(elems.size() || nodes.size()) throw std::runtime_error("GetFromGmsh(): elem/node/edge arrays not empty");
 
     std::vector<std::size_t> nodeTags;
     std::vector<double> nodeCoords, parametricCoords;
@@ -574,25 +579,30 @@ void icy::MeshFragment::GetFromGmsh()
     // BOUNDARIRES - EDGES
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-    boundary_edges.clear();
-    boundary_edges.reserve(edgeTags.size());
+//    boundary_edges.clear();
+//    boundary_edges.reserve(edgeTags.size());
 
+    boundaryEdgesMap.clear();
     for(std::size_t i=0;i<edgeTags.size();i++)
-        boundary_edges.emplace_back(nodes[mtags.at(nodeTagsInEdges[i*2+0])],nodes[mtags.at(nodeTagsInEdges[i*2+1])]);
+    {
+        Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
+        Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
+        boundaryEdgesMap.try_emplace(Node::make_local_key(nd0,nd1),nd0,nd1);
+    }
+//        boundary_edges.emplace_back(nodes[mtags.at(nodeTagsInEdges[i*2+0])],nodes[mtags.at(nodeTagsInEdges[i*2+1])]);
 
     PostMeshingEvaluations();
-    if(deformable) {
+    if(deformable)
+    {
         KeepGmshResult();
-        CreateEdges();
+        ConnectIncidentElements();
     }
     gmsh::clear();
-
-
 }
 
 
 
-void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
+void icy::MeshFragment::CreateLeaves()
 {
     root_ccd.isLeaf = root_contact.isLeaf = false;
     root_contact.test_self_collision = root_ccd.test_self_collision = this->deformable;
@@ -601,17 +611,21 @@ void icy::MeshFragment::GenerateLeaves(unsigned edge_idx)
     BVHNLeafFactory.release(leaves_for_ccd);
     BVHNLeafFactory.release(leaves_for_contact);
 
-    leaves_for_ccd.reserve(boundary_edges.size());
-    leaves_for_contact.reserve(boundary_edges.size());
+//    leaves_for_ccd.reserve(boundary_edges.size());
+//    leaves_for_contact.reserve(boundary_edges.size());
+    leaves_for_ccd.reserve(boundaryEdgesMap.size());
+    leaves_for_contact.reserve(boundaryEdgesMap.size());
 
-    for(auto edge : boundary_edges)
+    for(const auto &kvp : boundaryEdgesMap)
     {
-        Node *nd1 = edge.first;
-        Node *nd2 = edge.second;
+        Node *nd1 = kvp.second.first;
+        Node *nd2 = kvp.second.second;
         BVHN *leaf_ccd = BVHNLeafFactory.take();
         BVHN *leaf_contact = BVHNLeafFactory.take();
 
-        leaf_contact->feature_idx = leaf_ccd->feature_idx = edge_idx++;
+        leaf_contact->feature_key = leaf_ccd->feature_key = Node::make_global_key(nd1,nd2);
+
+//        leaf_contact->feature_idx = leaf_ccd->feature_idx = edge_idx++;
         leaf_contact->test_self_collision = leaf_ccd->test_self_collision = false;
         leaf_contact->isLeaf = leaf_ccd->isLeaf = true;
 
@@ -835,6 +849,7 @@ void icy::MeshFragment::RemeshWithBackgroundMesh(double ElementSize)
 
 void icy::MeshFragment::Swap()
 {
+    /*
     std::cout << "SWAP" << std::endl;
     std::vector<icy::Node*> n_tmp(nodes);
     std::vector<icy::Element*> e_tmp(elems);
@@ -853,6 +868,7 @@ void icy::MeshFragment::Swap()
     std::copy(boundary_edges_tmp.begin(),boundary_edges_tmp.end(),boundary_edges.begin());
     boundary_edges_tmp.resize(be_tmp.size());
     std::copy(be_tmp.begin(),be_tmp.end(),boundary_edges_tmp.begin());
+    */
 }
 
 void icy::MeshFragment::SaveFragment(std::string fileName)
@@ -974,6 +990,7 @@ void icy::MeshFragment::PostMeshingEvaluations()
 
 void icy::MeshFragment::KeepGmshResult()
 {
+    /*
     gmshResult.clear();
     std::vector<std::pair<int, int>> entities;
     gmsh::model::getEntities(entities);
@@ -992,10 +1009,11 @@ void icy::MeshFragment::KeepGmshResult()
         gmsh::model::mesh::getNodes(ge.nodeTags_nodes, ge.coord_nodes, ge.parametricCoord_nodes, dim, tag);
         gmsh::model::mesh::getElements(ge.elementTypes_elements, ge.elementTags_elements, ge.nodeTags_elements, dim, tag);
     }
+    */
 }
 
 
-void icy::MeshFragment::CreateEdges()
+void icy::MeshFragment::ConnectIncidentElements()
 {
     // clear adj_elems vector and isBoundary flag
 #pragma omp parallel for
@@ -1023,7 +1041,7 @@ void icy::MeshFragment::CreateEdges()
             // insert element's edges into edges_map
             Node *nd0 = elem->nds[i];
             Node *nd1 = elem->nds[(i+1)%3];
-            uint64_t key = Node::make_key(nd0,nd1);
+            uint64_t key = Node::make_local_key(nd0,nd1);
 
             auto result = edges_map.try_emplace(key, nd0, nd1);
             Edge &e = result.first->second;
@@ -1031,22 +1049,16 @@ void icy::MeshFragment::CreateEdges()
         }
     }
 
-    std::vector<Edge> edges_as_vector;
-    edges_as_vector.reserve(edges_map.size());
-    for(auto &kvpair : edges_map) edges_as_vector.push_back(kvpair.second);
-
-#pragma omp parallel for
-    for(std::size_t i=0;i<edges_as_vector.size();i++)
+    //std::vector<Edge> edges_as_vector;
+    //edges_as_vector.reserve(edges_map.size());
+    for(const auto &kvpair : edges_map)
     {
-        icy::Edge &e = edges_as_vector[i];
+        const icy::Edge &e = kvpair.second;
         icy::Element *elem_of_edge0 = e.elems[0];
         icy::Element *elem_of_edge1 = e.elems[1];
         short idx0 = e.edge_in_elem_idx[0];
         short idx1 = e.edge_in_elem_idx[1];
         if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("CreateEdges(): disconnected edge");
-
-        //if(elem_of_edge0 != nullptr) elem_of_edge0->edges[idx0] = e;
-        //if(elem_of_edge1 != nullptr) elem_of_edge1->edges[idx1] = e;
 
         // ensure that each element "knows" its incident elements (remains nullptr if element is on the boundary)
         if(!e.isBoundary)
@@ -1058,12 +1070,5 @@ void icy::MeshFragment::CreateEdges()
 
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
-
-
-    for(std::size_t k=0;k<elems.size();k++)
-    {
-        icy::Element *elem = elems[k];
-        elem->AssertIncidentElems();
-    }
 }
 

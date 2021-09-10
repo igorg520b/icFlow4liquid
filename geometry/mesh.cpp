@@ -25,9 +25,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
         fragments[1].GenerateBrick(MeshSizeMax,2,1);
         fragments[2].GenerateContainer(MeshSizeMax,offset);
-
-        movableBoundary.resize(fragments[0].boundary_edges.size());
-        std::copy(fragments[0].boundary_edges.begin(),fragments[0].boundary_edges.end(),movableBoundary.begin());
+        for(const auto &kvp : fragments[0].boundaryEdgesMap) movableBoundary.emplace_back(kvp.second.first,kvp.second.second);
     }
         break;
 
@@ -44,7 +42,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[2].GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
         fragments[3].GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
         fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
-        std::copy(fragments[1].boundary_edges.begin(),fragments[1].boundary_edges.end(),std::back_inserter(movableBoundary));
+        for(const auto &kvp : fragments[1].boundaryEdgesMap) movableBoundary.emplace_back(kvp.second.first,kvp.second.second);
     }
         break;
 
@@ -194,7 +192,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     tree_update_counter = 0;
     allNodes.clear();
     allElems.clear();
-    allBoundaryEdges.clear();
+//    allBoundaryEdges.clear();
     unsigned count = 0;
 
     global_leaves_ccd.clear();
@@ -202,18 +200,35 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     fragmentRoots_ccd.clear();
     fragmentRoots_contact.clear();
 
+    // copy fragment's nodes into allNodes
+    std::size_t allNodesSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
+                                               [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
+    std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
+                                               [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
+    allNodes.resize(allNodesSize);
+    allElems.resize(allElemsSize);
+
+    auto iter_nodes = allNodes.begin();
+    auto iter_elems = allElems.begin();
     for(MeshFragment &mf : fragments)
     {
-        for(unsigned i=0;i<mf.nodes.size();i++)
-        {
-            Node *nd = mf.nodes[i];
-            nd->globId = count++;
-            allNodes.push_back(nd);
-        }
-        mf.GenerateLeaves(allBoundaryEdges.size());
+        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes);
+        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
+    }
 
-        for(unsigned i=0;i<mf.elems.size();i++) allElems.push_back(mf.elems[i]);
-        allBoundaryEdges.insert(allBoundaryEdges.end(), mf.boundary_edges.begin(), mf.boundary_edges.end());
+    for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
+
+    // boundary edges: inserte them into globalBoundaryEdges map
+    globalBoundaryEdges.clear();
+    for(MeshFragment &mf : fragments)
+    {
+        for(const auto &kvp : mf.boundaryEdgesMap)
+        {
+            Node *nd0 = kvp.second.first;
+            Node *nd1 = kvp.second.second;
+            globalBoundaryEdges.try_emplace(Node::make_global_key(nd0,nd1),nd0,nd1);
+        }
+        mf.CreateLeaves();
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
         global_leaves_contact.insert(global_leaves_contact.end(),mf.leaves_for_contact.begin(), mf.leaves_for_contact.end());
         fragmentRoots_ccd.push_back(&mf.root_ccd);
@@ -231,15 +246,14 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     }
     ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);
 
-    // all boundaries
+    // VTK-displayed (thick) boundaries
     cellArray_boundary_all->Reset();
-    for(auto edge : allBoundaryEdges)
+    for(const auto &kvp : globalBoundaryEdges)
     {
-        vtkIdType pts[2] = {edge.first->globId, edge.second->globId};
+        vtkIdType pts[2] = {kvp.second.first->globId, kvp.second.second->globId};
         cellArray_boundary_all->InsertNextCell(2, pts);
     }
     ugrid_boundary_all->SetCells(VTK_LINE, cellArray_boundary_all);
-
 
     // intended position of the indenter
     points_indenter_intended->SetNumberOfPoints(movableNodes.size());
@@ -541,7 +555,7 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     {
         BVHN *leaf_ccd = global_leaves_ccd[i];
         Node *nd1, *nd2;
-        std::tie(nd1,nd2) = allBoundaryEdges[leaf_ccd->feature_idx];
+        std::tie(nd1,nd2) = globalBoundaryEdges.at(leaf_ccd->feature_key);
         kDOP8 &box_ccd = leaf_ccd->box;
         box_ccd.Reset();
         box_ccd.Expand(nd1->xn[0], nd1->xn[1]);
@@ -550,7 +564,7 @@ void icy::Mesh::UpdateTree(float distance_threshold)
         box_ccd.Expand(nd2->xt[0], nd2->xt[1]);
 
         BVHN *leaf_contact = global_leaves_contact[i];
-        std::tie(nd1,nd2) = allBoundaryEdges[leaf_contact->feature_idx];
+        std::tie(nd1,nd2) = globalBoundaryEdges.at(leaf_contact->feature_key);;
 
         kDOP8 &box_contact = leaf_contact->box;
         box_contact.Reset();
@@ -560,7 +574,6 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     }
 
     // update or build the rest of the tree
-    // TODO: parallel
     if(tree_update_counter%10 != 0)
     {
         mesh_root_ccd.Update();
@@ -589,7 +602,35 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     tree_update_counter++;
 }
 
-void icy::Mesh::AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, double distance_threshold)
+void icy::Mesh::DetectContactPairs(double distance_threshold)
+{
+    // BROAD PHASE
+    broadlist_contact.clear();
+    mesh_root_contact.SelfCollide(broadlist_contact);
+
+    unsigned nBroadListContact = broadlist_contact.size();
+
+    narrow_list_contact.clear();
+    collision_interactions.clear();
+
+    // NARROW PHASE
+#pragma omp parallel for
+    for(unsigned i=0;i<nBroadListContact/2;i++)
+    {
+        uint64_t edge1_key = broadlist_contact[i*2];
+        uint64_t edge2_key = broadlist_contact[i*2+1];
+        Node *nd1, *nd2, *nd3, *nd4;
+        std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key); // allBoundaryEdges[edge1_idx];
+        std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key); // allBoundaryEdges[edge2_idx];
+
+        AddToNarrowListIfNeeded(edge1_idx, nd3->globId, distance_threshold);
+        AddToNarrowListIfNeeded(edge1_idx, nd4->globId, distance_threshold);
+        AddToNarrowListIfNeeded(edge2_idx, nd1->globId, distance_threshold);
+        AddToNarrowListIfNeeded(edge2_idx, nd2->globId, distance_threshold);
+    }
+}
+
+void icy::Mesh::AddToNarrowListIfNeeded(uint64_t edge_key, unsigned node_idx, double distance_threshold)
 {
     Node *ndA, *ndB, *ndP;
     std::tie(ndA,ndB) = allBoundaryEdges[edge_idx];
@@ -615,34 +656,7 @@ void icy::Mesh::AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, do
     //        int node_idx = (unsigned)(contact_entry & 0xffffffff);
 }
 
-void icy::Mesh::DetectContactPairs(double distance_threshold)
-{
-    // BROAD PHASE
-    broadlist_contact.clear();
-//    if(fragments.size()>1) //TODO: allow self-collisions
-    mesh_root_contact.SelfCollide(broadlist_contact);
 
-    unsigned nBroadListContact = broadlist_contact.size();
-
-    narrow_list_contact.clear();
-    collision_interactions.clear();
-
-    // NARROW PHASE
-#pragma omp parallel for
-    for(unsigned i=0;i<nBroadListContact/2;i++)
-    {
-        unsigned edge1_idx = broadlist_contact[i*2];
-        unsigned edge2_idx = broadlist_contact[i*2+1];
-        Node *nd1, *nd2, *nd3, *nd4;
-        std::tie(nd1,nd2) = allBoundaryEdges[edge1_idx];
-        std::tie(nd3,nd4) = allBoundaryEdges[edge2_idx];
-
-        AddToNarrowListIfNeeded(edge1_idx, nd3->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge1_idx, nd4->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge2_idx, nd1->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge2_idx, nd2->globId, distance_threshold);
-    }
-}
 
 std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
 {
@@ -913,11 +927,11 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
     new_crack_tips.clear();
-    affected_elements_during_split.clear();
+//    affected_elements_during_split.clear();
 
     icy::Node* nd = maxNode;
     nd->time_loaded_above_threshold = 0;
-    for(Element *e : nd->adj_elems) affected_elements_during_split.insert(e);
+//    for(Element *e : nd->adj_elems) affected_elements_during_split.insert(e);
 
     // subsequent calculations are based on the fracture direction where the traction is maximal
     icy::Node::SepStressResult &ssr = nd->result_with_max_traction;
@@ -953,7 +967,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
             split1->isCrackTip = true;
             new_crack_tips.push_back(split1);
             split1->weakening_direction = (split1->xn - nd->xn).normalized();
-            for(Element *e : split1->adj_elems) affected_elements_during_split.insert(e);
+//            for(Element *e : split1->adj_elems) affected_elements_during_split.insert(e);
         }
     }
 
@@ -966,7 +980,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
         split0->isCrackTip = true;
         new_crack_tips.push_back(split0);
         split0->weakening_direction = (split0->xn - nd->xn).normalized();
-        for(Element *e : split0->adj_elems) affected_elements_during_split.insert(e);
+//        for(Element *e : split0->adj_elems) affected_elements_during_split.insert(e);
     }
 
     nd0->PrepareFan();
@@ -1059,6 +1073,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
                 if(split==nullptr)
                 {
                     split = nd->fragment->AddNode();
+                    split->globId = (int)allNodes.size();
                     allNodes.push_back(split);
                     split->Initialize(nd);
                 }
@@ -1081,7 +1096,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         nd->PrepareFan();
     }
 
-    for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
+//    for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
 }
 
 
@@ -1101,6 +1116,7 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     nd->adj_elems.push_back(insertedElem);
 
     Node *split = fragment->AddNode();
+    split->globId = (int)allNodes.size();
     insertedNode = split;
     allNodes.push_back(split);
     split->InitializeLERP(nd0, nd1, where);
@@ -1135,7 +1151,7 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     originalElem->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
 
-    affected_elements_during_split.insert({originalElem,insertedElem});
+//    affected_elements_during_split.insert({originalElem,insertedElem});
     nd1->PrepareFan();
 }
 
@@ -1162,8 +1178,9 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     allElems.push_back(insertedElem);
     allElems.push_back(insertedElem_adj);
     Node *split = fragment->AddNode();
-    insertedNode = split;
+    split->globId = (int)allNodes.size();
     allNodes.push_back(split);
+    insertedNode = split;
 
     split->InitializeLERP(nd0, nd1, where);
 
@@ -1211,7 +1228,7 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     adjElem->PrecomputeInitialArea();
     insertedElem_adj->PrecomputeInitialArea();
 
-    affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});
+//    affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});
     oppositeNode->PrepareFan();
     nd1->PrepareFan();
 }

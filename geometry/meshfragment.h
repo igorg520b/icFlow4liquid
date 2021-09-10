@@ -3,6 +3,7 @@
 #define MESHFRAGMENT_H
 
 #include <vector>
+#include <unordered_map>
 #include <string>
 #include "element.h"
 #include "bvh/ConcurrentPool.h"
@@ -20,7 +21,9 @@ public:
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
 
-    std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
+//    std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
+    std::unordered_map<uint64_t,std::pair<Node*,Node*>> boundaryEdgesMap;
+
     std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary, fixed_boundary; // these are used when some nodes are pinned
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
@@ -71,13 +74,13 @@ private:
 public:
     BVHN root_ccd, root_contact;
     std::vector<BVHN*> leaves_for_ccd, leaves_for_contact;
-    void GenerateLeaves(unsigned edge_idx);
+    void CreateLeaves();
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
 
 // FRACTURE MODEL
-public:
-    void CreateEdges();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
+private:
+    void ConnectIncidentElements();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
 
     friend icy::Mesh;
 };

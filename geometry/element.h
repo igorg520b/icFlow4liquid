@@ -67,8 +67,6 @@ public:
     void DisconnectFromElem(Element* other);
     void ReplaceIncidentElem(Element* which, Element* withWhat);
 
-    void AssertIncidentElems();
-
 private:
     constexpr static double threshold_area = 1e-7;
 };

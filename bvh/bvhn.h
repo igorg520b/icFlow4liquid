@@ -18,13 +18,14 @@ public:
     bool test_self_collision;   // can disable self-collision tests on fragments
     int level;
 
-    unsigned feature_idx;
+//    unsigned feature_idx;
+    uint64_t feature_key;   // reference to the geometrical feature (edge) that this BVHN envelopes (if leaf)
 
     BVHN();
     void Build(std::vector<BVHN*> *bvs, int level_);
     void Update();
-    void SelfCollide(std::vector<unsigned> &broad_list);
-    void Collide(BVHN *b, std::vector<unsigned> &broad_list);
+    void SelfCollide(std::vector<uint64_t> &broad_list);
+    void Collide(BVHN *b, std::vector<uint64_t> &broad_list);
 
 private:
     BVHN *child1, *child2;

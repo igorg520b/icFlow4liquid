@@ -400,11 +400,19 @@ void icy::Node::InitializeLERP(const Node *nd0, const Node *nd1, double f)
 }
 
 
-uint64_t icy::Node::make_key(Node *nd0, Node *nd1)
+uint64_t icy::Node::make_local_key(Node *nd0, Node *nd1)
 {
     int nd0idx = nd0->locId;
     int nd1idx = nd1->locId;
+    if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
+    return ((uint64_t)nd0idx << 32) | nd1idx;
+}
 
+
+uint64_t icy::Node::make_global_key(Node *nd0, Node *nd1)
+{
+    int nd0idx = nd0->globId;
+    int nd1idx = nd1->globId;
     if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
     return ((uint64_t)nd0idx << 32) | nd1idx;
 }

@@ -352,21 +352,3 @@ void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
     else throw std::runtime_error("ReplaceIncidentElem: incident elem not found");
 }
 
-void icy::Element::AssertIncidentElems()
-{
-    for(int i=0;i<3;i++)
-    {
-        Element* incident = incident_elems[i];
-
-        if(incident!=nullptr)
-        {
-            Node* nd0 = nds[(i+1)%3];
-            Node* nd1 = nds[(i+2)%3];
-            if(!incident->containsNode(nd0) || !incident->containsNode(nd1))
-                throw std::runtime_error("AssertIncidentElems: topology error 1");
-            if(incident->incident_elems[0]!=this && incident->incident_elems[1]!=this && incident->incident_elems[2]!=this )
-                throw std::runtime_error("AssertIncidentElems: topology error 2");
-
-        }
-    }
-}

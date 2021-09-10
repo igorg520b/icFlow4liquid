@@ -45,7 +45,9 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
-    std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
+//    std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
+    std::unordered_map<uint64_t,std::pair<Node*,Node*>> globalBoundaryEdges;
+
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;
 
@@ -66,7 +68,7 @@ private:
     BVHN mesh_root_ccd, mesh_root_contact;  // only used when the mesh contains more than one fragment
 
     std::vector<BVHN*> global_leaves_ccd, global_leaves_contact, fragmentRoots_ccd, fragmentRoots_contact;
-    std::vector<unsigned> broadlist_ccd, broadlist_contact; // indices of potentially colliding edges
+    std::vector<uint64_t> broadlist_ccd, broadlist_contact; // keys of potentially colliding edges
     tbb::concurrent_unordered_set<long long> narrow_list_contact;
     tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list
 
@@ -83,7 +85,7 @@ private:
 private:
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
-    std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
+    // std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
     icy::Node *maxNode;
     constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
