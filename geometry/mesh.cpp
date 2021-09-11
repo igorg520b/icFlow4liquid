@@ -93,6 +93,7 @@ icy::Mesh::Mesh()
                     (double)lutArrayTemperatureAdj[i][1],
                     (double)lutArrayTemperatureAdj[i][2], 1.0);
 
+    // initialize various VTK objects
     visualized_values->SetName("visualized_values");
 
     ugrid_deformable->SetPoints(points_deformable);
@@ -304,15 +305,15 @@ void icy::Mesh::UnsafeUpdateGeometry()
 
 
     // collisions
-    points_collisions->SetNumberOfPoints(collision_interactions.size()*2);
+    points_collisions->SetNumberOfPoints(contacts_final_list.size()*2);
     cellArray_collisions->Reset();
     if(showDeformation == ShowDeformationOption::current)
     {
-        for(unsigned i=0;i<collision_interactions.size();i++)
+        for(unsigned i=0;i<contacts_final_list.size();i++)
         {
             vtkIdType pts[2] = {2*i, 2*i+1};
             cellArray_collisions->InsertNextCell(2, pts);
-            Interaction &intr = collision_interactions[i];
+            Interaction &intr = contacts_final_list[i];
             x[0] = intr.ndP->xn[0];
             x[1] = intr.ndP->xn[1];
             points_collisions->SetPoint((vtkIdType)2*i, x);
@@ -602,7 +603,7 @@ void icy::Mesh::UpdateTree(float distance_threshold)
     tree_update_counter++;
 }
 
-void icy::Mesh::DetectContactPairs(double distance_threshold)
+void icy::Mesh::DetectContactPairs(const double distance_threshold)
 {
     // BROAD PHASE
     broadlist_contact.clear();
@@ -610,10 +611,8 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
 
     unsigned nBroadListContact = broadlist_contact.size();
 
-    narrow_list_contact.clear();
-    collision_interactions.clear();
-
     // NARROW PHASE
+    contacts_narrow_set.clear();
 #pragma omp parallel for
     for(unsigned i=0;i<nBroadListContact/2;i++)
     {
@@ -623,37 +622,26 @@ void icy::Mesh::DetectContactPairs(double distance_threshold)
         std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key); // allBoundaryEdges[edge1_idx];
         std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key); // allBoundaryEdges[edge2_idx];
 
-        AddToNarrowListIfNeeded(edge1_idx, nd3->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge1_idx, nd4->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge2_idx, nd1->globId, distance_threshold);
-        AddToNarrowListIfNeeded(edge2_idx, nd2->globId, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, nd3, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, nd4, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, nd1, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, nd2, distance_threshold);
     }
+
+    contacts_final_list.resize(contacts_narrow_set.size());
+    std::copy(contacts_narrow_set.begin(),contacts_narrow_set.end(),contacts_final_list.begin());
 }
 
-void icy::Mesh::AddToNarrowListIfNeeded(uint64_t edge_key, unsigned node_idx, double distance_threshold)
+void icy::Mesh::AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold)
 {
-    Node *ndA, *ndB, *ndP;
-    std::tie(ndA,ndB) = allBoundaryEdges[edge_idx];
-    ndP = allNodes[node_idx];
     if(ndA==ndP || ndB==ndP) return;    // a node can't collide with itself
     Eigen::Vector2d D;
     double dist = icy::Interaction::SegmentPointDistance(ndA->xt, ndB->xt, ndP->xt, D);
     if(dist < distance_threshold)
     {
-        auto result = narrow_list_contact.insert((long long) edge_idx << 32 | node_idx);
-        bool inserted = result.second;
-        if(inserted)
-        {
-            Interaction i;
-            i.ndA = ndA;
-            i.ndB = ndB;
-            i.ndP = ndP;
-            i.D = D;
-            collision_interactions.push_back(i);
-        }
+        Interaction i(ndA, ndB, ndP, D);
+        contacts_narrow_set.insert(i);
     }
-    //        unsigned edge_idx = (unsigned)(contact_entry >> 32);
-    //        int node_idx = (unsigned)(contact_entry & 0xffffffff);
 }
 
 
@@ -661,26 +649,24 @@ void icy::Mesh::AddToNarrowListIfNeeded(uint64_t edge_key, unsigned node_idx, do
 std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
 {
     broadlist_ccd.clear();
-
     mesh_root_ccd.SelfCollide(broadlist_ccd);
 
     // CCD
     ccd_results.clear();
 
     unsigned nBroadListCCD = broadlist_ccd.size();
-//    qDebug() << "nBroadListCCD size " << nBroadListCCD;
 
     bool final_state_contains_edge_intersection = false;
 
 #pragma omp parallel for
     for(unsigned i=0;i<nBroadListCCD/2;i++)
     {
-        unsigned edge1_idx = broadlist_ccd[i*2];
-        unsigned edge2_idx = broadlist_ccd[i*2+1];
+        uint64_t edge1_key = broadlist_ccd[i*2];
+        uint64_t edge2_key = broadlist_ccd[i*2+1];
 
         Node *nd1, *nd2, *nd3, *nd4;
-        std::tie(nd1,nd2) = allBoundaryEdges[edge1_idx];
-        std::tie(nd3,nd4) = allBoundaryEdges[edge2_idx];
+        std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key);
+        std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key);
 
         if(EdgeIntersection(edge1_idx, edge2_idx)==true) final_state_contains_edge_intersection = true;
 

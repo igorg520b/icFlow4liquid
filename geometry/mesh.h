@@ -60,8 +60,9 @@ public:
 
     // COLLISION DETECTION
 public:
-    tbb::concurrent_vector<Interaction> collision_interactions;
-    void DetectContactPairs(double distance_threshold);
+    tbb::concurrent_unordered_set<Interaction> contacts_narrow_set;
+    std::vector<Interaction> contacts_final_list;
+    void DetectContactPairs(const double distance_threshold);
     std::pair<bool, double> EnsureNoIntersectionViaCCD();
 
 private:
@@ -69,10 +70,9 @@ private:
 
     std::vector<BVHN*> global_leaves_ccd, global_leaves_contact, fragmentRoots_ccd, fragmentRoots_contact;
     std::vector<uint64_t> broadlist_ccd, broadlist_contact; // keys of potentially colliding edges
-    tbb::concurrent_unordered_set<long long> narrow_list_contact;
     tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list
 
-    void AddToNarrowListIfNeeded(unsigned edge_idx, unsigned node_idx, double distance_threshold);
+    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
     std::pair<bool, double> CCD(unsigned edge_idx, unsigned node_idx);  // if intersects, return [true, time]
     bool EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2); // true if edges intersect
     void UpdateTree(float distance_threshold);
