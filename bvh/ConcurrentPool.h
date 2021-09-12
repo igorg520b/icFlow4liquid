@@ -64,13 +64,7 @@ void icy::ConcurrentPool<T>::releaseAll()
     available.clear();
     for(unsigned i=0;i<registry.size();i++) available.push(registry[i]);
 }
-/*
-template<class T>
-void icy::ConcurrentPool<T>::release(T* p)
-{
-    available.push(p);
-}
-*/
+
 template<class T>
 void icy::ConcurrentPool<T>::release(std::vector<T*> &vec)
 {

@@ -14,7 +14,8 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     fragments.clear();
     movableBoundary.clear();
     movableNodes.clear();
-    collision_interactions.clear();
+    contacts_narrow_set.clear();
+    contacts_final_list.clear();
 
     switch(typeOfSetup)
     {
@@ -149,7 +150,7 @@ icy::Mesh::Mesh()
     actor_collisions->GetProperty()->SetPointSize(2);
     actor_collisions->GetProperty()->SetLineWidth(1);
 
-    collision_interactions.reserve(10000);
+    contacts_final_list.reserve(10000);
     broadlist_ccd.reserve(100000);
     broadlist_contact.reserve(100000);
 
@@ -193,8 +194,6 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     tree_update_counter = 0;
     allNodes.clear();
     allElems.clear();
-//    allBoundaryEdges.clear();
-    unsigned count = 0;
 
     global_leaves_ccd.clear();
     global_leaves_contact.clear();
@@ -206,6 +205,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
                                                [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
     std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
                                                [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
+/*
     allNodes.resize(allNodesSize);
     allElems.resize(allElemsSize);
 
@@ -217,9 +217,66 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
     }
 
+    */
+    std::vector<icy::Node*> allNodes2;
+    std::vector<icy::Element*> allElems2;
+    for(MeshFragment &mf : fragments)
+    {
+        for(Node* nd : mf.nodes) allNodes2.push_back(nd);
+        for(Element* elem : mf.elems) allElems2.push_back(elem);
+    }
+
+    for(MeshFragment &mf : fragments)
+    {
+        for(Node* nd : mf.nodes) allNodes.push_back(nd);
+        for(Element* elem : mf.elems) allElems.push_back(elem);
+    }
+
+    {
+        if(allNodes.size()!=allNodesSize) throw std::runtime_error("!!");
+        if(allElems.size()!=allElemsSize) throw std::runtime_error("!!!");
+        allNodes.resize(allNodesSize);
+        allElems.resize(allElemsSize);
+        std::fill(allNodes.begin(),allNodes.end(),(Node*)nullptr);
+        std::fill(allElems.begin(),allElems.end(),(Element*)nullptr);
+
+
+    auto iter_nodes = allNodes.begin();
+    auto iter_elems = allElems.begin();
+    for(MeshFragment &mf : fragments)
+    {
+        auto iter_nodes_old = iter_nodes;
+        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes_old);
+        auto iter_elems_old = iter_elems;
+        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems_old);
+    }
+
+    if(iter_nodes != allNodes.end()) throw std::runtime_error("&&");
+    if(iter_elems != allElems.end()) throw std::runtime_error("&&*");
+
+    for(unsigned i=0;i<allNodes.size();i++) if(allNodes[i]!=allNodes2[i]) throw std::runtime_error("*");
+    for(unsigned i=0;i<allElems.size();i++) if(allElems[i]!=allElems2[i]) throw std::runtime_error("**");
+    if(allNodes.size()!=allNodes2.size()) throw std::runtime_error("***");
+    if(allElems.size()!=allElems2.size()) throw std::runtime_error("****");
+    }
+
+
+    spdlog::info("allNodesSize {}; allNodes.size {}", allNodesSize, allNodes.size());
+    spdlog::info("allElemsSize {}; allElems.size {}", allElemsSize, allElems.size());
+    allNodes.clear();
+    allElems.clear();
+    for(MeshFragment &mf : fragments)
+    {
+        for(Node* nd : mf.nodes) allNodes.push_back(nd);
+        for(Element* elem : mf.elems) allElems.push_back(elem);
+    }
+
+
+
     for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
 
     // boundary edges: inserte them into globalBoundaryEdges map
+
     globalBoundaryEdges.clear();
     for(MeshFragment &mf : fragments)
     {
@@ -235,6 +292,8 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         fragmentRoots_ccd.push_back(&mf.root_ccd);
         fragmentRoots_contact.push_back(&mf.root_contact);
     }
+
+
 
     points_deformable->SetNumberOfPoints(allNodes.size());
     cellArray_deformable->Reset();
@@ -668,17 +727,17 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
         std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key);
         std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key);
 
-        if(EdgeIntersection(edge1_idx, edge2_idx)==true) final_state_contains_edge_intersection = true;
+        if(EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
 
         bool result;
         double t;
-        std::tie(result, t) = CCD(edge1_idx, nd3->globId);
+        std::tie(result, t) = CCD(nd1, nd2, nd3);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(edge1_idx, nd4->globId);
+        std::tie(result, t) = CCD(nd1, nd2, nd4);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(edge2_idx, nd1->globId);
+        std::tie(result, t) = CCD(nd3, nd4, nd1);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(edge2_idx, nd2->globId);
+        std::tie(result, t) = CCD(nd3, nd4, nd2);
         if(result) ccd_results.push_back(t);
     }
 
@@ -700,12 +759,8 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     }
 }
 
-bool icy::Mesh::EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2)
+bool icy::Mesh::EdgeIntersection(const Node* ndA, const Node* ndB,const Node* ndC, const Node* ndD)
 {
-    Node *ndA, *ndB, *ndC, *ndD;
-    std::tie(ndA,ndB) = allBoundaryEdges[edgeIdx1];
-    std::tie(ndC,ndD) = allBoundaryEdges[edgeIdx2];
-
     // if edges are adjacent, consider them non-intersecting
     if(ndA==ndC || ndA == ndD || ndB==ndC || ndB == ndD) return false;
 
@@ -717,16 +772,13 @@ bool icy::Mesh::EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2)
     seg2.p[0] = {ndC->xt.x(), ndC->xt.y()};
     seg2.p[1] = {ndD->xt.x(), ndD->xt.y()};
 
+    gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
     bool result = mTIQuery(seg1, seg2).intersect;
     return result;
 }
 
-std::pair<bool, double> icy::Mesh::CCD(unsigned edge_idx, unsigned node_idx)
+std::pair<bool, double> icy::Mesh::CCD(const Node* ndA, const Node* ndB,const Node* ndP)
 {
-    Node *ndA, *ndB, *ndP;
-    std::tie(ndA,ndB) = allBoundaryEdges[edge_idx];
-    ndP = allNodes[node_idx];
-
     if(ndA == ndP || ndB == ndP) return std::make_pair(false,0);
 
     double t;
@@ -913,11 +965,8 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
     new_crack_tips.clear();
-//    affected_elements_during_split.clear();
-
     icy::Node* nd = maxNode;
     nd->time_loaded_above_threshold = 0;
-//    for(Element *e : nd->adj_elems) affected_elements_during_split.insert(e);
 
     // subsequent calculations are based on the fracture direction where the traction is maximal
     icy::Node::SepStressResult &ssr = nd->result_with_max_traction;
@@ -953,7 +1002,6 @@ void icy::Mesh::SplitNode(const SimParams &prms)
             split1->isCrackTip = true;
             new_crack_tips.push_back(split1);
             split1->weakening_direction = (split1->xn - nd->xn).normalized();
-//            for(Element *e : split1->adj_elems) affected_elements_during_split.insert(e);
         }
     }
 
@@ -966,7 +1014,6 @@ void icy::Mesh::SplitNode(const SimParams &prms)
         split0->isCrackTip = true;
         new_crack_tips.push_back(split0);
         split0->weakening_direction = (split0->xn - nd->xn).normalized();
-//        for(Element *e : split0->adj_elems) affected_elements_during_split.insert(e);
     }
 
     nd0->PrepareFan();
@@ -974,9 +1021,6 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     nd2->PrepareFan();
     split0->PrepareFan();
     if(split1!=nullptr)split1->PrepareFan();
-
-    for(std::size_t k=0;k<maxNode->fragment->elems.size();k++)
-        maxNode->fragment->elems[k]->AssertIncidentElems();
 
     nd->weakening_direction = Eigen::Vector2d::Zero();
     nd->isCrackTip = false;
@@ -1081,8 +1125,6 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         split->PrepareFan();
         nd->PrepareFan();
     }
-
-//    for(Node::Sector &s : nd->fan) affected_elements_during_split.insert(s.face);
 }
 
 
@@ -1137,7 +1179,6 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     originalElem->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
 
-//    affected_elements_during_split.insert({originalElem,insertedElem});
     nd1->PrepareFan();
 }
 
@@ -1214,7 +1255,6 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     adjElem->PrecomputeInitialArea();
     insertedElem_adj->PrecomputeInitialArea();
 
-//    affected_elements_during_split.insert({originalElem,insertedElem,adjElem,insertedElem_adj});
     oppositeNode->PrepareFan();
     nd1->PrepareFan();
 }
@@ -1236,7 +1276,12 @@ void icy::Mesh::InferLocalSupport(SimParams &prms)
     local_elems2.clear();
     std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems2));
     CreateSupportRange(prms.FractureTimerLevels, local_elems2);
-    for(icy::Node *nd : allNodes) nd->reset_timing = nd->isSupportNode = false;
+    for(unsigned i=0;i<allNodes.size();i++)
+    {
+        Node *nd = allNodes[i];
+        if(nd==nullptr) {spdlog::critical("InferLocalSupport: allNodes[{}]==nullptr ",i); throw std::runtime_error("node==nullptr");}
+        nd->reset_timing = nd->isSupportNode = false;
+    }
     for(Element *e : local_elems2)
         for(int k=0;k<3;k++)
         {
@@ -1281,3 +1326,5 @@ void icy::Mesh::CreateSupportRange(int neighborLevel, std::vector<Element*> &ini
         }
     }
 }
+
+

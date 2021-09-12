@@ -194,6 +194,7 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
     for(std::size_t i=0;i<nNodes;i++)
     {
         icy::Node *nd = mesh.allNodes[i];
+        if(nd==nullptr) { spdlog::critical("InitialGuess: nd==nullptr for i=={}",i); throw std::runtime_error("InitialGuess: nd==nullptr");}
         if(nd->pinned)
         {
             nd->xt = (timeStepFactor)*nd->intended_position + (1-timeStepFactor)*nd->xn;
@@ -229,16 +230,14 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++) elems[i]->AddToSparsityStructure(eqOfMotion);
 
-    unsigned nInteractions = 0;
     if(enable_collisions)
     {
         mesh.UpdateTree(prms.InteractionDistance);
         vtk_update_mutex.lock();
         mesh.DetectContactPairs(prms.InteractionDistance);
         vtk_update_mutex.unlock();
-        nInteractions = mesh.collision_interactions.size();
 #pragma omp parallel for
-        for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].AddToSparsityStructure(eqOfMotion);
+        for(unsigned i=0;i<mesh.contacts_final_list.size();i++) mesh.contacts_final_list[i].AddToSparsityStructure(eqOfMotion);
     }
 
     eqOfMotion.CreateStructure();
@@ -263,8 +262,11 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
         for(unsigned i=0;i<nNodes;i++) nodes[i]->AddSpringEntries(eqOfMotion, prms, timeStep, spring);
     }
 
+    if(enable_collisions)
+    {
 #pragma omp parallel for
-    for(unsigned i=0;i<nInteractions;i++) mesh.collision_interactions[i].Evaluate(eqOfMotion, prms, timeStep);
+        for(unsigned i=0;i<mesh.contacts_final_list.size();i++) mesh.contacts_final_list[i].Evaluate(eqOfMotion, prms, timeStep);
+    }
 
     // solve
     bool solve_result = eqOfMotion.Solve();

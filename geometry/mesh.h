@@ -35,6 +35,8 @@
 
 #include "Mathematics/IntrSegment2Segment2.h"
 
+#include <Eigen/Core>
+
 namespace icy { class Mesh; class Model; }
 
 class icy::Mesh
@@ -45,7 +47,6 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
-//    std::vector<std::pair<Node*,Node*>> allBoundaryEdges; // for visualization
     std::unordered_map<uint64_t,std::pair<Node*,Node*>> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
@@ -60,7 +61,7 @@ public:
 
     // COLLISION DETECTION
 public:
-    tbb::concurrent_unordered_set<Interaction> contacts_narrow_set;
+    tbb::concurrent_unordered_set<Interaction,Interaction::MyHash> contacts_narrow_set;
     std::vector<Interaction> contacts_final_list;
     void DetectContactPairs(const double distance_threshold);
     std::pair<bool, double> EnsureNoIntersectionViaCCD();
@@ -73,19 +74,17 @@ private:
     tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list
 
     void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
-    std::pair<bool, double> CCD(unsigned edge_idx, unsigned node_idx);  // if intersects, return [true, time]
-    bool EdgeIntersection(unsigned edgeIdx1, unsigned edgeIdx2); // true if edges intersect
+    static std::pair<bool, double> CCD(const Node* ndA, const Node* ndB, const Node* ndP);  // if intersects, return [true, time]
+    static bool EdgeIntersection(const Node* e1n1, const Node* e1n2,const Node* e2n1, const Node* e2n2); // true if edges intersect
     void UpdateTree(float distance_threshold);
     unsigned tree_update_counter = 0;
 
-    gte::TIQuery<double, gte::Segment2<double>, gte::Segment2<double>> mTIQuery;
 
 
     // FRACTURE
 private:
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
-    // std::unordered_set<Element*> affected_elements_during_split; // list of elements that were affected by SplitNode
     icy::Node *maxNode;
     constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);

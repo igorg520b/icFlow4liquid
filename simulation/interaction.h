@@ -33,13 +33,10 @@ public:
     {
         return (ndP==other.ndP && ((ndA==other.ndA && ndB==other.ndB)||(ndA==other.ndB && ndB==other.ndA)));
     }
-};
 
-namespace std
-{
-    template <>
-    struct hash<icy::Interaction>
+    class MyHash
     {
+    public:
         size_t operator()(const icy::Interaction& k) const
         {
             // Compute individual hash values for two data members and combine them using XOR and bit shifting
@@ -47,6 +44,7 @@ namespace std
             return std::hash<uint64_t>{}(c);
         }
     };
-}
+};
+
 
 #endif // INTERACTION_H
