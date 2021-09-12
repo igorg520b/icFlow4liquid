@@ -16,6 +16,8 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     movableNodes.clear();
     contacts_narrow_set.clear();
     contacts_final_list.clear();
+    allNodes.clear();
+    allElems.clear();
 
     switch(typeOfSetup)
     {
@@ -73,15 +75,36 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     for(unsigned i=0;i<movableNodes.size();i++) movableNodes[i]->indId=i;
 
 
-    RegenerateVisualizedGeometry();
+
     ChangeVisualizationOption(VisualizingVariable);
 
     tree_update_counter=0;
-    area_initial = area_current = std::accumulate(allElems.begin(),
-                                                  allElems.end(),0.0,
-                                                  [](double a, Element* m){return a+m->area_initial;});
+
     updateMinMax = true;
-    std::clog << "icy::Mesh::Reset() done\n";
+
+
+    // copy fragment's nodes into allNodes
+    std::size_t allNodesSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
+                                               [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
+    std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
+                                               [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
+
+    allNodes.resize(allNodesSize);
+    allElems.resize(allElemsSize);
+
+    auto iter_nodes = allNodes.begin();
+    auto iter_elems = allElems.begin();
+    for(MeshFragment &mf : fragments)
+    {
+        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes);
+        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
+    }
+    for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
+
+    area_initial = area_current = std::accumulate(allElems.begin(), allElems.end(),0.0,
+                                                  [](double a, Element* m){return a+m->area_initial;});
+    CreateLeaves();
+    RegenerateVisualizedGeometry();
 }
 
 icy::Mesh::Mesh()
@@ -191,110 +214,6 @@ void icy::Mesh::SetIndenterPosition(double position)
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
-    tree_update_counter = 0;
-    allNodes.clear();
-    allElems.clear();
-
-    global_leaves_ccd.clear();
-    global_leaves_contact.clear();
-    fragmentRoots_ccd.clear();
-    fragmentRoots_contact.clear();
-
-    // copy fragment's nodes into allNodes
-    std::size_t allNodesSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
-                                               [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
-    std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
-                                               [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
-/*
-    allNodes.resize(allNodesSize);
-    allElems.resize(allElemsSize);
-
-    auto iter_nodes = allNodes.begin();
-    auto iter_elems = allElems.begin();
-    for(MeshFragment &mf : fragments)
-    {
-        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes);
-        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
-    }
-
-    */
-    std::vector<icy::Node*> allNodes2;
-    std::vector<icy::Element*> allElems2;
-    for(MeshFragment &mf : fragments)
-    {
-        for(Node* nd : mf.nodes) allNodes2.push_back(nd);
-        for(Element* elem : mf.elems) allElems2.push_back(elem);
-    }
-
-    for(MeshFragment &mf : fragments)
-    {
-        for(Node* nd : mf.nodes) allNodes.push_back(nd);
-        for(Element* elem : mf.elems) allElems.push_back(elem);
-    }
-
-    {
-        if(allNodes.size()!=allNodesSize) throw std::runtime_error("!!");
-        if(allElems.size()!=allElemsSize) throw std::runtime_error("!!!");
-        allNodes.resize(allNodesSize);
-        allElems.resize(allElemsSize);
-        std::fill(allNodes.begin(),allNodes.end(),(Node*)nullptr);
-        std::fill(allElems.begin(),allElems.end(),(Element*)nullptr);
-
-
-    auto iter_nodes = allNodes.begin();
-    auto iter_elems = allElems.begin();
-    for(MeshFragment &mf : fragments)
-    {
-        auto iter_nodes_old = iter_nodes;
-        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes_old);
-        auto iter_elems_old = iter_elems;
-        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems_old);
-    }
-
-    if(iter_nodes != allNodes.end()) throw std::runtime_error("&&");
-    if(iter_elems != allElems.end()) throw std::runtime_error("&&*");
-
-    for(unsigned i=0;i<allNodes.size();i++) if(allNodes[i]!=allNodes2[i]) throw std::runtime_error("*");
-    for(unsigned i=0;i<allElems.size();i++) if(allElems[i]!=allElems2[i]) throw std::runtime_error("**");
-    if(allNodes.size()!=allNodes2.size()) throw std::runtime_error("***");
-    if(allElems.size()!=allElems2.size()) throw std::runtime_error("****");
-    }
-
-
-    spdlog::info("allNodesSize {}; allNodes.size {}", allNodesSize, allNodes.size());
-    spdlog::info("allElemsSize {}; allElems.size {}", allElemsSize, allElems.size());
-    allNodes.clear();
-    allElems.clear();
-    for(MeshFragment &mf : fragments)
-    {
-        for(Node* nd : mf.nodes) allNodes.push_back(nd);
-        for(Element* elem : mf.elems) allElems.push_back(elem);
-    }
-
-
-
-    for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
-
-    // boundary edges: inserte them into globalBoundaryEdges map
-
-    globalBoundaryEdges.clear();
-    for(MeshFragment &mf : fragments)
-    {
-        for(const auto &kvp : mf.boundaryEdgesMap)
-        {
-            Node *nd0 = kvp.second.first;
-            Node *nd1 = kvp.second.second;
-            globalBoundaryEdges.try_emplace(Node::make_global_key(nd0,nd1),nd0,nd1);
-        }
-        mf.CreateLeaves();
-        global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
-        global_leaves_contact.insert(global_leaves_contact.end(),mf.leaves_for_contact.begin(), mf.leaves_for_contact.end());
-        fragmentRoots_ccd.push_back(&mf.root_ccd);
-        fragmentRoots_contact.push_back(&mf.root_contact);
-    }
-
-
-
     points_deformable->SetNumberOfPoints(allNodes.size());
     cellArray_deformable->Reset();
 
@@ -605,6 +524,33 @@ void icy::Mesh::UpdateValues()
 
 
 // COLLISION DETECTION
+
+void icy::Mesh::CreateLeaves()
+{
+    tree_update_counter = 0;
+    global_leaves_ccd.clear();
+    global_leaves_contact.clear();
+    fragmentRoots_ccd.clear();
+    fragmentRoots_contact.clear();
+
+    globalBoundaryEdges.clear();
+    for(MeshFragment &mf : fragments)
+    {
+        for(const auto &kvp : mf.boundaryEdgesMap)
+        {
+            Node *nd0 = kvp.second.first;
+            Node *nd1 = kvp.second.second;
+            globalBoundaryEdges.try_emplace(Node::make_global_key(nd0,nd1),nd0,nd1);
+        }
+        mf.CreateLeaves();
+        global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
+        global_leaves_contact.insert(global_leaves_contact.end(),mf.leaves_for_contact.begin(), mf.leaves_for_contact.end());
+        fragmentRoots_ccd.push_back(&mf.root_ccd);
+        fragmentRoots_contact.push_back(&mf.root_contact);
+    }
+
+}
+
 
 void icy::Mesh::UpdateTree(float distance_threshold)
 {

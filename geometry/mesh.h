@@ -76,6 +76,7 @@ private:
     void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
     static std::pair<bool, double> CCD(const Node* ndA, const Node* ndB, const Node* ndP);  // if intersects, return [true, time]
     static bool EdgeIntersection(const Node* e1n1, const Node* e1n2,const Node* e2n1, const Node* e2n2); // true if edges intersect
+    void CreateLeaves();
     void UpdateTree(float distance_threshold);
     unsigned tree_update_counter = 0;
 
