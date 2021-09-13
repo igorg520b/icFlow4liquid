@@ -10,7 +10,6 @@
 #include <tbb/concurrent_unordered_set.h>
 
 #include "meshfragment.h"
-#include "element.h"
 #include "interaction.h"
 #include "bvh/bvhn.h"
 
@@ -47,7 +46,7 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
-    std::unordered_map<uint64_t,std::pair<Node*,Node*>> globalBoundaryEdges;
+    std::unordered_map<uint64_t,BoundaryEdge> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;

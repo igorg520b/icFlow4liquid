@@ -1014,6 +1014,7 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
 
 void icy::Mesh::Fix_X_Topology(Node *nd)
 {
+    // create a new "fan" with X-topology allowed
     nd->fan.clear();
     for(unsigned k=0;k<nd->adj_elems.size();k++)
     {
@@ -1028,9 +1029,11 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         s.nd[1] = elem->nds[CCWIdx];
         nd->fan.push_back(s);
     }
-
     std::sort(nd->fan.begin(), nd->fan.end());
 
+    // find all boundaries
+
+    // in the fan, find the entry with clock-wise boundary
     auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
                                     [nd](const Node::Sector &f){return f.face->isCWBoundary(nd);});
 

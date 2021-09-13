@@ -188,7 +188,10 @@ void icy::MeshFragment::GenerateSpecialBrick(double ElementSize)
         Node *nd1 = nodes[idx1];
         Node *nd2 = nodes[idx2];
 //        if(nd1->group.test(0) && nd2->group.test(0)) boundary_edges.emplace_back(nd1,nd2);
-        if(nd1->group.test(0) && nd2->group.test(0)) boundaryEdgesMap.try_emplace(Node::make_local_key(nd1,nd2),nd1,nd2);
+        if(nd1->group.test(0) && nd2->group.test(0))
+        {
+            boundaryEdgesMap.try_emplace(Node::make_local_key(nd1,nd2),nd1,nd2);
+        }
         else if(nd1->group.test(1) && nd2->group.test(1)) inner_boundary_edges.emplace_back(idx1,idx2);
     }
     PostMeshingEvaluations();

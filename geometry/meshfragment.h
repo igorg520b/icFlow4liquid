@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include "element.h"
+#include "boundaryedge.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
 #include "spdlog/spdlog.h"
@@ -21,9 +22,7 @@ public:
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
 
-//    std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges;
-    std::unordered_map<uint64_t,std::pair<Node*,Node*>> boundaryEdgesMap;
-
+    std::unordered_map<uint64_t,BoundaryEdge> boundaryEdgesMap;
     std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary, fixed_boundary; // these are used when some nodes are pinned
     std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
 
