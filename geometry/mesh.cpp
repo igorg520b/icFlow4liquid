@@ -233,6 +233,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         cellArray_boundary_all->InsertNextCell(2, pts);
     }
     ugrid_boundary_all->SetCells(VTK_LINE, cellArray_boundary_all);
+    ugrid_boundary_all->Modified();
 
     // intended position of the indenter
     points_indenter_intended->SetNumberOfPoints(movableNodes.size());
@@ -923,53 +924,66 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
     if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
 
-    Node *split0, *split1 = nullptr;
+    Node *edge_split0, *edge_split1 = nullptr;
     Node *nd0 = ssr.faces[0]->nds[0];
     Node *nd1 = ssr.faces[0]->nds[1];
     Node *nd2 = ssr.faces[0]->nds[2];
 
-    if(isBoundary) RemoveAdjBoundaries(nd);
-    EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], split0);
+    RemoveAdjBoundaries(nd);
+    EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], edge_split0);
+    RemoveAdjBoundaries(edge_split0);
 
     if(!isBoundary)
     {
         if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
-        EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], split1);
+        EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], edge_split1);
+        RemoveAdjBoundaries(edge_split1);
     }
 
-    Fix_X_Topology(nd);
+    Node *split1, *split2=nullptr, *split3=nullptr;
+    split1 = Fix_X_Topology(nd);
 
     if(!isBoundary)
     {
-        if(split1==nullptr) throw std::runtime_error("SplitNode: split1==nullptr");
-        if(split1->isBoundary)
+        if(edge_split1==nullptr) throw std::runtime_error("SplitNode: split1==nullptr");
+        if(edge_split1->isBoundary)
         {
-            Fix_X_Topology(split1);
+            split2 = Fix_X_Topology(edge_split1);
         }
         else
         {
-            split1->isCrackTip = true;
-            new_crack_tips.push_back(split1);
-            split1->weakening_direction = (split1->xn - nd->xn).normalized();
+            edge_split1->isCrackTip = true;
+            new_crack_tips.push_back(edge_split1);
+            edge_split1->weakening_direction = (edge_split1->xn - nd->xn).normalized();
         }
     }
 
-    if(split0->isBoundary)
+    if(edge_split0->isBoundary)
     {
-        Fix_X_Topology(split0);
+        split3 = Fix_X_Topology(edge_split0);
     }
     else
     {
-        split0->isCrackTip = true;
-        new_crack_tips.push_back(split0);
-        split0->weakening_direction = (split0->xn - nd->xn).normalized();
+        edge_split0->isCrackTip = true;
+        new_crack_tips.push_back(edge_split0);
+        edge_split0->weakening_direction = (edge_split0->xn - nd->xn).normalized();
     }
 
     nd0->PrepareFan();
     nd1->PrepareFan();
     nd2->PrepareFan();
-    split0->PrepareFan();
-    if(split1!=nullptr)split1->PrepareFan();
+    edge_split0->PrepareFan();
+    InsertAdjBoundaries(edge_split0);
+    if(edge_split1!=nullptr)
+    {
+        edge_split1->PrepareFan();
+        InsertAdjBoundaries(edge_split1);
+    }
+    if(split1!=nullptr) InsertAdjBoundaries(split1);
+    if(split2!=nullptr) InsertAdjBoundaries(split2);
+    if(split3!=nullptr) InsertAdjBoundaries(split3);
+    InsertAdjBoundaries(nd);
+
 
     nd->weakening_direction = Eigen::Vector2d::Zero();
     nd->isCrackTip = false;
@@ -979,6 +993,8 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
 {
     icy::Node *nd0, *nd1;
     std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
+    auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd0, nd1));
+    if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
 
     const Eigen::Vector2d &nd_vec = nd->xn;
     const Eigen::Vector2d &nd0_vec = nd0->xn;
@@ -1016,8 +1032,6 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
         else
             SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, adjacentNode);
     }
-    RemoveAdjBoundaries(adjacentNode);
-
 }
 
 void icy::Mesh::RemoveAdjBoundaries(Node *nd)
@@ -1030,21 +1044,37 @@ void icy::Mesh::RemoveAdjBoundaries(Node *nd)
         if(s.face->isCWBoundary(nd))
         {
             auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
-            //if(find_result==globalBoundaryEdges.end()) throw std::runtime_error("RemoveAdjBoundaries: boundary topology error 1");
             if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
         }
         if(s.face->isCCWBoundary(nd))
         {
             auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
-            //if(find_result==globalBoundaryEdges.end()) throw std::runtime_error("RemoveAdjBoundaries: boundary topology error 2");
             if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
         }
+    }
+}
 
+void icy::Mesh::InsertAdjBoundaries(Node *nd)
+{
+    if(!nd->isBoundary)return;
+    for(const Node::Sector &s : nd->fan)
+    {
+        Node *cwn, *ccwn;
+        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
+        if(s.face->isCWBoundary(nd))
+        {
+            globalBoundaryEdges.try_emplace(Node::make_global_key(nd, cwn), nd, cwn, true);
+        }
+        if(s.face->isCCWBoundary(nd))
+        {
+            globalBoundaryEdges.try_emplace(Node::make_global_key(nd, ccwn), nd, ccwn, true);
+        }
     }
 }
 
 
-void icy::Mesh::Fix_X_Topology(Node *nd)
+
+icy::Node* icy::Mesh::Fix_X_Topology(Node *nd)
 {
     // create a new "fan" with X-topology allowed
     nd->fan.clear();
@@ -1062,33 +1092,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         nd->fan.push_back(s);
     }
     std::sort(nd->fan.begin(), nd->fan.end());
-/*
-    // find all boundaries
-    std::vector<BoundaryEdge> boundaries_existing;
-    for(const icy::Node::Sector &s : nd->fan)
-    {
-        Node *cwn, *ccwn;
-        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
-        if(s.face->isCWBoundary(nd))
-        {
-            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
-            if(find_result!=globalBoundaryEdges.end())
-            {
-                boundaries_existing.push_back(find_result->second);
-                globalBoundaryEdges.erase(find_result);
-            }
-        }
-        if(s.face->isCCWBoundary(nd))
-        {
-            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
-            if(find_result!=globalBoundaryEdges.end())
-            {
-                boundaries_existing.push_back(find_result->second);
-                globalBoundaryEdges.erase(find_result);
-            }
-        }
-    }
-*/
+
     // in the fan, find the entry with clock-wise boundary
     auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
                                     [nd](const Node::Sector &f){return f.face->isCWBoundary(nd);});
@@ -1130,6 +1134,7 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         split->PrepareFan();
         nd->PrepareFan();
     }
+    return split;
 }
 
 

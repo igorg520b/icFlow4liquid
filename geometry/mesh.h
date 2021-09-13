@@ -93,7 +93,7 @@ private:
     void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& insertedNode);
     void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                      Node *nd0, Node *nd1, double where, Node*& insertedNode);
-    void Fix_X_Topology(Node *nd);
+    Node* Fix_X_Topology(Node *nd);
 
     void InferLocalSupport(SimParams &prms);
     void CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set);
@@ -105,6 +105,7 @@ private:
     std::vector<Node*> local_support;
     std::vector<BoundaryEdge> boundaries_created;
     void RemoveAdjBoundaries(Node *nd);
+    void InsertAdjBoundaries(Node *nd);
 
     // VTK
 public:
