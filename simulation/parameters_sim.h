@@ -117,11 +117,11 @@ public:
         Thickness = 0.1;
 
         PoissonsRatio = 0.3;
-        YoungsModulus = 1000;
+        YoungsModulus = 5000;
 
         InteractionDistance = 0.01;
 
-        CharacteristicLength = 0.06;
+        CharacteristicLength = 0.07;
         ConvergenceEpsilon = 1e-2;
         ConvergenceCutoff = 1e-7;
 

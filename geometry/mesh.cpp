@@ -113,12 +113,19 @@ icy::Mesh::Mesh()
     const int nLut = 51;
     hueLut->SetNumberOfTableValues(nLut);
     for ( int i=0; i<nLut; i++)
-            hueLut->SetTableValue(i, (double)lutArrayTemperatureAdj[i][0],
-                    (double)lutArrayTemperatureAdj[i][1],
-                    (double)lutArrayTemperatureAdj[i][2], 1.0);
+            hueLut->SetTableValue(i, lutArrayTemperatureAdj[i][0],
+                    lutArrayTemperatureAdj[i][1],
+                    lutArrayTemperatureAdj[i][2], 1.0);
+
+    hueLutBlackRed->SetNumberOfTableValues(2);
+    hueLutBlackRed->SetTableValue(0,0,0,0,1.0);
+    hueLutBlackRed->SetTableValue(1,0.7,0,0,1.0);
+    hueLutBlackRed->SetTableRange(0,1);
+
 
     // initialize various VTK objects
     visualized_values->SetName("visualized_values");
+    visualized_values_edges->SetName("visualized_values_edges");
 
     ugrid_deformable->SetPoints(points_deformable);
     dataSetMapper_deformable->SetInputData(ugrid_deformable);
@@ -139,6 +146,13 @@ icy::Mesh::Mesh()
     // boundary that encompasses all objects
     ugrid_boundary_all->SetPoints(points_deformable);
     dataSetMapper_boundary_all->SetInputData(ugrid_boundary_all);
+
+    dataSetMapper_boundary_all->UseLookupTableScalarRangeOn();
+    dataSetMapper_boundary_all->SetLookupTable(hueLutBlackRed);
+    ugrid_boundary_all->GetCellData()->AddArray(visualized_values_edges);
+    ugrid_boundary_all->GetCellData()->SetActiveScalars("visualized_values_edges");
+    dataSetMapper_boundary_all->SetScalarModeToUseCellData();
+
     actor_boundary_all->SetMapper(dataSetMapper_boundary_all);
     actor_boundary_all->GetProperty()->EdgeVisibilityOn();
     actor_boundary_all->GetProperty()->VertexVisibilityOn();
@@ -227,13 +241,16 @@ void icy::Mesh::RegenerateVisualizedGeometry()
 
     // VTK-displayed (thick) boundaries
     cellArray_boundary_all->Reset();
+    visualized_values_edges->SetNumberOfValues(globalBoundaryEdges.size());
+
+    unsigned count = 0;
     for(const auto &kvp : globalBoundaryEdges)
     {
         vtkIdType pts[2] = {kvp.second.first->globId, kvp.second.second->globId};
         cellArray_boundary_all->InsertNextCell(2, pts);
+        visualized_values_edges->SetValue(count++, kvp.second.isInserted ? 1 : 0);
     }
     ugrid_boundary_all->SetCells(VTK_LINE, cellArray_boundary_all);
-    ugrid_boundary_all->Modified();
 
     // intended position of the indenter
     points_indenter_intended->SetNumberOfPoints(movableNodes.size());

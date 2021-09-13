@@ -121,6 +121,8 @@ public:
     bool updateMinMax;
 
 private:
+    vtkNew<vtkLookupTable> hueLutBlackRed;
+
     void UpdateValues();
     void UnsafeUpdateGeometry();
 
@@ -129,6 +131,7 @@ private:
     vtkNew<vtkPoints> points_deformable;
     vtkNew<vtkPoints> points_indenter_intended;   // prescribed indenter location
     vtkNew<vtkDoubleArray> visualized_values;
+    vtkNew<vtkIntArray> visualized_values_edges;
 
     // elements
     vtkNew<vtkUnstructuredGrid> ugrid_deformable;
@@ -151,7 +154,7 @@ private:
     vtkNew<vtkDataSetMapper> mapper_collisions;
     vtkNew<vtkCellArray> cellArray_collisions;
 
-    static constexpr float lutArrayTemperatureAdj[51][3] =
+    static constexpr double lutArrayTemperatureAdj[51][3] =
     {{0.770938, 0.951263, 0.985716}, {0.788065, 0.959241, 0.986878},
      {0.805191, 0.96722, 0.98804}, {0.822318, 0.975199, 0.989202},
      {0.839445, 0.983178, 0.990364}, {0.856572, 0.991157, 0.991526},
