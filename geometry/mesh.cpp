@@ -911,6 +911,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
     new_crack_tips.clear();
+    boundaries_created.clear();
     icy::Node* nd = maxNode;
     nd->time_loaded_above_threshold = 0;
 
@@ -926,6 +927,8 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     Node *nd0 = ssr.faces[0]->nds[0];
     Node *nd1 = ssr.faces[0]->nds[1];
     Node *nd2 = ssr.faces[0]->nds[2];
+
+    if(isBoundary) RemoveAdjBoundaries(nd);
     EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], split0);
 
     if(!isBoundary)
@@ -988,29 +991,58 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     if((theta == 0 && elem->isCCWBoundary(nd)) || (phi == 0 && elem->isCWBoundary(nd)))
         throw std::runtime_error("trying to split the boundary");
 
+    icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
+
     if(theta == 0 && !elem->isCCWBoundary(nd))
     {
         short idx = elem->getNodeIdx(nd0);
-        elem->incident_elems[idx]->DisconnectFromElem(elem);
+        Element* incident_elem = elem->incident_elems[idx];
+        incident_elem->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
         adjacentNode = nd1;
     }
     else if(phi == 0 && !elem->isCWBoundary(nd))
     {
         short idx = elem->getNodeIdx(nd1);
-        elem->incident_elems[idx]->DisconnectFromElem(elem);
+        Element* incident_elem = elem->incident_elems[idx];
+        incident_elem->DisconnectFromElem(elem);
         elem->incident_elems[idx] = nullptr;
         adjacentNode = nd0;
     }
     else
     {
-        icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
         if(elem_adj==nullptr)
             SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, adjacentNode);
         else
             SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, adjacentNode);
     }
+    RemoveAdjBoundaries(adjacentNode);
+
 }
+
+void icy::Mesh::RemoveAdjBoundaries(Node *nd)
+{
+    if(!nd->isBoundary)return;
+    for(const Node::Sector &s : nd->fan)
+    {
+        Node *cwn, *ccwn;
+        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
+        if(s.face->isCWBoundary(nd))
+        {
+            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
+            //if(find_result==globalBoundaryEdges.end()) throw std::runtime_error("RemoveAdjBoundaries: boundary topology error 1");
+            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+        }
+        if(s.face->isCCWBoundary(nd))
+        {
+            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
+            //if(find_result==globalBoundaryEdges.end()) throw std::runtime_error("RemoveAdjBoundaries: boundary topology error 2");
+            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+        }
+
+    }
+}
+
 
 void icy::Mesh::Fix_X_Topology(Node *nd)
 {
@@ -1030,9 +1062,33 @@ void icy::Mesh::Fix_X_Topology(Node *nd)
         nd->fan.push_back(s);
     }
     std::sort(nd->fan.begin(), nd->fan.end());
-
+/*
     // find all boundaries
-
+    std::vector<BoundaryEdge> boundaries_existing;
+    for(const icy::Node::Sector &s : nd->fan)
+    {
+        Node *cwn, *ccwn;
+        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
+        if(s.face->isCWBoundary(nd))
+        {
+            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
+            if(find_result!=globalBoundaryEdges.end())
+            {
+                boundaries_existing.push_back(find_result->second);
+                globalBoundaryEdges.erase(find_result);
+            }
+        }
+        if(s.face->isCCWBoundary(nd))
+        {
+            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
+            if(find_result!=globalBoundaryEdges.end())
+            {
+                boundaries_existing.push_back(find_result->second);
+                globalBoundaryEdges.erase(find_result);
+            }
+        }
+    }
+*/
     // in the fan, find the entry with clock-wise boundary
     auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
                                     [nd](const Node::Sector &f){return f.face->isCWBoundary(nd);});

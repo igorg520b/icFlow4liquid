@@ -103,6 +103,8 @@ private:
 
     std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
     std::vector<Node*> local_support;
+    std::vector<BoundaryEdge> boundaries_created;
+    void RemoveAdjBoundaries(Node *nd);
 
     // VTK
 public:
