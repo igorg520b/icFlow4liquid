@@ -106,6 +106,7 @@ private:
     std::vector<BoundaryEdge> boundaries_created;
     void RemoveAdjBoundaries(Node *nd);
     void InsertAdjBoundaries(Node *nd);
+public:
 
     // VTK
 public:

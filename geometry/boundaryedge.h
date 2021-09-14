@@ -14,7 +14,8 @@ public:
     uint64_t global_key() const {return Node::make_global_key(this->first,this->second);}
     uint64_t local_key() const {return Node::make_local_key(this->first,this->second);}
     bool isInserted = false;    // boundary was created via fracture
-    bool isActive;       // boundary participates in collisions/interaction
+    bool isActive = true;
+    bool isIntersecting = false;
     int VisualizationValue() const { return isInserted ? (isActive ? 2 : 1) : 0; }
 };
 

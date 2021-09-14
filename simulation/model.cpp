@@ -24,7 +24,13 @@ void icy::Model::Prepare()
 
 bool icy::Model::Step()
 {
-    if(prms.EnableCollisions) mesh.UpdateTree(prms.InteractionDistance);
+    if(prms.EnableCollisions)
+    {
+        vtk_update_mutex.lock();
+        mesh.ActivateBoundaryEdges();
+        vtk_update_mutex.unlock();
+        mesh.UpdateTree(prms.InteractionDistance);
+    }
 
     int attempt = 0;
     bool converges=false;
@@ -100,13 +106,7 @@ bool icy::Model::Step()
 
 void icy::Model::RequestAbort(void) { abortRequested = true; }
 
-void icy::Model::Aborting()
-{
-    //perform any cleanup if step was aborted
-    spdlog::info("icy::ModelController::Aborting()");
-    abortRequested = false;
-    emit stepAborted();
-}
+void icy::Model::Aborting() { abortRequested = false; emit stepAborted(); }
 
 
 
@@ -213,6 +213,8 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
 bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool enable_spring,
                                   std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems)
 {
+    for(Node *nd : mesh.allNodes) nd->eqId = -1;
+
     unsigned nElems = elems.size();
     unsigned nNodes = nodes.size();
 
@@ -221,8 +223,7 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
     for(unsigned i=0;i<nNodes;i++)
     {
         Node *nd = nodes[i];
-        if(nd->pinned) nd->eqId = -1;
-        else nd->eqId = freeNodeCount++;
+        if(!nd->pinned) nd->eqId = freeNodeCount++;
     }
 
     eqOfMotion.ClearAndResize(freeNodeCount);
@@ -350,11 +351,10 @@ void icy::Model::GetNewMaterialPosition()
         int attempt = 0;
         bool converges=false;
         bool sln_res; // false if matrix is not PSD
-        double h = prms.InitialTimeStep*timeStepFactor;;
+        double h = prms.InitialTimeStep*timeStepFactor;
         do
         {
             int iter = 0;
-            h = prms.InitialTimeStep*timeStepFactor; // time step
 
             // initial coordinates -> tentative
 #pragma omp parallel for
@@ -469,6 +469,7 @@ void icy::Model::Fracture(double timeStep)
 
         vtk_update_mutex.lock();
         mesh.CreateLeaves();
+        mesh.RegenerateVisualizedGeometry();
         vtk_update_mutex.unlock();
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }

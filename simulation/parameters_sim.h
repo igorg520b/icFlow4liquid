@@ -143,7 +143,7 @@ public:
         FractureAreaThreshold = 1e-4;
 
         // features
-        EnableCollisions = false;
+        EnableCollisions = true;
         EnablePlasticity = false;
         EnableFracture = true;
     }

@@ -37,7 +37,6 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
 
     std::fill(cval.begin(), cval.begin()+N*DOFS, 0);
 
-
     while(rows_Neighbors.size()<N)
         rows_Neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(10));
 

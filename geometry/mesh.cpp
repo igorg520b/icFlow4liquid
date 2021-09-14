@@ -117,10 +117,10 @@ icy::Mesh::Mesh()
                     lutArrayTemperatureAdj[i][1],
                     lutArrayTemperatureAdj[i][2], 1.0);
 
-    hueLutBlackRed->SetNumberOfTableValues(2);
-    hueLutBlackRed->SetTableValue(0,0,0,0,1.0);
-    hueLutBlackRed->SetTableValue(1,0.5,0,0,1.0);
-    hueLutBlackRed->SetTableValue(2,0.,0.5,0,1.0);
+    hueLutBlackRed->SetNumberOfTableValues(3);
+    hueLutBlackRed->SetTableValue(0,0,   0,   0, 1.0);
+    hueLutBlackRed->SetTableValue(1,0.5, 0,   0, 1.0);
+    hueLutBlackRed->SetTableValue(2,0,   0.5, 0, 1.0);
     hueLutBlackRed->SetTableRange(0,2);
 
     // initialize various VTK objects
@@ -640,11 +640,12 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
         BoundaryEdge &be2 = globalBoundaryEdges.at(edge2_key);
         std::tie(nd1,nd2) = be1;
         std::tie(nd3,nd4) = be2;
+        bool bothInactive = be1.inactive && be2.inactive;
 
-        AddToNarrowListIfNeeded(nd1,nd2, be1.isActive, nd3, distance_threshold);
-        AddToNarrowListIfNeeded(nd1,nd2, be1.isActive, nd4, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, be2.isActive, nd1, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, be2.isActive, nd2, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, !bothInactive, nd3, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, !bothInactive, nd4, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, !bothInactive, nd1, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, !bothInactive, nd2, distance_threshold);
     }
 
     contacts_final_list.resize(contacts_narrow_set.size());
@@ -690,17 +691,18 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
         std::tie(nd1,nd2) = be1;
         std::tie(nd3,nd4) = be2;
 
-        if(be1.isActive && be2.isActive && EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
+        bool bothInactive = be1.inactive && be2.inactive;
+        if(!bothInactive && EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
 
         bool result;
         double t;
-        std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd3);
+        std::tie(result, t) = CCD(nd1, nd2, !bothInactive, nd3);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd4);
+        std::tie(result, t) = CCD(nd1, nd2, !bothInactive, nd4);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd1);
+        std::tie(result, t) = CCD(nd3, nd4, !bothInactive, nd1);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd2);
+        std::tie(result, t) = CCD(nd3, nd4, !bothInactive, nd2);
         if(result) ccd_results.push_back(t);
     }
 
@@ -1361,5 +1363,4 @@ void icy::Mesh::CreateSupportRange(int neighborLevel, std::vector<Element*> &ini
         }
     }
 }
-
 
