@@ -443,7 +443,6 @@ void icy::Model::Fracture(double timeStep)
     mesh.ComputeFractureDirections(prms, timeStep, true);   // even if fracture is disabled, compute for visualization
     vtk_update_mutex.unlock();
 
-
     if(!prms.EnableFracture) return;
 
     mesh.updateMinMax = false;  // temporarily disable the adaptive scale when visualizing variables (to avoid flickering)
@@ -467,6 +466,10 @@ void icy::Model::Fracture(double timeStep)
         vtk_update_mutex.unlock();
 
         fracture_step_count++;
+
+        vtk_update_mutex.lock();
+        mesh.CreateLeaves();
+        vtk_update_mutex.unlock();
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }
     mesh.updateMinMax = true;
@@ -476,7 +479,7 @@ void icy::Model::Fracture(double timeStep)
 
     if(fracture_step_count > 0)
     {
-        // TODO: identify disconnected regions
+        // any work that occurs after fracture, e.g. identify separated fragments, re-create BVH
     }
 }
 

@@ -72,8 +72,8 @@ private:
     std::vector<uint64_t> broadlist_ccd, broadlist_contact; // keys of potentially colliding edges
     tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list
 
-    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
-    static std::pair<bool, double> CCD(const Node* ndA, const Node* ndB, const Node* ndP);  // if intersects, return [true, time]
+    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, bool edgeIsActive, Node *ndP, const double distance_threshold);
+    static std::pair<bool, double> CCD(const Node* ndA, const Node* ndB, const bool isActive, const Node* ndP);  // if intersects, return [true, time]
     static bool EdgeIntersection(const Node* e1n1, const Node* e1n2,const Node* e2n1, const Node* e2n2); // true if edges intersect
     void CreateLeaves();
     void UpdateTree(float distance_threshold);

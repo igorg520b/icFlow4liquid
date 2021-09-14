@@ -426,7 +426,6 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
         icy::Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
         icy::Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
         boundaryEdgesMap.try_emplace(Node::make_local_key(nd0,nd1),nd0,nd1);
-//        boundary_edges.emplace_back(nd0,nd1);
         if(nd0->group.test(0) && nd1->group.test(0))
             special_boundary.emplace_back(nd0,nd1);
     }
@@ -592,7 +591,6 @@ void icy::MeshFragment::GetFromGmsh()
         Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
         boundaryEdgesMap.try_emplace(Node::make_local_key(nd0,nd1),nd0,nd1);
     }
-//        boundary_edges.emplace_back(nodes[mtags.at(nodeTagsInEdges[i*2+0])],nodes[mtags.at(nodeTagsInEdges[i*2+1])]);
 
     PostMeshingEvaluations();
     if(deformable)
@@ -609,13 +607,10 @@ void icy::MeshFragment::CreateLeaves()
 {
     root_ccd.isLeaf = root_contact.isLeaf = false;
     root_contact.test_self_collision = root_ccd.test_self_collision = this->deformable;
-//    root_contact.test_self_collision = root_ccd.test_self_collision = false;
 
     BVHNLeafFactory.release(leaves_for_ccd);
     BVHNLeafFactory.release(leaves_for_contact);
 
-//    leaves_for_ccd.reserve(boundary_edges.size());
-//    leaves_for_contact.reserve(boundary_edges.size());
     leaves_for_ccd.reserve(boundaryEdgesMap.size());
     leaves_for_contact.reserve(boundaryEdgesMap.size());
 
@@ -627,8 +622,6 @@ void icy::MeshFragment::CreateLeaves()
         BVHN *leaf_contact = BVHNLeafFactory.take();
 
         leaf_contact->feature_key = leaf_ccd->feature_key = Node::make_global_key(nd1,nd2);
-
-//        leaf_contact->feature_idx = leaf_ccd->feature_idx = edge_idx++;
         leaf_contact->test_self_collision = leaf_ccd->test_self_collision = false;
         leaf_contact->isLeaf = leaf_ccd->isLeaf = true;
 

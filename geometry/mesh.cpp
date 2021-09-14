@@ -119,9 +119,9 @@ icy::Mesh::Mesh()
 
     hueLutBlackRed->SetNumberOfTableValues(2);
     hueLutBlackRed->SetTableValue(0,0,0,0,1.0);
-    hueLutBlackRed->SetTableValue(1,0.7,0,0,1.0);
-    hueLutBlackRed->SetTableRange(0,1);
-
+    hueLutBlackRed->SetTableValue(1,0.5,0,0,1.0);
+    hueLutBlackRed->SetTableValue(2,0.,0.5,0,1.0);
+    hueLutBlackRed->SetTableRange(0,2);
 
     // initialize various VTK objects
     visualized_values->SetName("visualized_values");
@@ -248,7 +248,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     {
         vtkIdType pts[2] = {kvp.second.first->globId, kvp.second.second->globId};
         cellArray_boundary_all->InsertNextCell(2, pts);
-        visualized_values_edges->SetValue(count++, kvp.second.isInserted ? 1 : 0);
+        visualized_values_edges->SetValue(count++, kvp.second.VisualizationValue());
     }
     ugrid_boundary_all->SetCells(VTK_LINE, cellArray_boundary_all);
 
@@ -550,25 +550,18 @@ void icy::Mesh::CreateLeaves()
     global_leaves_contact.clear();
     fragmentRoots_ccd.clear();
     fragmentRoots_contact.clear();
-
     globalBoundaryEdges.clear();
+
     for(MeshFragment &mf : fragments)
     {
-        for(const auto &kvp : mf.boundaryEdgesMap)
-        {
-            Node *nd0 = kvp.second.first;
-            Node *nd1 = kvp.second.second;
-            globalBoundaryEdges.try_emplace(Node::make_global_key(nd0,nd1),nd0,nd1);
-        }
+        for(const auto &kvp : mf.boundaryEdgesMap) globalBoundaryEdges.try_emplace(kvp.second.global_key(),kvp.second);
         mf.CreateLeaves();
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
         global_leaves_contact.insert(global_leaves_contact.end(),mf.leaves_for_contact.begin(), mf.leaves_for_contact.end());
         fragmentRoots_ccd.push_back(&mf.root_ccd);
         fragmentRoots_contact.push_back(&mf.root_contact);
     }
-
 }
-
 
 void icy::Mesh::UpdateTree(float distance_threshold)
 {
@@ -642,22 +635,26 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
         uint64_t edge1_key = broadlist_contact[i*2];
         uint64_t edge2_key = broadlist_contact[i*2+1];
         Node *nd1, *nd2, *nd3, *nd4;
-        std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key); // allBoundaryEdges[edge1_idx];
-        std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key); // allBoundaryEdges[edge2_idx];
 
-        AddToNarrowListIfNeeded(nd1,nd2, nd3, distance_threshold);
-        AddToNarrowListIfNeeded(nd1,nd2, nd4, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, nd1, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, nd2, distance_threshold);
+        BoundaryEdge &be1 = globalBoundaryEdges.at(edge1_key);
+        BoundaryEdge &be2 = globalBoundaryEdges.at(edge2_key);
+        std::tie(nd1,nd2) = be1;
+        std::tie(nd3,nd4) = be2;
+
+        AddToNarrowListIfNeeded(nd1,nd2, be1.isActive, nd3, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, be1.isActive, nd4, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, be2.isActive, nd1, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, be2.isActive, nd2, distance_threshold);
     }
 
     contacts_final_list.resize(contacts_narrow_set.size());
     std::copy(contacts_narrow_set.begin(),contacts_narrow_set.end(),contacts_final_list.begin());
 }
 
-void icy::Mesh::AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold)
+void icy::Mesh::AddToNarrowListIfNeeded(Node* ndA, Node* ndB, bool edgeIsActive, Node *ndP, const double distance_threshold)
 {
-    if(ndA==ndP || ndB==ndP) return;    // a node can't collide with itself
+    if(!edgeIsActive) return;
+    if(ndA==ndP || ndB==ndP) return;    // a node can't collide with its incident edge
     Eigen::Vector2d D;
     double dist = icy::Interaction::SegmentPointDistance(ndA->xt, ndB->xt, ndP->xt, D);
     if(dist < distance_threshold)
@@ -687,21 +684,23 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
         uint64_t edge1_key = broadlist_ccd[i*2];
         uint64_t edge2_key = broadlist_ccd[i*2+1];
 
+        BoundaryEdge &be1 = globalBoundaryEdges.at(edge1_key);
+        BoundaryEdge &be2 = globalBoundaryEdges.at(edge2_key);
         Node *nd1, *nd2, *nd3, *nd4;
-        std::tie(nd1,nd2) = globalBoundaryEdges.at(edge1_key);
-        std::tie(nd3,nd4) = globalBoundaryEdges.at(edge2_key);
+        std::tie(nd1,nd2) = be1;
+        std::tie(nd3,nd4) = be2;
 
-        if(EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
+        if(be1.isActive && be2.isActive && EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
 
         bool result;
         double t;
-        std::tie(result, t) = CCD(nd1, nd2, nd3);
+        std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd3);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd1, nd2, nd4);
+        std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd4);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, nd1);
+        std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd1);
         if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, nd2);
+        std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd2);
         if(result) ccd_results.push_back(t);
     }
 
@@ -723,7 +722,7 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     }
 }
 
-bool icy::Mesh::EdgeIntersection(const Node* ndA, const Node* ndB,const Node* ndC, const Node* ndD)
+bool icy::Mesh::EdgeIntersection(const Node* ndA, const Node* ndB, const Node* ndC, const Node* ndD)
 {
     // if edges are adjacent, consider them non-intersecting
     if(ndA==ndC || ndA == ndD || ndB==ndC || ndB == ndD) return false;
@@ -741,9 +740,9 @@ bool icy::Mesh::EdgeIntersection(const Node* ndA, const Node* ndB,const Node* nd
     return result;
 }
 
-std::pair<bool, double> icy::Mesh::CCD(const Node* ndA, const Node* ndB,const Node* ndP)
+std::pair<bool, double> icy::Mesh::CCD(const Node* ndA, const Node* ndB, const bool isActive, const Node* ndP)
 {
-    if(ndA == ndP || ndB == ndP) return std::make_pair(false,0);
+    if(ndA == ndP || ndB == ndP || !isActive) return std::make_pair(false,0);
 
     double t;
     double px,py,ptx,pty;
@@ -1010,8 +1009,11 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
 {
     icy::Node *nd0, *nd1;
     std::tie(nd0,nd1) = elem->CW_CCW_Node(nd);
-    auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd0, nd1));
-    if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+//    auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd0, nd1));
+//    if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+    MeshFragment *fr = nd0->fragment;
+    auto find_result = fr->boundaryEdgesMap.find(Node::make_local_key(nd0, nd1));
+    if(find_result!=fr->boundaryEdgesMap.end()) fr->boundaryEdgesMap.erase(find_result);
 
     const Eigen::Vector2d &nd_vec = nd->xn;
     const Eigen::Vector2d &nd0_vec = nd0->xn;
@@ -1060,13 +1062,17 @@ void icy::Mesh::RemoveAdjBoundaries(Node *nd)
         std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
         if(s.face->isCWBoundary(nd))
         {
-            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
-            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+//            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, cwn));
+//            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+            auto find_result = nd->fragment->boundaryEdgesMap.find(Node::make_local_key(nd, cwn));
+            if(find_result!=nd->fragment->boundaryEdgesMap.end()) nd->fragment->boundaryEdgesMap.erase(find_result);
         }
         if(s.face->isCCWBoundary(nd))
         {
-            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
-            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+//            auto find_result = globalBoundaryEdges.find(Node::make_global_key(nd, ccwn));
+//            if(find_result!=globalBoundaryEdges.end()) globalBoundaryEdges.erase(find_result);
+            auto find_result = nd->fragment->boundaryEdgesMap.find(Node::make_local_key(nd, ccwn));
+            if(find_result!=nd->fragment->boundaryEdgesMap.end()) nd->fragment->boundaryEdgesMap.erase(find_result);
         }
     }
 }
@@ -1080,11 +1086,13 @@ void icy::Mesh::InsertAdjBoundaries(Node *nd)
         std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
         if(s.face->isCWBoundary(nd))
         {
-            globalBoundaryEdges.try_emplace(Node::make_global_key(nd, cwn), nd, cwn, true);
+            //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, cwn), nd, cwn, true);
+            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, cwn), nd, cwn, true);
         }
         if(s.face->isCCWBoundary(nd))
         {
-            globalBoundaryEdges.try_emplace(Node::make_global_key(nd, ccwn), nd, ccwn, true);
+            //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, ccwn), nd, ccwn, true);
+            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, ccwn), nd, ccwn, true);
         }
     }
 }
