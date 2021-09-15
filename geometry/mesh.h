@@ -107,6 +107,7 @@ private:
     void RemoveAdjBoundaries(Node *nd);
     void InsertAdjBoundaries(Node *nd);
 public:
+    void ActivateBoundaryEdges();
 
     // VTK
 public:

@@ -26,9 +26,6 @@ bool icy::Model::Step()
 {
     if(prms.EnableCollisions)
     {
-        vtk_update_mutex.lock();
-        mesh.ActivateBoundaryEdges();
-        vtk_update_mutex.unlock();
         mesh.UpdateTree(prms.InteractionDistance);
     }
 
@@ -92,6 +89,13 @@ bool icy::Model::Step()
 
     // accept step
     bool plasticDeformation = AcceptTentativeValues(h);
+    if(prms.EnableCollisions)
+    {
+        vtk_update_mutex.lock();
+        mesh.ActivateBoundaryEdges();
+        vtk_update_mutex.unlock();
+    }
+
     if(plasticDeformation) GetNewMaterialPosition();
     Fracture(h);
     currentStep++;

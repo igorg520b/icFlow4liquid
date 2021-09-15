@@ -640,12 +640,12 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
         BoundaryEdge &be2 = globalBoundaryEdges.at(edge2_key);
         std::tie(nd1,nd2) = be1;
         std::tie(nd3,nd4) = be2;
-        bool bothInactive = be1.inactive && be2.inactive;
 
-        AddToNarrowListIfNeeded(nd1,nd2, !bothInactive, nd3, distance_threshold);
-        AddToNarrowListIfNeeded(nd1,nd2, !bothInactive, nd4, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, !bothInactive, nd1, distance_threshold);
-        AddToNarrowListIfNeeded(nd3, nd4, !bothInactive, nd2, distance_threshold);
+        bool bothActive = be1.isActive && be2.isActive;
+        AddToNarrowListIfNeeded(nd1,nd2, bothActive, nd3, distance_threshold);
+        AddToNarrowListIfNeeded(nd1,nd2, bothActive, nd4, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, bothActive, nd1, distance_threshold);
+        AddToNarrowListIfNeeded(nd3, nd4, bothActive, nd2, distance_threshold);
     }
 
     contacts_final_list.resize(contacts_narrow_set.size());
@@ -658,14 +658,12 @@ void icy::Mesh::AddToNarrowListIfNeeded(Node* ndA, Node* ndB, bool edgeIsActive,
     if(ndA==ndP || ndB==ndP) return;    // a node can't collide with its incident edge
     Eigen::Vector2d D;
     double dist = icy::Interaction::SegmentPointDistance(ndA->xt, ndB->xt, ndP->xt, D);
-    if(dist < distance_threshold)
+    if(dist < distance_threshold && dist != 0)
     {
         Interaction i(ndA, ndB, ndP, D);
         contacts_narrow_set.insert(i);
     }
 }
-
-
 
 std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
 {
@@ -691,19 +689,21 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
         std::tie(nd1,nd2) = be1;
         std::tie(nd3,nd4) = be2;
 
-        bool bothInactive = be1.inactive && be2.inactive;
-        if(!bothInactive && EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
+        if(be1.isActive && be2.isActive)
+        {
+            if(EdgeIntersection(nd1,nd2,nd3,nd4)) final_state_contains_edge_intersection = true;
 
-        bool result;
-        double t;
-        std::tie(result, t) = CCD(nd1, nd2, !bothInactive, nd3);
-        if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd1, nd2, !bothInactive, nd4);
-        if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, !bothInactive, nd1);
-        if(result) ccd_results.push_back(t);
-        std::tie(result, t) = CCD(nd3, nd4, !bothInactive, nd2);
-        if(result) ccd_results.push_back(t);
+            bool result;
+            double t;
+            std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd3);
+            if(result) ccd_results.push_back(t);
+            std::tie(result, t) = CCD(nd1, nd2, be1.isActive, nd4);
+            if(result) ccd_results.push_back(t);
+            std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd1);
+            if(result) ccd_results.push_back(t);
+            std::tie(result, t) = CCD(nd3, nd4, be2.isActive, nd2);
+            if(result) ccd_results.push_back(t);
+        }
     }
 
     if(ccd_results.size() > 0)
@@ -719,7 +719,7 @@ std::pair<bool, double> icy::Mesh::EnsureNoIntersectionViaCCD()
     }
     else
     {
-        // proceed without intersections
+        // no intersections -> proceed
         return std::make_pair(true, 0);
     }
 }
@@ -843,6 +843,37 @@ std::pair<bool, double> icy::Mesh::CCD(const Node* ndA, const Node* ndB, const b
     return std::make_pair(false,0);
 }
 
+void icy::Mesh::ActivateBoundaryEdges()
+{
+    for(auto &kvp : globalBoundaryEdges) kvp.second.isIntersecting = false;
+
+    broadlist_contact.clear();
+    mesh_root_contact.SelfCollide(broadlist_contact);
+
+    unsigned nBroadListContact = broadlist_contact.size();
+
+    // NARROW PHASE
+    contacts_narrow_set.clear();
+#pragma omp parallel for
+    for(unsigned i=0;i<nBroadListContact/2;i++)
+    {
+        uint64_t edge1_key = broadlist_contact[i*2];
+        uint64_t edge2_key = broadlist_contact[i*2+1];
+        Node *nd1, *nd2, *nd3, *nd4;
+
+        BoundaryEdge &be1 = globalBoundaryEdges.at(edge1_key);
+        BoundaryEdge &be2 = globalBoundaryEdges.at(edge2_key);
+        std::tie(nd1,nd2) = be1;
+        std::tie(nd3,nd4) = be2;
+        if(EdgeIntersection(nd1,nd2,nd3,nd4)) be1.isIntersecting = be2.isIntersecting = true;
+    }
+
+    for(auto &kvp : globalBoundaryEdges)
+    {
+        BoundaryEdge &be = kvp.second;
+        if(!be.isActive && !be.isIntersecting) be.isActive = true;
+    }
+}
 
 
 // FRACTURE MODEL
