@@ -1049,8 +1049,6 @@ void icy::Mesh::RemoveAdjBoundaries(Node *nd)
             std::pair<Node*,Node*> boundary_to_remove = nd->locId < ccwn->locId ? std::make_pair(nd,ccwn) : std::make_pair(ccwn,nd);
             auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_remove);
             if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
-//            auto find_result = nd->fragment->boundaryEdgesMap.find(Node::make_local_key(nd, ccwn));
-//            if(find_result!=nd->fragment->boundaryEdgesMap.end()) nd->fragment->boundaryEdgesMap.erase(find_result);
         }
     }
 }
@@ -1066,20 +1064,25 @@ void icy::Mesh::InsertAdjBoundaries(Node *nd)
         if(s.face->isCWBoundary(nd))
         {
             std::pair<Node*,Node*> boundary_to_insert = nd->locId < cwn->locId ? std::make_pair(nd,cwn) : std::make_pair(cwn,nd);
-            fr->boundaryEdges.push_back(boundary_to_insert);
+            auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert);
+            if(iter==fr->boundaryEdges.end())
+                fr->boundaryEdges.push_back(boundary_to_insert);
 
             //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, cwn), nd, cwn, true);
 //            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, cwn), nd, cwn, true);
         }
         if(s.face->isCCWBoundary(nd))
         {
-            std::pair<Node*,Node*> boundary_to_insert = nd->locId < ccwn->locId ? std::make_pair(nd,ccwn) : std::make_pair(ccwn,nd);
-            fr->boundaryEdges.push_back(boundary_to_insert);
+            std::pair<Node*,Node*> boundary_to_insert2 = nd->locId < ccwn->locId ? std::make_pair(nd,ccwn) : std::make_pair(ccwn,nd);
+            auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert2);
+            if(iter==fr->boundaryEdges.end())
+                fr->boundaryEdges.push_back(boundary_to_insert2);
 
             //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, ccwn), nd, ccwn, true);
 //            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, ccwn), nd, ccwn, true);
         }
     }
+
 }
 
 
