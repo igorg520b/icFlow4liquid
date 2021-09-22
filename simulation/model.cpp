@@ -31,16 +31,14 @@ bool icy::Model::Step()
 
     int attempt = 0;
     bool converges=false;
-    bool sln_res, ccd_res; // false if matrix is not PSD
+    bool sln_res, ccd_res=true; // false if matrix is not PSD
     double h;
     do
     {
         int iter = 0;
         h = prms.InitialTimeStep*timeStepFactor; // time step
         InitialGuess(h, timeStepFactor);
-        std::pair<bool, double> ccd_result(true,0.0);
-        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
-        ccd_res = ccd_result.first;
+        if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
         spdlog::info("\n┌{2:─^{1}}┬{3:─^{1}}┬{4:─^{1}}┬{5:─^{1}}┬{6:─^{1}}┐ ST {7:>}-{8:<2}"
                      ,"",colWidth, " it "," obj "," sln "," tsf "," ra ", currentStep,attempt);
 
@@ -51,8 +49,7 @@ bool icy::Model::Step()
         {
             if(abortRequested) {Aborting(); return false;}
             sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.allNodes, mesh.allElems);
-            if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
-            ccd_res = ccd_result.first;
+            if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
 
             double ratio = 0;
             if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
@@ -66,21 +63,9 @@ bool icy::Model::Step()
         }
         spdlog::info("└{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┴{0:─^{1}}┘","",colWidth);
 
-        if(!ccd_res)
+        if(!ccd_res || !sln_res || !converges)
         {
-            spdlog::info("intersection detected - discarding attempt {}",attempt);
-            attempt++;
-            timeStepFactor*=(std::max((1-ccd_result.second)*0.8,0.1));
-        }
-        else if(!sln_res)
-        {
-            spdlog::info("matrix not PSD - discarding attempt {}",attempt);
-            attempt++;
-            timeStepFactor*=0.5;
-        }
-        else if(!converges)
-        {
-            spdlog::info("did not converge - discarding attempt {}",attempt);
+            spdlog::info("discarding attempt {}; intersection {}; PSD {}; converges {}",attempt, ccd_res,sln_res,converges);
             attempt++;
             timeStepFactor*=0.5;
         }
@@ -89,12 +74,6 @@ bool icy::Model::Step()
 
     // accept step
     bool plasticDeformation = AcceptTentativeValues(h);
-    if(prms.EnableCollisions)
-    {
-        vtk_update_mutex.lock();
-        mesh.ActivateBoundaryEdges();
-        vtk_update_mutex.unlock();
-    }
 
     if(plasticDeformation) GetNewMaterialPosition();
     Fracture(h);
@@ -339,7 +318,7 @@ void icy::Model::GetNewMaterialPosition()
     // relax each mesh fragment separately
     for(MeshFragment &mf : mesh.fragments)
     {
-        if(!mf.deformable) continue;
+        if(!mf.isDeformable) continue;
 
         unsigned freeNodes = 0;
         for(Node *nd : mf.nodes)
@@ -459,6 +438,7 @@ void icy::Model::Fracture(double timeStep)
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
         vtk_update_mutex.lock();
         mesh.SplitNode(prms);
+        mesh.CreateLeaves();
         topologyInvalid = true;
         vtk_update_mutex.unlock();
 
@@ -471,10 +451,9 @@ void icy::Model::Fracture(double timeStep)
 
         fracture_step_count++;
 
-        vtk_update_mutex.lock();
-        mesh.CreateLeaves();
-        mesh.RegenerateVisualizedGeometry();
-        vtk_update_mutex.unlock();
+//        vtk_update_mutex.lock();
+        //mesh.RegenerateVisualizedGeometry();
+//        vtk_update_mutex.unlock();
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }
     mesh.updateMinMax = true;
@@ -492,10 +471,10 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
 {
     if(mesh.local_support.size() == 0) throw std::runtime_error("Fracture_LocalSubstep: local node range is zero");
 
-    double substepping_timestep_factor = 0.001;
+    double substepping_timestep_factor = 0.5;//0.001;
     int attempt = 0;
     bool converges=false;
-    bool sln_res, ccd_res; // false if matrix is not PSD
+    bool sln_res, ccd_res=true; // false if matrix is not PSD
     double h;
     if(prms.EnableCollisions) mesh.UpdateTree(prms.InteractionDistance);
 
@@ -504,9 +483,7 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         int iter = 0;
         h = prms.InitialTimeStep*timeStepFactor*substepping_timestep_factor; // time step
         InitialGuess(h, timeStepFactor*substepping_timestep_factor);
-        std::pair<bool, double> ccd_result(true,0.0);
-        if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
-        ccd_res = ccd_result.first;
+        if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
         spdlog::info("\n┏{2:━^{1}}┬{3:━^{1}}┬{4:━^{1}}┬{5:━^{1}}┬{6:━^{1}}┐ FR-ST {7:>}-{8:<2}"
                      ,"",colWidth, " it "," obj "," sln "," tsf "," ra ", currentStep,attempt);
 
@@ -517,8 +494,7 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         {
             if(abortRequested) {Aborting(); return;}
             sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.local_support, mesh.local_elems);
-            if(prms.EnableCollisions) ccd_result = mesh.EnsureNoIntersectionViaCCD();
-            ccd_res = ccd_result.first;
+            if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
 
             double ratio = 0;
             if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
@@ -535,12 +511,26 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         if(!ccd_res || !sln_res || !converges)
         {
             substepping_timestep_factor*=0.2;
-            spdlog::info("discarding attempt {}; ccd_res {}; sln_res {}; converges {}; stf {.3e}",
+            spdlog::info("discarding attempt {}; ccd_res {}; sln_res {}; converges {}; stf {:.3e}",
                          attempt, ccd_res, sln_res, converges, substepping_timestep_factor);
             attempt++;
         }
         if(attempt > 20) throw std::runtime_error("Fracture_LocalSubstep: could not solve");
     } while (!ccd_res || !sln_res || !converges);
+/*
+    vtk_update_mutex.lock();
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh.local_support.size();i++)
+    {
+        icy::Node *nd = mesh.local_support[i];
+        //Eigen::Vector2d dx = nd->xt-nd->xn;
+        //nd->vn = dx/h;
+        nd->xn = nd->xt;
+    }
+    vtk_update_mutex.unlock();
+
+//    mesh.ActivateBoundaryEdges();
+*/
 
 #pragma omp parallel for
         for(unsigned i=0;i<mesh.local_elems.size();i++) mesh.local_elems[i]->ComputeVisualizedVariables();

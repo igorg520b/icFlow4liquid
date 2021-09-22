@@ -4,9 +4,9 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include "element.h"
-#include "boundaryedge.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
 #include "spdlog/spdlog.h"
@@ -18,41 +18,27 @@ class icy::MeshFragment
 public:
     ~MeshFragment();
 
-    bool deformable;
+    bool isDeformable;
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
-
-    std::unordered_map<uint64_t,BoundaryEdge> boundaryEdgesMap;
-    std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary, fixed_boundary; // these are used when some nodes are pinned
-    std::vector<std::pair<unsigned,unsigned>> inner_boundary_edges; // for the experiments with fluid material
+    std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary; // used when some nodes are pinned (movable via GUI)
 
     void SaveFragment(std::string fileName);
 
     void GenerateBrick(double ElementSize, double width, double height);
-    void GenerateBrick_Simple(double ElementSize, double width, double height);
     void GenerateSelfCollisionBrick(double ElementSize, double width, double height);
-    void GenerateSpecialBrick(double ElementSize);
     void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);
-    void GenerateBall(double x, double y, double r1, double r2, double ElementSize);
     void GenerateContainer(double ElementSize, double offset);
-
-    void RemeshSpecialBrick(double ElementSize);
-    void RemeshWithBackgroundMesh(double ElementSize);
     void PostMeshingEvaluations();  // element/node area and connectivity information
-    void Swap();
 
 private:
     unsigned nFirstGroupElems, nFirstGroupNodes, nInnerBoundaryNodes;
-    std::vector<icy::Node*> nodes_tmp;  // for remeshing
-    std::vector<icy::Element*> elems_tmp;// for remeshing
-    std::vector<std::pair<icy::Node*,icy::Node*>> boundary_edges_tmp;
     void GetFromGmsh();     // populate "nodes" and "elems"
-    void KeepGmshResult();  // save gmsh representation into gmshResult
 
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
-    icy::Node* AddNode();   // automatically assign locId and fragment, then add to nodes vector; also used by Mesh class
-    icy::Element* AddElement();
+    icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
+    icy::Element* AddElement(); // add to elems vector from ElementFactory
 
     struct GmshEntity
     {
@@ -69,13 +55,19 @@ private:
     std::vector<GmshEntity> gmshResult; // store the result returned by the gmsh, to reuse later as a background mesh
     std::unordered_map<std::size_t, std::size_t> mtags; // gmsh nodeTag -> sequential position in nodes[]
 
-// BROAD PHASE
+
+// COLLISION DETECTION AND CONTACT MODEL
 public:
-    BVHN root_ccd, root_contact;
-    std::vector<BVHN*> leaves_for_ccd, leaves_for_contact;
+    BVHN root_ccd;
+    std::vector<BVHN*> leaves_for_ccd;
     void CreateLeaves();
+
+    std::unordered_set<icy::Element*> boundaryElems;    // subset of elems that expose a boundary
+    std::vector<std::pair<Node*, Node*>> boundaryEdges; // for collision with rigid shapes
+
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
+
 
 // FRACTURE MODEL
 private:

@@ -14,9 +14,10 @@ class icy::Interaction
 public:
     Node *ndA, *ndB, *ndP;
     Eigen::Vector2d D;
+    bool pushing; // otherwise the interaction is "pulling" on the edge
 
-    Interaction() {};
-    Interaction(Node* A, Node* B, Node* P, Eigen::Vector2d D_) : ndA(A), ndB(B), ndP(P), D(D_) {};
+    Interaction() = default;
+    Interaction(Node* A, Node* B, Node* P, Eigen::Vector2d D_, bool pushing_=true) : ndA(A), ndB(B), ndP(P), D(D_), pushing(pushing_) {};
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
     void Evaluate(EquationOfMotionSolver &eq, SimParams &prms, double h);
     double static SegmentPointDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d P, Eigen::Vector2d &D);

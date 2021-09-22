@@ -46,14 +46,13 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
-    std::unordered_map<uint64_t,BoundaryEdge> globalBoundaryEdges;
+    std::vector<std::pair<Node*,Node*>> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;
 
     Mesh();
     void Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_);
-    void RegenerateVisualizedGeometry();    // from the collection of individual meshes, build allNodes, allElems, etc.
     void SetIndenterPosition(double position);
     double area_initial, area_current;
 
@@ -63,25 +62,24 @@ public:
     tbb::concurrent_unordered_set<Interaction,Interaction::MyHash> contacts_narrow_set;
     std::vector<Interaction> contacts_final_list;
     void DetectContactPairs(const double distance_threshold);
-    std::pair<bool, double> EnsureNoIntersectionViaCCD();
+    bool EnsureNoIntersectionViaCCD();
 
 private:
-    BVHN mesh_root_ccd, mesh_root_contact;  // only used when the mesh contains more than one fragment
+    BVHN mesh_root_ccd;  // only used when the mesh contains more than one fragment
+    std::vector<BVHN*> global_leaves_ccd, fragmentRoots_ccd;
+    std::vector<std::pair<BVHN*,BVHN*>> broadlist_ccd; // pairs of intersecting bounding volumes
 
-    std::vector<BVHN*> global_leaves_ccd, global_leaves_contact, fragmentRoots_ccd, fragmentRoots_contact;
-    std::vector<uint64_t> broadlist_ccd, broadlist_contact; // keys of potentially colliding edges
-    tbb::concurrent_vector<double> ccd_results; // if not empty, time step is multiplied by the minimal value on the list
-
-    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, bool edgeIsActive, Node *ndP, const double distance_threshold);
-    static std::pair<bool, double> CCD(const Node* ndA, const Node* ndB, const bool isActive, const Node* ndP);  // if intersects, return [true, time]
+    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
+    static bool CCD(const Node* ndA, const Node* ndB, const Node* ndP);  // if intersects, return true
     static bool EdgeIntersection(const Node* e1n1, const Node* e1n2,const Node* e2n1, const Node* e2n2); // true if edges intersect
     void CreateLeaves();
     void UpdateTree(float distance_threshold);
     unsigned tree_update_counter = 0;
 
 
-
     // FRACTURE
+public:
+
 private:
     std::vector<Node*> breakable_range;     // populated in ComputeFractureDirections() when startingFracture==true
     std::vector<Node*> new_crack_tips;      // populated in SplitNode(), then used when startingFracture==false
@@ -103,14 +101,13 @@ private:
 
     std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
     std::vector<Node*> local_support;
-    std::vector<BoundaryEdge> boundaries_created;
     void RemoveAdjBoundaries(Node *nd);
     void InsertAdjBoundaries(Node *nd);
-public:
-    void ActivateBoundaryEdges();
+
 
     // VTK
 public:
+    void RegenerateVisualizedGeometry();    // vtk representation
     void ChangeVisualizationOption(int option);  // called from the main thread
     vtkNew<vtkLookupTable> hueLut;
     vtkNew<vtkActor> actor_collisions;

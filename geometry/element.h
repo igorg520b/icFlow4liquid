@@ -14,8 +14,6 @@ namespace icy { struct Element; struct Node; }
 struct icy::Element
 {
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
-    int group;
-    std::size_t gmshTag;        // tag of the element in the original gmsh representation
 
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 
@@ -49,9 +47,11 @@ private:
 
 // FRACTURE ALGORITHM
 public:
+    bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
+
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
     unsigned traversal;     // used for identifying disjoint regions and n-regions around crack tips
-    bool isBoundary(const short idx) const {return incident_elems[idx]==nullptr;}
+    bool isBoundaryEdge(const short idx) const {return incident_elems[idx]==nullptr;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;

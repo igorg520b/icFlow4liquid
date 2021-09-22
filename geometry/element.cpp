@@ -38,9 +38,7 @@ void icy::Element::Reset(void)
     nds[0] = nds[1] = nds[2] = nullptr;
     incident_elems[0] = incident_elems[1] = incident_elems[2] = nullptr;
     area_initial = area_current = 0;
-    group = -1;
     PiMultiplier = Eigen::Matrix2d::Identity();
-    gmshTag = 0; // cannot stay zero
     quality_measure_Wicke = 1;
     leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
 }
@@ -268,21 +266,21 @@ bool icy::Element::isOnBoundary(const Node* nd) const
     short idx = getNodeIdx(nd);
     short cw_idx = (idx+1)%3;
     short ccw_idx = (idx+2)%3;
-    return isBoundary(cw_idx) || isBoundary(ccw_idx);
+    return isBoundaryEdge(cw_idx) || isBoundaryEdge(ccw_idx);
 }
 
 bool icy::Element::isCWBoundary(const Node* nd) const
 {
     short idx = getNodeIdx(nd);
     short cw_idx = (idx+2)%3;
-    return isBoundary(cw_idx);
+    return isBoundaryEdge(cw_idx);
 }
 
 bool icy::Element::isCCWBoundary(const Node* nd) const
 {
     short idx = getNodeIdx(nd);
     short ccw_idx = (idx+1)%3;
-    return isBoundary(ccw_idx);
+    return isBoundaryEdge(ccw_idx);
 }
 
 

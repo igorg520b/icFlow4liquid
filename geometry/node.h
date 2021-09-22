@@ -21,10 +21,10 @@ struct icy::Node
 
 
     int locId, globId, eqId, indId;    // id in fragment; id in mesh; id in freenode list; id in movable boundary
-    std::size_t gmshTag;
     bool pinned;                // the position of the node is set externally
     double area;                // area that the node represents, for applying body forces
     std::bitset<8> group;       // for meshing/initialization
+    bool isBoundary;
 
     Eigen::Vector2d x_initial;  // initial configuration
     Eigen::Vector2d xn, vn;     // position and velocity at step n
@@ -71,7 +71,6 @@ struct icy::Node
     boost::container::small_vector<icy::Node::Sector,8> fan;
     double fan_angle_span;  // assigned in UpdateFan();
     bool isCrackTip;
-    bool isBoundary;
     bool isSupportNode, reset_timing;
     SepStressResult result_with_max_traction;
     Eigen::Vector2d dir;

@@ -64,11 +64,12 @@ private:
 
     // VTK visualization
 public:
-    enum VisOpt { none, plasticity_norm, plasticity_gamma, plasticity_tau_ratio, nd_max_normal_traction, nd_isBoundary,
+    enum VisOpt { none, plasticity_norm, plasticity_gamma, plasticity_tau_ratio, nd_max_normal_traction,
+                  nd_isBoundary, elem_isBoundary,
                   stress_xx, stress_yy, stress_hydrostatic, ps1, ps2, shear_stress,
                   Green_strain_xx, Green_strain_yy, Green_strain_xy,
                   QM1, avg_edge_len,
-                  elem_area, energy_density, volume_change, velocity_div, elem_group, node_group,
+                  elem_area, energy_density, volume_change, velocity_div, node_group,
                   vel_mag, adj_elems_count_nd};
     Q_ENUM(VisOpt)
 
