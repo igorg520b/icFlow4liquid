@@ -70,21 +70,17 @@ void icy::Interaction::potential_pushing(double dHat, double d, Eigen::Matrix<do
     }
 }
 
-void icy::Interaction::potential_pulling(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,
+void icy::Interaction::potential_pulling(double dHat, double s, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,
                       double &p, Eigen::Matrix<double,6,1> &Dp, Eigen::Matrix<double,6,6> &DDp)
 {
-    p=0;
-    Dp=Eigen::Matrix<double,6,1>::Zero();
-    DDp=Eigen::Matrix<double,6,6>::Zero();
-    /*
-    if(d<dHat)
+    if(s<dHat)
     {
-        double d_dHat = d-dHat;
-        double d_dHat_sq = d_dHat*d_dHat;
-        double dLog = std::log(d/dHat);
-        p = -d_dHat_sq*dLog;
-        double p_prime = -d_dHat_sq/d - 2*d_dHat*dLog;
-        double p_double_prime = -4*d_dHat/d + d_dHat_sq/(d*d) - 2*dLog;
+
+        double dLog = std::log((dHat-s)/dHat);
+        double s_sq = s*s;
+        p = -s_sq*dLog;
+        double p_prime = s_sq/(dHat-s) -2*s*dLog;
+        double p_double_prime = s_sq/((dHat-s)*(dHat-s)) +4*s/(dHat-s) - 2*dLog;
         Dp = p_prime*Dd;
         DDp = p_double_prime*Dd*Dd.transpose() + p_prime*DDd;
     }
@@ -94,7 +90,6 @@ void icy::Interaction::potential_pulling(double dHat, double d, Eigen::Matrix<do
         Dp=Eigen::Matrix<double,6,1>::Zero();
         DDp=Eigen::Matrix<double,6,6>::Zero();
     }
-    */
 }
 
 
