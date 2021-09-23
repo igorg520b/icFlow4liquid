@@ -6,6 +6,9 @@
 #include <unordered_set>
 #include <queue>
 #include "spdlog/spdlog.h"
+#include <boost/container/flat_set.hpp>
+#include <array>
+#include <set>
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
@@ -613,6 +616,7 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
 
         if(bvhn1->isEdge() && bvhn2->isElem())
         {
+            // possible collision between the indenter and the deformable
             Node *nd3, *nd4;
             std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
             const Element *elem = bvhn2->elem;
@@ -622,10 +626,22 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
                 Node *nd1 = elem->nds[(i+1)%3];
                 Node *nd2 = elem->nds[(i+2)%3];
 
-                AddToNarrowListIfNeeded(nd1,nd2, nd3, distance_threshold);
-                AddToNarrowListIfNeeded(nd1,nd2, nd4, distance_threshold);
-                AddToNarrowListIfNeeded(nd3, nd4, nd1, distance_threshold);
-                AddToNarrowListIfNeeded(nd3, nd4, nd2, distance_threshold);
+                AddToNarrowSet_NodeVsEdge(nd1,nd2, nd3, distance_threshold);
+                AddToNarrowSet_NodeVsEdge(nd1,nd2, nd4, distance_threshold);
+                AddToNarrowSet_NodeVsEdge(nd3, nd4, nd1, distance_threshold);
+                AddToNarrowSet_NodeVsEdge(nd3, nd4, nd2, distance_threshold);
+            }
+        }
+        else if(bvhn1->isElem() && bvhn2->isElem())
+        {
+            // possible collision between deformable fragments
+            const Element *elem1 = bvhn1->elem;
+            const Element *elem2 = bvhn2->elem;
+
+            for(short i=0;i<3;i++)
+            {
+                AddToNarrowSet_NodeVsElement(elem1->nds[i],elem2, distance_threshold);
+                AddToNarrowSet_NodeVsElement(elem2->nds[i],elem1, distance_threshold);
             }
         }
     }
@@ -634,7 +650,69 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
     std::copy(contacts_narrow_set.begin(),contacts_narrow_set.end(),contacts_final_list.begin());
 }
 
-void icy::Mesh::AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold)
+void icy::Mesh::AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, const double distance_threshold)
+{
+    if(!nd->isBoundary) return;
+    Node *nd0 = elem->nds[0];
+    Node *nd1 = elem->nds[1];
+    Node *nd2 = elem->nds[2];
+    if(!PointInTriangle(nd->xt,nd0->xt,nd1->xt,nd2->xt)) return;
+    std::set<std::pair<Node*,Node*>> edges; // TODO: replace with flat_set
+
+    for(Node *en : elem->nds)
+    {
+        if(en->isBoundary)
+        {
+            if(en->globId < en->CCWBoundaryNode->globId)
+                edges.emplace(en,en->CCWBoundaryNode);
+            else
+                edges.emplace(en->CCWBoundaryNode,en);
+
+            if(en->globId < en->CWBoundaryNode->globId)
+                edges.emplace(en,en->CWBoundaryNode);
+            else
+                edges.emplace(en->CWBoundaryNode,en);
+        }
+    }
+    if(edges.size()==0) return;
+    boost::container::small_vector<std::tuple<Node*,Node*,double, Eigen::Vector2d>,6> edges_vec;
+
+    for(auto p : edges)
+    {
+        Eigen::Vector2d D;
+        double dist = icy::Interaction::SegmentPointDistance(p.first->xt, p.second->xt, nd->xt, D);
+        edges_vec.emplace_back(p.first,p.second,dist,D);
+    }
+
+    auto min_dist = std::min_element(edges_vec.begin(),edges_vec.end(),
+                                     [](std::tuple<Node*,Node*,double, Eigen::Vector2d> entry1,
+                                     std::tuple<Node*,Node*,double, Eigen::Vector2d> entry2)
+                                    {return (std::get<2>(entry1))<(std::get<2>(entry2));});
+
+    std::tuple<Node*,Node*,double, Eigen::Vector2d> res = *min_dist;
+    double dist = std::get<2>(res);
+    if(dist != 0 && dist < distance_threshold)
+    {
+        Interaction i(std::get<0>(res),std::get<1>(res),nd,std::get<3>(res),false);
+        contacts_narrow_set.insert(i);
+    }
+}
+
+
+bool icy::Mesh::PointInTriangle(Eigen::Vector2d pt, Eigen::Vector2d v1, Eigen::Vector2d v2, Eigen::Vector2d v3)
+{
+    auto sign = [](Eigen::Vector2d p1, Eigen::Vector2d p2, Eigen::Vector2d p3)
+    {return (p1[0] - p3[0]) * (p2[1] - p3[1]) - (p2[0] - p3[0]) * (p1[1] - p3[1]);};
+
+    double d1 = sign(pt, v1, v2);
+    double d2 = sign(pt, v2, v3);
+    double d3 = sign(pt, v3, v1);
+    bool has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+    bool has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+    return !(has_neg && has_pos);
+}
+
+void icy::Mesh::AddToNarrowSet_NodeVsEdge(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold)
 {
     if(ndA==ndP || ndB==ndP) return;    // a node can't collide with its incident edge
     Eigen::Vector2d D;

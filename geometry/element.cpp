@@ -261,6 +261,19 @@ std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
     return {nds[(idx+1)%3],nds[(idx+2)%3]};
 }
 
+icy::Node* icy::Element::CW_Node(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    return nds[(idx+1)%3];
+}
+
+icy::Node* icy::Element::CCW_Node(const Node* nd) const
+{
+    short idx = getNodeIdx(nd);
+    return nds[(idx+2)%3];
+}
+
+
 bool icy::Element::isOnBoundary(const Node* nd) const
 {
     short idx = getNodeIdx(nd);

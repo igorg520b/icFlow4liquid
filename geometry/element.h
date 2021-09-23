@@ -56,6 +56,8 @@ public:
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;
     std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
+    Node* CW_Node(const Node* nd) const;
+    Node* CCW_Node(const Node* nd) const;
 
     bool containsNode(const Node* nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};

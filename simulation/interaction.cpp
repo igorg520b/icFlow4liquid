@@ -36,7 +36,8 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     double p;
     Eigen::Matrix<double,6,1> Dp;
     Eigen::Matrix<double,6,6> DDp;
-    potential(dHat, dist, Dd, DDd, p, Dp, DDp);
+    if(pushing) potential_pushing(dHat, dist, Dd, DDd, p, Dp, DDp);
+    else potential_pulling(dHat, dist, Dd, DDd, p, Dp, DDp);
 
     p*=k;
     Dp*=k;
@@ -47,7 +48,7 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     eq.AddToEquation(p, Dp, DDp, ids);
 }
 
-void icy::Interaction::potential(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,
+void icy::Interaction::potential_pushing(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,
                       double &p, Eigen::Matrix<double,6,1> &Dp, Eigen::Matrix<double,6,6> &DDp)
 {
     if(d<dHat)
@@ -67,6 +68,33 @@ void icy::Interaction::potential(double dHat, double d, Eigen::Matrix<double,6,1
         Dp=Eigen::Matrix<double,6,1>::Zero();
         DDp=Eigen::Matrix<double,6,6>::Zero();
     }
+}
+
+void icy::Interaction::potential_pulling(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,
+                      double &p, Eigen::Matrix<double,6,1> &Dp, Eigen::Matrix<double,6,6> &DDp)
+{
+    p=0;
+    Dp=Eigen::Matrix<double,6,1>::Zero();
+    DDp=Eigen::Matrix<double,6,6>::Zero();
+    /*
+    if(d<dHat)
+    {
+        double d_dHat = d-dHat;
+        double d_dHat_sq = d_dHat*d_dHat;
+        double dLog = std::log(d/dHat);
+        p = -d_dHat_sq*dLog;
+        double p_prime = -d_dHat_sq/d - 2*d_dHat*dLog;
+        double p_double_prime = -4*d_dHat/d + d_dHat_sq/(d*d) - 2*dLog;
+        Dp = p_prime*Dd;
+        DDp = p_double_prime*Dd*Dd.transpose() + p_prime*DDd;
+    }
+    else
+    {
+        p=0;
+        Dp=Eigen::Matrix<double,6,1>::Zero();
+        DDp=Eigen::Matrix<double,6,6>::Zero();
+    }
+    */
 }
 
 

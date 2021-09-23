@@ -57,7 +57,7 @@ public:
     double area_initial, area_current;
 
 
-    // COLLISION DETECTION
+// COLLISION DETECTION
 public:
     tbb::concurrent_unordered_set<Interaction,Interaction::MyHash> contacts_narrow_set;
     std::vector<Interaction> contacts_final_list;
@@ -69,15 +69,18 @@ private:
     std::vector<BVHN*> global_leaves_ccd, fragmentRoots_ccd;
     std::vector<std::pair<BVHN*,BVHN*>> broadlist_ccd; // pairs of intersecting bounding volumes
 
-    void AddToNarrowListIfNeeded(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
+    void AddToNarrowSet_NodeVsEdge(Node* ndA, Node* ndB, Node *ndP, const double distance_threshold);
     static bool CCD(const Node* ndA, const Node* ndB, const Node* ndP);  // if intersects, return true
     static bool EdgeIntersection(const Node* e1n1, const Node* e1n2,const Node* e2n1, const Node* e2n2); // true if edges intersect
     void CreateLeaves();
     void UpdateTree(float distance_threshold);
     unsigned tree_update_counter = 0;
 
+    static bool PointInTriangle(Eigen::Vector2d pt, Eigen::Vector2d v1, Eigen::Vector2d v2, Eigen::Vector2d v3);
+    void AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, const double distance_threshold);
 
-    // FRACTURE
+
+// FRACTURE
 public:
 
 private:
