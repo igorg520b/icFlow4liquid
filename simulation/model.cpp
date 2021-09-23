@@ -450,10 +450,6 @@ void icy::Model::Fracture(double timeStep)
         vtk_update_mutex.unlock();
 
         fracture_step_count++;
-
-//        vtk_update_mutex.lock();
-        //mesh.RegenerateVisualizedGeometry();
-//        vtk_update_mutex.unlock();
         emit fractureProgress();    // if needed, update the VTK representation and render from the main thread
     }
     mesh.updateMinMax = true;
@@ -517,20 +513,6 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         }
         if(attempt > 20) throw std::runtime_error("Fracture_LocalSubstep: could not solve");
     } while (!ccd_res || !sln_res || !converges);
-/*
-    vtk_update_mutex.lock();
-#pragma omp parallel for
-    for(unsigned i=0;i<mesh.local_support.size();i++)
-    {
-        icy::Node *nd = mesh.local_support[i];
-        //Eigen::Vector2d dx = nd->xt-nd->xn;
-        //nd->vn = dx/h;
-        nd->xn = nd->xt;
-    }
-    vtk_update_mutex.unlock();
-
-//    mesh.ActivateBoundaryEdges();
-*/
 
 #pragma omp parallel for
         for(unsigned i=0;i<mesh.local_elems.size();i++) mesh.local_elems[i]->ComputeVisualizedVariables();

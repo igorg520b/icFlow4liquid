@@ -555,12 +555,7 @@ void icy::Mesh::CreateLeaves()
         globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf.boundaryEdges.begin(),mf.boundaryEdges.end());
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
         fragmentRoots_ccd.push_back(&mf.root_ccd);
-        spdlog::info("icy::Mesh::CreateLeaves() : mf.boundaryEdges.size() {}",mf.boundaryEdges.size());
-        spdlog::info("icy::Mesh::CreateLeaves() : mf.leaves_for_ccd.size() {}",mf.leaves_for_ccd.size());
-
     }
-    spdlog::info("icy::Mesh::CreateLeaves() : globalBoundaryEdges.size() {}",globalBoundaryEdges.size());
-    spdlog::info("icy::Mesh::CreateLeaves() : global_leaves_ccd {}",global_leaves_ccd.size());
 }
 
 void icy::Mesh::UpdateTree(float distance_threshold)
@@ -658,12 +653,12 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
 
     unsigned nBroadList = broadlist_ccd.size();
 
-    bool final_state_contains_edge_intersection = false;
-    bool ccd_intersection_detected = false;
+    volatile bool intersection_detected = false;
 
-#pragma omp parallel for
+#pragma omp parallel for shared(intersection_detected)
     for(unsigned i=0;i<nBroadList;i++)
     {
+        if(intersection_detected) continue;
         BVHN *bvhn1, *bvhn2;
         std::tie(bvhn1,bvhn2) = broadlist_ccd[i];
 
@@ -680,23 +675,16 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
                 Node *nd1 = elem->nds[(i+1)%3];
                 Node *nd2 = elem->nds[(i+2)%3];
 
-                if(CCD(nd1, nd2, nd3)) ccd_intersection_detected = true;
-                if(CCD(nd1, nd2, nd4)) ccd_intersection_detected = true;
-                if(CCD(nd3, nd4, nd1)) ccd_intersection_detected = true;
-                if(CCD(nd3, nd4, nd2)) ccd_intersection_detected = true;
+                if(EdgeIntersection(nd1,nd2,nd3,nd4)) intersection_detected = true;
+                if(CCD(nd1, nd2, nd3)) intersection_detected = true;
+                if(CCD(nd1, nd2, nd4)) intersection_detected = true;
+                if(CCD(nd3, nd4, nd1)) intersection_detected = true;
+                if(CCD(nd3, nd4, nd2)) intersection_detected = true;
             }
         }
     }
 
-    if(final_state_contains_edge_intersection || ccd_intersection_detected)
-    {
-        return false;
-    }
-    else
-    {
-        // no intersections, proceed
-        return true;
-    }
+    return !intersection_detected;
 }
 
 bool icy::Mesh::EdgeIntersection(const Node* ndA, const Node* ndB, const Node* ndC, const Node* ndD)

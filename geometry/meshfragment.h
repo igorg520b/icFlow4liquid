@@ -62,7 +62,6 @@ public:
     std::vector<BVHN*> leaves_for_ccd;
     void CreateLeaves();
 
-    std::unordered_set<icy::Element*> boundaryElems;    // subset of elems that expose a boundary
     std::vector<std::pair<Node*, Node*>> boundaryEdges; // for collision with rigid shapes
 
 private:

@@ -392,12 +392,10 @@ void icy::MeshFragment::CreateLeaves()
 
     if(isDeformable)
     {
-        spdlog::info("icy::MeshFragment::CreateLeaves(), boundaryElems.size() {}",boundaryElems.size());
         // create BVHN leaves from elements
-        leaves_for_ccd.reserve(boundaryElems.size());
-
-        for(const auto &elem : boundaryElems)
+        for(const auto &elem : elems)
         {
+            if(!elem->isBoundary()) continue;
             BVHN *leaf_ccd = BVHNLeafFactory.take();
             leaves_for_ccd.push_back(leaf_ccd);
 
@@ -605,10 +603,5 @@ void icy::MeshFragment::ConnectIncidentElements()
 
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
-
-    boundaryElems.clear();
-    for(Element *e : elems) if(e->isBoundary()) boundaryElems.insert(e);
-    spdlog::info("icy::MeshFragment::ConnectIncidentElements(), boundaryElems {}",boundaryElems.size());
-    spdlog::info("icy::MeshFragment::ConnectIncidentElements(), elems {}",elems.size());
 }
 
