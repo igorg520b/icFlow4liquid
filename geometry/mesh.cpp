@@ -657,7 +657,7 @@ void icy::Mesh::AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, cons
     Node *nd1 = elem->nds[1];
     Node *nd2 = elem->nds[2];
     if(!PointInTriangle(nd->xt,nd0->xt,nd1->xt,nd2->xt)) return;
-    std::set<std::pair<Node*,Node*>> edges; // TODO: replace with flat_set
+    std::set<std::pair<Node*,Node*>> edges;
 
     for(Node *en : elem->nds)
     {
@@ -758,6 +758,15 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
                 if(CCD(nd1, nd2, nd4)) intersection_detected = true;
                 if(CCD(nd3, nd4, nd1)) intersection_detected = true;
                 if(CCD(nd3, nd4, nd2)) intersection_detected = true;
+            }
+        }
+        else if(bvhn1->isElem() && bvhn2->isElem())
+        {
+            const Element *elem1 = bvhn1->elem;
+            const Element *elem2 = bvhn2->elem;
+            for(short i=0;i<3;i++)
+            {
+
             }
         }
     }
