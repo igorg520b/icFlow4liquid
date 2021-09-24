@@ -740,9 +740,9 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
         BVHN *bvhn1, *bvhn2;
         std::tie(bvhn1,bvhn2) = broadlist_ccd[i];
 
-        if(bvhn1->isElem() && bvhn2->isEdge()) std::swap(bvhn1,bvhn2);
+        if(bvhn1->elem!=nullptr && bvhn2->elem==nullptr) std::swap(bvhn1,bvhn2);
 
-        if(bvhn1->isEdge() && bvhn2->isElem())
+        if(bvhn1->elem==nullptr && bvhn2->elem!=nullptr)
         {
             Node *nd3, *nd4;
             std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
@@ -760,7 +760,7 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
                 if(CCD(nd3, nd4, nd2)) intersection_detected = true;
             }
         }
-        else if(bvhn1->isElem() && bvhn2->isElem())
+        else if(bvhn1->elem!=nullptr && bvhn2->elem!=nullptr)
         {
             const Element *elem1 = bvhn1->elem;
             const Element *elem2 = bvhn2->elem;

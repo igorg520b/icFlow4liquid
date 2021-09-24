@@ -7,6 +7,7 @@
 #include "ConcurrentPool.h"
 
 #include "element.h"
+#include "boundaryedge.h"
 
 namespace icy { class BVHN; }
 
@@ -17,16 +18,12 @@ public:
     static ConcurrentPool<BVHN> BVHNFactory;
 
     kDOP8 box;
-    bool isLeaf;
+    bool isLeaf() {return boundaryEdge!=nullptr;};
     bool test_self_collision;   // can disable self-collision tests on fragments
     int level;
 
     // reference to the geometrical feature (edge) that this BVHN envelopes (if leaf)
-    // only one of these pointers will be active
-    const std::pair<Node*, Node*> *boundaryEdge;
-    const Element *elem;
-    bool isEdge() const {return boundaryEdge!=nullptr;}
-    bool isElem() const {return elem!=nullptr;}
+    const BoundaryEdge *boundaryEdge;
 
     BVHN();
     void Build(std::vector<BVHN*> *bvs, int level_);

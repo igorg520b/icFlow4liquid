@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <string>
 #include "element.h"
+#include "boundaryedge.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
 #include "spdlog/spdlog.h"
@@ -62,7 +63,7 @@ public:
     std::vector<BVHN*> leaves_for_ccd;
     void CreateLeaves();
 
-    std::vector<std::pair<Node*, Node*>> boundaryEdges; // for collision with rigid shapes
+    std::vector<BoundaryEdge> boundaryEdges; // for collision with rigid shapes
 
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
