@@ -19,6 +19,7 @@ void icy::BVHN::Build(std::vector<BVHN*> *bvs, int level_)
     if(count == 0) throw std::runtime_error("bvs->size==0 in icy::BVHN::Build");
     else if(count == 1) throw std::runtime_error("bvs->size==1 in icy::BVHN::Build");
 
+    this->boundaryEdge = nullptr;
     isLeaf = false;
 
     box.Reset();
@@ -126,15 +127,6 @@ void icy::BVHN::Expand_CCD(float distance_threshold)
         box.Expand(nd2->xt[0], nd2->xt[1]);
         box.Expand(nd1->xn[0], nd1->xn[1]);
         box.Expand(nd2->xn[0], nd2->xn[1]);
-    }
-    else if(elem != nullptr)
-    {
-        for(int i=0;i<3;i++)
-        {
-            Node *nd = elem->nds[i];
-            box.Expand(nd->xt[0], nd->xt[1]);
-            box.Expand(nd->xn[0], nd->xn[1]);
-        }
     }
     else throw std::runtime_error("Expand_CCD: feature not set");
     box.ExpandBy(distance_threshold);

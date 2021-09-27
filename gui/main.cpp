@@ -4,15 +4,15 @@
 #include <QCommandLineParser>
 #include <gmsh.h>
 #include "spdlog/spdlog.h"
-
+#include <omp.h>
 
 int main(int argc, char *argv[])
 {
 #ifndef QT_DEBUG
-//    spdlog::info("testing threads {}", omp_get_max_threads());
-//    int nthreads, tid;
-//#pragma omp parallel
-//    {     spdlog::info("{}", omp_get_thread_num()); }
+    spdlog::info("testing threads {}", omp_get_max_threads());
+    int nthreads, tid;
+#pragma omp parallel
+    {     spdlog::info("{}", omp_get_thread_num()); }
 #endif
     spdlog::set_pattern("%v");
     gmsh::initialize();

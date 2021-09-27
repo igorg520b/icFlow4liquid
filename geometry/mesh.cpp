@@ -193,8 +193,9 @@ icy::Mesh::Mesh()
     contacts_final_list.reserve(10000);
     broadlist_ccd.reserve(100000);
 
-    mesh_root_ccd.isLeaf = false;
     mesh_root_ccd.test_self_collision = true;
+    mesh_root_ccd.boundaryEdge = nullptr;
+    mesh_root_ccd.isLeaf = false;
 }
 
 void icy::Mesh::SetIndenterPosition(double position)
@@ -612,37 +613,22 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
         BVHN *bvhn1, *bvhn2;
         std::tie(bvhn1,bvhn2) = broadlist_ccd[i];
 
-        if(bvhn1->isElem() && bvhn2->isEdge()) std::swap(bvhn1,bvhn2);
+        if(bvhn1->boundaryEdge->isDeformable() && !bvhn2->boundaryEdge->isDeformable()) std::swap(bvhn1,bvhn2);
 
-        if(bvhn1->isEdge() && bvhn2->isElem())
+        if(!bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
-            // possible collision between the indenter and the deformable
-            Node *nd3, *nd4;
+            // indenter-deformable interaction
+            Node *nd1, *nd2, *nd3, *nd4;
+            std::tie(nd1,nd2) = *bvhn1->boundaryEdge;
             std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
-            const Element *elem = bvhn2->elem;
-            for(short i=0;i<3;i++)
-            {
-                if(!elem->isBoundaryEdge(i)) continue;
-                Node *nd1 = elem->nds[(i+1)%3];
-                Node *nd2 = elem->nds[(i+2)%3];
-
-                AddToNarrowSet_NodeVsEdge(nd1,nd2, nd3, distance_threshold);
-                AddToNarrowSet_NodeVsEdge(nd1,nd2, nd4, distance_threshold);
-                AddToNarrowSet_NodeVsEdge(nd3, nd4, nd1, distance_threshold);
-                AddToNarrowSet_NodeVsEdge(nd3, nd4, nd2, distance_threshold);
-            }
+            AddToNarrowSet_NodeVsEdge(nd1, nd2, nd3, distance_threshold);
+            AddToNarrowSet_NodeVsEdge(nd1, nd2, nd4, distance_threshold);
+            AddToNarrowSet_NodeVsEdge(nd3, nd4, nd1, distance_threshold);
+            AddToNarrowSet_NodeVsEdge(nd3, nd4, nd2, distance_threshold);
         }
-        else if(bvhn1->isElem() && bvhn2->isElem())
+        else if(bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
-            // possible collision between deformable fragments
-            const Element *elem1 = bvhn1->elem;
-            const Element *elem2 = bvhn2->elem;
-
-            for(short i=0;i<3;i++)
-            {
-                AddToNarrowSet_NodeVsElement(elem1->nds[i],elem2, distance_threshold);
-                AddToNarrowSet_NodeVsElement(elem2->nds[i],elem1, distance_threshold);
-            }
+            // deformable-deformable interaction
         }
     }
 
@@ -740,34 +726,22 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
         BVHN *bvhn1, *bvhn2;
         std::tie(bvhn1,bvhn2) = broadlist_ccd[i];
 
-        if(bvhn1->elem!=nullptr && bvhn2->elem==nullptr) std::swap(bvhn1,bvhn2);
+        if(bvhn1->boundaryEdge->isDeformable() && !bvhn2->boundaryEdge->isDeformable()) std::swap(bvhn1,bvhn2);
 
-        if(bvhn1->elem==nullptr && bvhn2->elem!=nullptr)
+        if(!bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
-            Node *nd3, *nd4;
+            Node *nd1, *nd2, *nd3, *nd4;
+            std::tie(nd1,nd2) = *bvhn1->boundaryEdge;
             std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
-            const Element *elem = bvhn2->elem;
-            for(short i=0;i<3;i++)
-            {
-                if(!elem->isBoundaryEdge(i)) continue;
-                Node *nd1 = elem->nds[(i+1)%3];
-                Node *nd2 = elem->nds[(i+2)%3];
-
-                if(EdgeIntersection(nd1,nd2,nd3,nd4)) intersection_detected = true;
-                if(CCD(nd1, nd2, nd3)) intersection_detected = true;
-                if(CCD(nd1, nd2, nd4)) intersection_detected = true;
-                if(CCD(nd3, nd4, nd1)) intersection_detected = true;
-                if(CCD(nd3, nd4, nd2)) intersection_detected = true;
-            }
+            if(EdgeIntersection(nd1,nd2,nd3,nd4)) intersection_detected = true;
+            if(CCD(nd1, nd2, nd3)) intersection_detected = true;
+            if(CCD(nd1, nd2, nd4)) intersection_detected = true;
+            if(CCD(nd3, nd4, nd1)) intersection_detected = true;
+            if(CCD(nd3, nd4, nd2)) intersection_detected = true;
         }
-        else if(bvhn1->elem!=nullptr && bvhn2->elem!=nullptr)
+        else if(bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
-            const Element *elem1 = bvhn1->elem;
-            const Element *elem2 = bvhn2->elem;
-            for(short i=0;i<3;i++)
-            {
-
-            }
+            // check for possible deformable-deformable intersection
         }
     }
 
@@ -1138,23 +1112,17 @@ void icy::Mesh::InsertAdjBoundaries(Node *nd)
         std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
         if(s.face->isCWBoundary(nd))
         {
-            std::pair<Node*,Node*> boundary_to_insert = nd->locId < cwn->locId ? std::make_pair(nd,cwn) : std::make_pair(cwn,nd);
+            BoundaryEdge boundary_to_insert(nd,cwn,s.face);
             auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert);
             if(iter==fr->boundaryEdges.end())
                 fr->boundaryEdges.push_back(boundary_to_insert);
-
-            //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, cwn), nd, cwn, true);
-//            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, cwn), nd, cwn, true);
         }
         if(s.face->isCCWBoundary(nd))
         {
-            std::pair<Node*,Node*> boundary_to_insert2 = nd->locId < ccwn->locId ? std::make_pair(nd,ccwn) : std::make_pair(ccwn,nd);
+            BoundaryEdge boundary_to_insert2(nd,ccwn,s.face);
             auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert2);
             if(iter==fr->boundaryEdges.end())
                 fr->boundaryEdges.push_back(boundary_to_insert2);
-
-            //globalBoundaryEdges.try_emplace(Node::make_global_key(nd, ccwn), nd, ccwn, true);
-//            nd->fragment->boundaryEdgesMap.try_emplace(Node::make_local_key(nd, ccwn), nd, ccwn, true);
         }
     }
 

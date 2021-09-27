@@ -121,5 +121,5 @@ target_include_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64
 target_link_directories(fl4liquid PRIVATE "~/mosek/9.3/tools/platform/linux64x86/bin")
 target_link_libraries(fl4liquid PRIVATE mosek64)
 
-#target_compile_options(fl4liquid PRIVATE -fopenmp)
+target_compile_options(fl4liquid PRIVATE -fopenmp)
 #target_compile_options(fl4liquid PRIVATE "$<$<CONFIG:RELEASE>:-fopenmp>")

@@ -372,6 +372,7 @@ void icy::MeshFragment::CreateLeaves()
 {
     root_ccd.boundaryEdge = nullptr;
     root_ccd.test_self_collision = this->isDeformable;
+    root_ccd.isLeaf = false;
 
     BVHNLeafFactory.release(leaves_for_ccd);
 
@@ -383,6 +384,7 @@ void icy::MeshFragment::CreateLeaves()
         leaves_for_ccd.push_back(leaf_ccd);
         leaf_ccd->test_self_collision = false;
         leaf_ccd->boundaryEdge = &boundary;
+        leaf_ccd->isLeaf = true;
     }
 }
 

@@ -18,7 +18,7 @@ public:
     static ConcurrentPool<BVHN> BVHNFactory;
 
     kDOP8 box;
-    bool isLeaf() {return boundaryEdge!=nullptr;};
+    bool isLeaf;
     bool test_self_collision;   // can disable self-collision tests on fragments
     int level;
 
