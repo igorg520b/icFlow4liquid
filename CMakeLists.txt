@@ -79,7 +79,6 @@ add_executable(fl4liquid
     geometry/mesh.cpp
     geometry/mesh.h
     geometry/boundaryedge.h
-    geometry/boundaryedge.cpp
 
     simulation/parameters_sim.h
     simulation/model.cpp

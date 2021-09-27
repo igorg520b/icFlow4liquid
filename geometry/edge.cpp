@@ -12,11 +12,16 @@ icy::Edge::Edge(icy::Node* nd0, icy::Node* nd1)
 
 void icy::Edge::AddElement(icy::Element* elem, short idx)
 {
+    // icy::Node *opposite_node = elem->nds[idx];
+    if(elem->isEdgeCW(nds[0],nds[1]) && elems[1]==nullptr) { elems[1] = elem; edge_in_elem_idx[1] = idx; }
+    else if(!elem->isEdgeCW(nds[0],nds[1]) && elems[0]==nullptr){ elems[0] = elem; edge_in_elem_idx[0] = idx; }
+    else throw std::runtime_error("AddElement: mesh topology error");
+    isBoundary = (elems[0] == nullptr || elems[1] == nullptr);
+
+/*
     Eigen::Vector2d u = nds[1]->x_initial - nds[0]->x_initial;
     Eigen::Vector3d u3;
     u3 << u[0],u[1],0;
-
-    icy::Node *opposite_node = elem->nds[idx];
 
     Eigen::Vector2d v = opposite_node->x_initial - nds[0]->x_initial;
     Eigen::Vector3d v3;
@@ -27,8 +32,7 @@ void icy::Edge::AddElement(icy::Element* elem, short idx)
     if(elem1_isCCW && elems[0] == nullptr) { elems[0] = elem; edge_in_elem_idx[0] = idx; }
     else if(!elem1_isCCW && elems[1] == nullptr) { elems[1] = elem; edge_in_elem_idx[1] = idx; }
     else throw std::runtime_error("AddElement: mesh topology error");
-
-    isBoundary = (elems[0] == nullptr || elems[1] == nullptr);
+*/
 }
 
 icy::Node* icy::Edge::getOtherNode(const icy::Node* const nd) const

@@ -46,7 +46,7 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
-    std::vector<std::pair<Node*,Node*>> globalBoundaryEdges;
+    std::vector<BoundaryEdge> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;

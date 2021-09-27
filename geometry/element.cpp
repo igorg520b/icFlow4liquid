@@ -273,6 +273,15 @@ icy::Node* icy::Element::CCW_Node(const Node* nd) const
     return nds[(idx+2)%3];
 }
 
+bool icy::Element::isEdgeCW(const Node *nd1, const Node *nd2) const
+{
+    for(int i=0;i<3;i++)
+    {
+        if(nds[i%3]==nd1 && nds[(i+2)%3]==nd2) return true;
+        if(nds[i%3]==nd1 && nds[(i+1)%3]==nd2) return false;
+    }
+    throw std::runtime_error("icy::Element::isEdgeCW: edge not found");
+}
 
 bool icy::Element::isOnBoundary(const Node* nd) const
 {

@@ -93,12 +93,12 @@ void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double h
     }
 
     // mark the nodes of the special boundary
-    for(auto i=0;i<dim1groups.size();i++)
+    for(unsigned i=0;i<dim1groups.size();i++)
     {
         nodeTags.clear();
         nodeCoords.clear();
         gmsh::model::mesh::getNodesForPhysicalGroup(1, dim1groups[i], nodeTags, nodeCoords);
-        for(auto j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
+        for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
     }
     for(Node *nd : nodes) nd->isBoundary = nd->group.test(0);
 
@@ -199,12 +199,12 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
 
     // mark the nodes of the special boundary
     // nodes of the "inner boundary" are placed first
-    for(auto i=0;i<dim1groups.size();i++)
+    for(unsigned i=0;i<dim1groups.size();i++)
     {
         nodeTags.clear();
         nodeCoords.clear();
         gmsh::model::mesh::getNodesForPhysicalGroup(1, dim1groups[i], nodeTags, nodeCoords);
-        for(auto j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
+        for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
     }
     for(Node *nd : nodes)
     {
@@ -565,20 +565,10 @@ void icy::MeshFragment::ConnectIncidentElements()
         }
         else
         {
-            BoundaryEdge be;
             if(e.elems[0]!=nullptr)
-            {
-                be.first = e.nds[1];
-                be.second = e.nds[0];
-                be.elem = e.elems[0];
-            }
+                boundaryEdges.emplace_back(e.nds[1],e.nds[0],e.elems[0]);
             else
-            {
-                be.first = e.nds[0];
-                be.second = e.nds[1];
-                be.elem = e.elems[1];
-            }
-            boundaryEdges.push_back(be);
+                boundaryEdges.emplace_back(e.nds[0],e.nds[1],e.elems[1]);
         }
     }
 
