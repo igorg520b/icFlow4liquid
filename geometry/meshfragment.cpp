@@ -352,14 +352,13 @@ void icy::MeshFragment::GetFromGmsh()
         // BOUNDARIRES - EDGES
         std::vector<std::size_t> edgeTags, nodeTagsInEdges;
         gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-        boundaryEdges.resize(edgeTags.size());
+        boundaryEdges.reserve(edgeTags.size());
         for(std::size_t i=0;i<edgeTags.size();i++)
         {
             Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
             Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
-            if(nd0->locId > nd1->locId) std::swap(nd0,nd1);
-            boundaryEdges[i].first = nd0;
-            boundaryEdges[i].second = nd1;
+            BoundaryEdge be(nd0,nd1,nullptr);
+            boundaryEdges.push_back(be);
         }
     }
 

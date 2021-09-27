@@ -620,7 +620,7 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
             // indenter-deformable interaction
             Node *nd1, *nd2, *nd3, *nd4;
             std::tie(nd1,nd2) = *bvhn1->boundaryEdge;
-            std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
+            std::tie(nd3,nd4) = *bvhn2->boundaryEdge;
             AddToNarrowSet_NodeVsEdge(nd1, nd2, nd3, distance_threshold);
             AddToNarrowSet_NodeVsEdge(nd1, nd2, nd4, distance_threshold);
             AddToNarrowSet_NodeVsEdge(nd3, nd4, nd1, distance_threshold);
@@ -703,7 +703,7 @@ void icy::Mesh::AddToNarrowSet_NodeVsEdge(Node* ndA, Node* ndB, Node *ndP, const
     if(ndA==ndP || ndB==ndP) return;    // a node can't collide with its incident edge
     Eigen::Vector2d D;
     double dist = icy::Interaction::SegmentPointDistance(ndA->xt, ndB->xt, ndP->xt, D);
-    if(dist < distance_threshold && dist != 0)
+    if(dist < distance_threshold)
     {
         Interaction i(ndA, ndB, ndP, D);
         contacts_narrow_set.insert(i);
@@ -732,7 +732,7 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
         {
             Node *nd1, *nd2, *nd3, *nd4;
             std::tie(nd1,nd2) = *bvhn1->boundaryEdge;
-            std::tie(nd3,nd4) = *bvhn1->boundaryEdge;
+            std::tie(nd3,nd4) = *bvhn2->boundaryEdge;
             if(EdgeIntersection(nd1,nd2,nd3,nd4)) intersection_detected = true;
             if(CCD(nd1, nd2, nd3)) intersection_detected = true;
             if(CCD(nd1, nd2, nd4)) intersection_detected = true;
