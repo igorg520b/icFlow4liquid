@@ -56,14 +56,14 @@ void icy::Element::PrecomputeInitialArea()
     { return (180.0/M_PI)*acos(std::clamp((double)u.normalized().dot(v.normalized()),-1.0,1.0)); };
 
     // reference shape matrix
-    Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
+    computeDm();
     area_initial = area_current = Dm.determinant()/2;
 
     if(area_initial==0) throw std::runtime_error("element's initial area is zero");
     else if(area_initial < 0)
     {
         std::swap(nds[0],nds[1]);
-        Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial;
+        computeDm();
         area_initial = area_current = Dm.determinant()/2;
     }
     DmInv = Dm.inverse();

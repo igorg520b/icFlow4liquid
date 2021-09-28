@@ -1198,6 +1198,8 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     if(ndIdx == nd0Idx || ndIdx == nd1Idx || nd0Idx == nd1Idx) throw std::runtime_error("SplitBoundaryElem idx error");
     if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
 
+    Eigen::Matrix2d F_orig = originalElem->getF_at_n();
+
     MeshFragment *fragment = nd->fragment;
 
     Element *insertedElem = fragment->AddElement();
@@ -1240,6 +1242,10 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     originalElem->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
 
+    originalElem->PiMultiplier = originalElem->Dm*originalElem->getDs_at_n().inverse()*F_orig;
+    insertedElem->PiMultiplier = insertedElem->Dm*insertedElem->getDs_at_n().inverse()*F_orig;
+
+
     nd1->PrepareFan();
 }
 
@@ -1251,6 +1257,9 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     short nd1Idx_orig = originalElem->getNodeIdx(nd1);
 
     if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
+
+    Eigen::Matrix2d F_orig = originalElem->getF_at_n();
+    Eigen::Matrix2d F_adj = adjElem->getF_at_n();
 
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
     short nd0Idx_adj = adjElem->getNodeIdx(nd0);
@@ -1315,6 +1324,11 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->PrecomputeInitialArea();
     adjElem->PrecomputeInitialArea();
     insertedElem_adj->PrecomputeInitialArea();
+
+    originalElem->PiMultiplier = originalElem->Dm*originalElem->getDs_at_n().inverse()*F_orig;
+    insertedElem->PiMultiplier = insertedElem->Dm*insertedElem->getDs_at_n().inverse()*F_orig;
+    adjElem->PiMultiplier = adjElem->Dm*adjElem->getDs_at_n().inverse()*F_adj;
+    insertedElem_adj->PiMultiplier = insertedElem_adj->Dm*insertedElem_adj->getDs_at_n().inverse()*F_adj;
 
     oppositeNode->PrepareFan();
     nd1->PrepareFan();

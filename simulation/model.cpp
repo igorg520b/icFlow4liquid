@@ -406,7 +406,7 @@ void icy::Model::GetNewMaterialPosition()
             icy::Element *elem = mf.elems[i];
             Eigen::Matrix2d DmPrime;
             DmPrime << elem->nds[0]->xt-elem->nds[2]->xt, elem->nds[1]->xt-elem->nds[2]->xt;
-            elem->PiMultiplier = DmPrime*elem->Dm.inverse()*elem->PiMultiplier;
+            elem->PiMultiplier = DmPrime*elem->DmInv*elem->PiMultiplier;
         }
         // tentative -> initial
 #pragma omp parallel for

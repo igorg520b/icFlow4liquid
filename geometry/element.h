@@ -40,10 +40,14 @@ struct icy::Element
     Eigen::Matrix2d leftCauchyGreenDeformationTensor, qualityMetricTensor;
     double quality_measure_Wicke;
 
+    Eigen::Matrix2d getF_at_n() { return getDs_at_n()*DmInv*PiMultiplier; }
+    Eigen::Matrix2d getDs_at_n() { return (Eigen::Matrix2d() << nds[0]->xn-nds[2]->xn, nds[1]->xn-nds[2]->xn).finished(); }
+
 private:
     static Eigen::Matrix2d DDs[6]; // derivatives of Ds with respect to x1,y1,x2,y2,x3,y3
     static Eigen::Matrix<double,6,6> consistentMassMatrix;
 
+    void computeDm() { Dm << nds[0]->x_initial-nds[2]->x_initial, nds[1]->x_initial-nds[2]->x_initial; DmInv = Dm.inverse(); }
 
 // FRACTURE ALGORITHM
 public:

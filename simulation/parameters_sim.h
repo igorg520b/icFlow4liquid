@@ -175,9 +175,9 @@ public:
     void Reset()
     {
         // features
-        EnableCollisions = false;
-        EnablePlasticity = false;
-        EnableFracture = false;
+        EnableCollisions = true;
+        EnablePlasticity = true;
+        EnableFracture = true;
         EnableCZs = true;
 
         MaxSteps = 20000;
