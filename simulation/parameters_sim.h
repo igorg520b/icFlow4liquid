@@ -15,6 +15,12 @@ class icy::SimParams : public QObject
 {
     Q_OBJECT
 
+    // features
+    Q_PROPERTY(bool f_EnableFracture MEMBER EnableFracture NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnableCollisions MEMBER EnableCollisions NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnablePlasticity MEMBER EnablePlasticity NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_EnableCZs MEMBER EnableCZs NOTIFY propertyChanged)
+
     // general
     Q_PROPERTY(int s_MaxSteps MEMBER MaxSteps NOTIFY propertyChanged)
     // meshing
@@ -37,14 +43,11 @@ class icy::SimParams : public QObject
 
     Q_PROPERTY(double p_PlasticYieldThreshold MEMBER PlasticYieldThreshold NOTIFY propertyChanged)
     Q_PROPERTY(double p_PlasticFlowRate MEMBER PlasticFlowRate NOTIFY propertyChanged)
-    Q_PROPERTY(bool f_EnablePlasticity MEMBER EnablePlasticity NOTIFY propertyChanged)
 
     Q_PROPERTY(double p_InteractionDistance MEMBER InteractionDistance NOTIFY propertyChanged)
-    Q_PROPERTY(bool f_EnableCollisions MEMBER EnableCollisions NOTIFY propertyChanged)
 
     // fracture
     Q_PROPERTY(double f_WeakeningCoeff MEMBER FractureWeakeningCoeff NOTIFY propertyChanged)
-    Q_PROPERTY(bool f_EnableFracture MEMBER EnableFracture NOTIFY propertyChanged)
     Q_PROPERTY(double f_TemporalAttenuation MEMBER FractureTemporalAttenuation NOTIFY propertyChanged)
     Q_PROPERTY(int f_MaxSubsteps MEMBER FractureMaxSubsteps NOTIFY propertyChanged)
     Q_PROPERTY(double f_TractionThreshold MEMBER FractureTractionThreshold NOTIFY propertyChanged)
@@ -53,32 +56,42 @@ class icy::SimParams : public QObject
     Q_PROPERTY(double f_AreaThreshold MEMBER FractureAreaThreshold NOTIFY propertyChanged)
     Q_PROPERTY(double f_AngleThreshold MEMBER FractureAngleThreshold NOTIFY propertyChanged)
 
+    // cohesive zones
+    Q_PROPERTY(double cz_alpha WRITE set_cz_alpha READ get_cz_alpha)
+    Q_PROPERTY(double cz_beta WRITE set_cz_beta READ get_cz_beta)
+    Q_PROPERTY(double cz_lambda_n WRITE set_cz_lambda_n READ get_cz_lambda_n)
+    Q_PROPERTY(double cz_lambda_t WRITE set_cz_lambda_t READ get_cz_lambda_t)
+    Q_PROPERTY(double cz_phi_n WRITE set_cz_phi_n READ get_cz_phi_n)
+    Q_PROPERTY(double cz_phi_t WRITE set_cz_phi_t READ get_cz_phi_t)
+    Q_PROPERTY(double cz_sigma_max WRITE set_cz_sigma_max READ get_cz_sigma_max)
+    Q_PROPERTY(double cz_tau_max WRITE set_cz_tau_max READ get_cz_tau_max)
+    Q_PROPERTY(double cz_deln READ get_cz_del_n)
+    Q_PROPERTY(double cz_delt READ get_cz_del_t)
+
+
 public:
-    int MaxSteps, MinIter, MaxIter;
-    double InitialTimeStep;
-    double Gravity, Density, PoissonsRatio, YoungsModulus, Thickness;
-    double CharacteristicLength;
+    SimParams() { Reset(); }
 
-    double ConvergenceEpsilon, ConvergenceCutoff;
-
-    // collisions
-    double InteractionDistance;
+    // enable/disable features
+    bool EnableCZs;
+    bool EnableFracture;
+    bool EnablePlasticity;
     bool EnableCollisions;
 
-    // plasticity
-    double PlasticYieldThreshold, PlasticFlowRate;
-    bool EnablePlasticity;
+    // integrator / simulation
+    int MaxSteps, MinIter, MaxIter;
+    double ConvergenceEpsilon, ConvergenceCutoff;
+    double InitialTimeStep;
+    double CharacteristicLength;
 
-    // fracture
-    double FractureWeakeningCoeff;
-    bool EnableFracture;
-    double FractureTemporalAttenuation;
-    int FractureMaxSubsteps;
-    double FractureTractionThreshold;
-    unsigned FractureSubstepLevels, FractureTimerLevels;
-    double FractureAngleThreshold, FractureAreaThreshold;
 
-    double lambda, mu, Kappa;
+    // general parameters of the material and the integrator
+    double Gravity, Density, PoissonsRatio, YoungsModulus, Thickness;
+    double lambda, mu;  // Lamé parameters
+
+    // collisions
+    double InteractionDistance, Kappa;
+
     double getKappa() {return Kappa;}
 
     double getYoungsModulus() {return YoungsModulus;}
@@ -104,10 +117,69 @@ public:
     }
 
 
-    SimParams() { Reset(); }
+    // plasticity
+    double PlasticYieldThreshold, PlasticFlowRate;
+
+
+    // fracture
+    double FractureWeakeningCoeff;
+    double FractureTemporalAttenuation;
+    int FractureMaxSubsteps;
+    double FractureTractionThreshold;
+    unsigned FractureSubstepLevels, FractureTimerLevels;
+    double FractureAngleThreshold, FractureAreaThreshold;
+
+
+    // cz parameters
+    double cz_alpha, cz_beta;           // brittle / ductile
+    double cz_lambda_n, cz_lambda_t;    // max traction location
+    double cz_phi_n, cz_phi_t;          // fracture energy
+    double cz_sigma_max, cz_tau_max;    // traction thresholds
+
+    // computed cz variables
+    double cz_del_n, cz_del_t;
+    double cz_p_m, cz_p_n;
+    double cz_pMtn, cz_pMnt; // < phi_t - phi_n >, < phi_n - phi_t >
+    double cz_gam_n, cz_gam_t;
+    //double cz_nThreshold, cz_tThreshold; // CZ peak separation point
+
+    void set_cz_alpha(double value) { cz_alpha=value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_alpha() {return cz_alpha;}
+
+    void set_cz_beta(double value) { cz_beta=value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_beta() {return cz_beta;}
+
+    void set_cz_lambda_n(double value) {cz_lambda_n = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_lambda_n() {return cz_lambda_n;}
+
+    void set_cz_lambda_t(double value) {cz_lambda_t = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_lambda_t() {return cz_lambda_t;}
+
+    void set_cz_phi_n(double value) {cz_phi_n = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_phi_n() {return cz_phi_n;}
+    void set_cz_phi_t(double value) {cz_phi_t = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_phi_t() {return cz_phi_t;}
+
+    void set_cz_sigma_max(double value) {cz_sigma_max = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_sigma_max() {return cz_sigma_max;}
+    void set_cz_tau_max(double value) {cz_tau_max = value; RecomputeCZParams(); emit propertyChanged(); }
+    double get_cz_tau_max() {return cz_tau_max;}
+    double get_cz_del_n() {return cz_del_n;}
+    double get_cz_del_t() {return cz_del_t;}
+
+
+
+
+
 
     void Reset()
     {
+        // features
+        EnableCollisions = false;
+        EnablePlasticity = false;
+        EnableFracture = false;
+        EnableCZs = true;
+
         MaxSteps = 20000;
         InitialTimeStep = 0.05;
 
@@ -142,12 +214,53 @@ public:
         FractureAngleThreshold = 10;    // in degrees
         FractureAreaThreshold = 1e-4;
 
-        // features
-        EnableCollisions = true;
-        EnablePlasticity = false;
-        EnableFracture = true;
+        // cohesive zones
+        cz_alpha = 4;
+        cz_beta = 4;
+        cz_lambda_n = 0.015;
+        cz_lambda_t = 0.015;
+        cz_phi_n = 3;
+        cz_phi_t = 3; // fracture energy
+        cz_sigma_max = 230000;
+        cz_tau_max = 230000;
+        RecomputeCZParams();
     }
 
+
+
+    double Macaulay(double a, double b) { if (a > b) return a - b; else return 0; }
+
+    void RecomputeCZParams()
+    {
+        cz_pMnt = Macaulay(cz_phi_n, cz_phi_t);
+        cz_pMtn = Macaulay(cz_phi_t, cz_phi_n);
+
+        double rn_sq = cz_lambda_n * cz_lambda_n;
+        double rt_sq = cz_lambda_t * cz_lambda_t;
+        cz_p_m = (cz_alpha * (cz_alpha - 1.0) * rn_sq) / (1.0 - cz_alpha * rn_sq);
+        cz_p_n = (cz_beta * (cz_beta - 1.0) * rt_sq) / (1.0 - cz_beta * rt_sq);
+
+        if (cz_phi_n < cz_phi_t)
+        {
+            cz_gam_n = pow(cz_alpha / cz_p_m, cz_p_m);
+            cz_gam_t = -cz_phi_t * pow(cz_beta / cz_p_n, cz_p_n);
+        }
+        else
+        {
+            cz_gam_n = -cz_phi_n * pow(cz_alpha / cz_p_m, cz_p_m);
+            cz_gam_t = pow(cz_beta / cz_p_n, cz_p_n);
+        }
+
+        cz_del_n = (cz_phi_n / cz_sigma_max) * cz_alpha * cz_lambda_n *
+                   pow((1.0 - cz_lambda_n), (cz_alpha - 1.0)) * ((cz_alpha / cz_p_m) + 1.0) *
+                   pow(((cz_alpha / cz_p_m) * cz_lambda_n + 1.0), (cz_p_m - 1.0));
+        cz_del_t = (cz_phi_t / cz_tau_max) * cz_beta * cz_lambda_t *
+                   pow((1.0 - cz_lambda_t), (cz_beta - 1.0)) * ((cz_beta / cz_p_n) + 1.0) *
+                   pow(((cz_beta / cz_p_n) * cz_lambda_t + 1.0), (cz_p_n - 1.0));
+
+        //cz_nThreshold = cz_del_n * cz_lambda_n;
+        //cz_tThreshold = cz_del_t * cz_lambda_t;
+    }
 
 signals:
     void propertyChanged();

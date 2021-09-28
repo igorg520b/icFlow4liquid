@@ -77,7 +77,7 @@ private:
     unsigned tree_update_counter = 0;
 
     static bool PointInTriangle(Eigen::Vector2d pt, Eigen::Vector2d v1, Eigen::Vector2d v2, Eigen::Vector2d v3);
-    void AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, const double distance_threshold);
+    //void AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, const double distance_threshold);
 
 
 // FRACTURE

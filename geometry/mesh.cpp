@@ -634,8 +634,8 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
     contacts_final_list.resize(contacts_narrow_set.size());
     std::copy(contacts_narrow_set.begin(),contacts_narrow_set.end(),contacts_final_list.begin());
 }
-
-void icy::Mesh::AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, const double distance_threshold)
+/*
+void icy::Mesh::AddToNarrowSet_NodeVsDeformable(Node *nd, const Element *elem, const double distance_threshold)
 {
     if(!nd->isBoundary) return;
     Node *nd0 = elem->nds[0];
@@ -682,7 +682,7 @@ void icy::Mesh::AddToNarrowSet_NodeVsElement(Node *nd, const Element *elem, cons
         contacts_narrow_set.insert(i);
     }
 }
-
+*/
 
 bool icy::Mesh::PointInTriangle(Eigen::Vector2d pt, Eigen::Vector2d v1, Eigen::Vector2d v2, Eigen::Vector2d v3)
 {
