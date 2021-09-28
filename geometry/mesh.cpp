@@ -57,16 +57,16 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments.resize(1);
         fragments[0].GenerateBrick(MeshSizeMax,2,1);
         for(Node *nd : fragments[0].nodes) if(nd->group.test(1) || nd->group.test(2)) nd->pinned=true;
-        movableBoundary.resize(fragments[0].special_boundary.size());
-        for(const auto &b : fragments[0].boundaryEdges) movableBoundary.push_back(b.vertices);
+        movableBoundary.reserve(fragments[0].special_boundary.size());
+        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
         break;
 
         // self-collision test
     case 3:
         fragments.resize(1);
         fragments[0].GenerateSelfCollisionBrick(MeshSizeMax,2,1);
-        movableBoundary.resize(fragments[0].special_boundary.size());
-        for(const auto &b : fragments[0].boundaryEdges) movableBoundary.push_back(b.vertices);
+        movableBoundary.reserve(fragments[0].special_boundary.size());
+        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
         break;
     }
 
