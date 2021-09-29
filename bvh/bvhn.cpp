@@ -35,18 +35,54 @@ void icy::BVHN::Build(std::vector<BVHN*> *bvs, int level_)
     {
         float ctrX = box.ctrX;
         iter = std::partition(bvs->begin(),bvs->end(),[ctrX](const BVHN *bv){return bv->box.ctrX < ctrX;});
+        left->resize(std::distance(bvs->begin(),iter));
+        right->resize(std::distance(iter,bvs->end()));
+        std::copy(bvs->begin(),iter,left->begin());
+        std::copy(iter,bvs->end(),right->begin());
+        // ensure that there is at least one element on each side
+        if(left->size() == 0)
+        {
+            auto iter = std::min_element(right->begin(), right->end(),
+                                         [](BVHN* b1, BVHN* b2) {return b1->box.ctrX < b2->box.ctrX;});
+            // move "selected" from left to right
+            left->push_back(*iter);
+            right->erase(iter);
+        }
+        else if(right->size() == 0)
+        {
+            auto iter = std::max_element(left->begin(), left->end(),
+                                         [](BVHN* b1, BVHN* b2) {return b1->box.ctrX < b2->box.ctrX;});
+            // move selected from left to right
+            right->push_back(*iter);
+            left->erase(iter);
+        }
     }
     else
     {
         float ctr = box.ctrY;
         iter = std::partition(bvs->begin(),bvs->end(),[ctr](const BVHN *bv){return bv->box.ctrY < ctr;});
+        left->resize(std::distance(bvs->begin(),iter));
+        right->resize(std::distance(iter,bvs->end()));
+        std::copy(bvs->begin(),iter,left->begin());
+        std::copy(iter,bvs->end(),right->begin());
+        if(left->size() == 0)
+        {
+            auto iter = std::min_element(right->begin(), right->end(),
+                                         [](BVHN* b1, BVHN* b2) {return b1->box.ctrY < b2->box.ctrY;});
+            // move "selected" from left to right
+            left->push_back(*iter);
+            right->erase(iter);
+        }
+        else if(right->size() == 0)
+        {
+            auto iter = std::max_element(left->begin(), left->end(),
+                                         [](BVHN* b1, BVHN* b2) {return b1->box.ctrY < b2->box.ctrY;});
+            // move selected from left to right
+            right->push_back(*iter);
+            left->erase(iter);
+        }
     }
-    if(iter==bvs->begin()) iter++;
-    else if(iter==bvs->end()) iter--;
-    left->resize(std::distance(bvs->begin(),iter));
-    right->resize(std::distance(iter,bvs->end()));
-    std::copy(bvs->begin(),iter,left->begin());
-    std::copy(iter,bvs->end(),right->begin());
+
 
     if(left->size() == 1)
     {

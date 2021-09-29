@@ -26,13 +26,11 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     {
     // indentation
     case 0:
-    {
         fragments.resize(3);
         fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
         fragments[1].GenerateBrick(MeshSizeMax,2,1);
         fragments[2].GenerateContainer(MeshSizeMax,offset);
         for(const auto &b : fragments[0].boundaryEdges) movableBoundary.push_back(b.vertices);
-    }
         break;
 
         // shear

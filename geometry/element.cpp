@@ -85,7 +85,7 @@ void icy::Element::PrecomputeInitialArea()
 
 void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
-    eq.AddEntriesToStructure(nds[0]->eqId, nds[1]->eqId, nds[2]->eqId);
+    eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId});
 }
 
 

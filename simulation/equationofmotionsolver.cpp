@@ -38,10 +38,10 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
     std::fill(cval.begin(), cval.begin()+N*DOFS, 0);
 
     while(rows_Neighbors.size()<N)
-        rows_Neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(10));
+        rows_Neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(20));
 
     while(rows_pcsr.size()<N)
-        rows_pcsr.push_back(std::make_unique<std::vector<unsigned>>(10));
+        rows_pcsr.push_back(std::make_unique<boost::container::small_vector<unsigned,10>>(10));
 
 #pragma omp parallel for
     for(unsigned i=0;i<N;i++)
@@ -62,12 +62,13 @@ void EquationOfMotionSolver::AddNNZEntry(int row, int column)
     rows_Neighbors[row]->push_back(column);
 }
 
-void EquationOfMotionSolver::AddEntriesToStructure(int idx1, int idx2, int idx3)
+void EquationOfMotionSolver::AddEntriesToStructure(const std::initializer_list<int> l)
 {
-    AddNNZEntry(idx1,idx2);
-    AddNNZEntry(idx1,idx3);
-    AddNNZEntry(idx3,idx2);
+    for(auto iter = (l.begin()+1);iter!=l.end();iter++)
+        for(auto j=l.begin();j!=iter;j++)
+            AddNNZEntry(*iter,*j);
 }
+
 
 void EquationOfMotionSolver::CreateStructure()
 {

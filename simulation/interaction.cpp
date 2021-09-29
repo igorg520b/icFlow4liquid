@@ -14,7 +14,7 @@ double icy::Interaction::SegmentPointDistance(Eigen::Vector2d A, Eigen::Vector2d
 
 void icy::Interaction::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
-    eq.AddEntriesToStructure(ndA->eqId, ndB->eqId, ndP->eqId);
+    eq.AddEntriesToStructure({ndA->eqId, ndB->eqId, ndP->eqId});
 }
 
 void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, double h)
