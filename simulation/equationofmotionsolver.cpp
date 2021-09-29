@@ -143,6 +143,63 @@ void EquationOfMotionSolver::CreateStructure()
     }
 }
 
+
+void EquationOfMotionSolver::AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22)
+{
+    if (row < 0 || column < 0 || row < column) return;
+    else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
+
+    // find the value array offset corresponding to the "row/column" entry
+    int offset = -1;
+    tbb::concurrent_vector<unsigned>&vec = *rows_Neighbors[row];
+
+    for(unsigned count = 0;count<vec.size();count++)
+    {
+        if(vec.at(count) == (unsigned)column)
+        {
+            offset = rows_pcsr[row]->at(count);
+            break;
+        }
+    }
+
+    if(offset<0) throw std::runtime_error("AddToQ: column index not found");
+    else if((unsigned)offset >= nnz) throw std::runtime_error("AddToQ: offset >= nnz");
+
+    if(row > column)
+    {
+#pragma omp atomic
+        qoval[offset+0] += v11;
+#pragma omp atomic
+        qoval[offset+1] += v12;
+#pragma omp atomic
+        qoval[offset+2] += v21;
+#pragma omp atomic
+        qoval[offset+3] += v22;
+    }
+    else if(row == column)
+    {
+#pragma omp atomic
+        qoval[offset+0] += v11;
+#pragma omp atomic
+        qoval[offset+1] += v21;
+#pragma omp atomic
+        qoval[offset+2] += v22;
+    }
+}
+
+void EquationOfMotionSolver::AddToC(const int idx, const double v1, const double v2)
+{
+    if(idx < 0) return;
+    if((unsigned)idx >= N) throw std::runtime_error("AddToC: index out of range");
+
+#pragma omp atomic
+    cval[idx*DOFS+0]+=v1;
+#pragma omp atomic
+    cval[idx*DOFS+1]+=v2;
+}
+
+
+
 // creating the values array
 void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen::Matrix2d &mat)
 {
@@ -187,6 +244,7 @@ void EquationOfMotionSolver::AddToQ(const int row, const int column, const Eigen
     }
 }
 
+
 void EquationOfMotionSolver::AddToC(const int idx, const Eigen::Vector2d &vec)
 {
     if(idx < 0) return;
@@ -225,6 +283,8 @@ void EquationOfMotionSolver::AddToEquation(const double &constTerm,
     }
 }
 
+
+
 void EquationOfMotionSolver::AddToEquation(const double &constTerm,
                                            const Eigen::Vector2d &linearTerm,
                                            const Eigen::Matrix2d &quadraticTerm, int id)
@@ -233,6 +293,32 @@ void EquationOfMotionSolver::AddToEquation(const double &constTerm,
     AddToC(id, linearTerm);
     AddToQ(id, id, quadraticTerm);
 }
+
+
+void EquationOfMotionSolver::AddToEquation(const double *lE, const double *qE, const std::initializer_list<int> ids)
+{
+    unsigned n = ids.size();
+    unsigned n2 = n*2;
+    unsigned i_ct=0;
+    for(auto i=ids.begin();i!=ids.end();i++,i_ct+=2)
+    {
+        int row = *i;
+        if(row < 0) continue;
+        AddToC(row, *(lE+i_ct), *(lE+i_ct+1));
+        unsigned j_ct=0;
+        for(auto j=ids.begin();j!=ids.end();j++,j_ct+=2)
+        {
+            int col = *j;
+            if(col < 0) continue;
+            double m11 = *(qE+j_ct*n2+i_ct);
+            double m12 = *(qE+(j_ct+1)*n2+i_ct);
+            double m21 = *(qE+j_ct*n2+i_ct+1);
+            double m22 = *(qE+(j_ct+1)*n2+i_ct+1);
+            AddToQ(row, col, m11, m12, m21, m22);
+        }
+    }
+}
+
 
 
 bool EquationOfMotionSolver::Solve()

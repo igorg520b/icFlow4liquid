@@ -44,8 +44,8 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     DDp*=k;
 
     // assemble the equation of motion
-    int ids[3] = {ndA->eqId,ndB->eqId,ndP->eqId};
-    eq.AddToEquation(p, Dp, DDp, ids);
+//    eq.AddToEquation(p, Dp, DDp, {ndA->eqId,ndB->eqId,ndP->eqId});
+    eq.AddToEquation(Dp.data(), DDp.data(), {ndA->eqId,ndB->eqId,ndP->eqId});
 }
 
 void icy::Interaction::potential_pushing(double dHat, double d, Eigen::Matrix<double,6,1> &Dd, Eigen::Matrix<double,6,6> &DDd,

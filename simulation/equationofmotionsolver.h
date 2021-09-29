@@ -26,6 +26,7 @@ public:
     void AddToEquation(const double &constTerm, const Eigen::Matrix<double,6,1> &linearTerm,
                        const Eigen::Matrix<double,6,6> &quadraticTerm, const int (&ids)[3]);
     void AddToEquation(const double &constTerm, const Eigen::Vector2d &linearTerm, const Eigen::Matrix2d &quadraticTerm, int id);
+    void AddToEquation(const double *linearEntries, const double *quadraticEntries, const std::initializer_list<int> ids);
 
     bool Solve();   // true if successful
 
@@ -61,6 +62,9 @@ private:
 
     void AddToQ(const int row, const int column, const Eigen::Matrix2d &mat);
     void AddToC(const int idx, const Eigen::Vector2d &vec);
+
+    void AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22);
+    void AddToC(const int idx, const double v1, const double v2);
     void AddToConstTerm(const double &c);
 };
 
