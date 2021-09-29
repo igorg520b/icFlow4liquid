@@ -140,7 +140,7 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimP
     double hsq = h*h;   // squared time step
     DE*=hsq;
     HE*=hsq;
-    double constTerm = strain_energy_density*W*hsq;
+//    double constTerm = strain_energy_density*W*hsq;
 
     // Apply body forces via consistent mass matrix
     double massMatrixMultiplier = area_initial * prms.Density * prms.Thickness;
@@ -154,11 +154,10 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimP
     linear_term_mass = massMatrix*lambda_n;
     DE+=linear_term_mass;
 
-    double const_term_mass = lambda_n.dot(massMatrix*lambda_n)/2;
-    constTerm += const_term_mass;
+//    double const_term_mass = lambda_n.dot(massMatrix*lambda_n)/2;
+//    constTerm += const_term_mass;
 
     // distribute to the equation of motion
-//    eq.AddToEquation(constTerm, DE, HE, {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId});
     eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId});
 
     return true;

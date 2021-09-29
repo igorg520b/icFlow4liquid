@@ -44,7 +44,6 @@ void icy::Interaction::Evaluate(EquationOfMotionSolver &eq, SimParams &prms, dou
     DDp*=k;
 
     // assemble the equation of motion
-//    eq.AddToEquation(p, Dp, DDp, {ndA->eqId,ndB->eqId,ndP->eqId});
     eq.AddToEquation(Dp.data(), DDp.data(), {ndA->eqId,ndB->eqId,ndP->eqId});
 }
 
