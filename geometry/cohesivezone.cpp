@@ -1,4 +1,5 @@
 #include "cohesivezone.h"
+#include "node.h"
 
 void icy::CohesiveZone::Reset()
 {
@@ -20,9 +21,72 @@ void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 
 }
 
-bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms)
+bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
+    Eigen::Vector2d xc[4];  // coordinates of the cz nodes
+    for(int i=0;i<4;i++) xc[i] = nds[i]->xt;
 
+    // "midplane" between the two boundaries of the cz
+    Eigen::Vector2d mp[2] = {(xc[0]+xc[2])/2, (xc[1]+xc[3])/2};
+
+    // center
+    Eigen::Vector2d center = (mp[0]+mp[1])/2;
+    for(int i=0;i<4;i++) xc[i] -= center;
+    for(int i=0;i<2;i++) mp[i] -= center;
+
+    Eigen::Vector2d dir = (mp[1]-mp[0]).normalized();
+    Eigen::Matrix2d R;  // aligns midplane with x-axis
+    R << dir.x(), dir.y(), -dir.x(), dir.y();
+    Eigen::Matrix2d RT = R.transpose();
+
+    Eigen::Vector2d xr[4];  // rotated cz nodes
+    for(int i=0;i<4;i++) xr[i] = R*xc[i];
+    Eigen::Vector2d deltaA = xr[2]-xr[0];   // deltaA.x() - tangential opening; deltaA.y() - normal opening
+    Eigen::Vector2d deltaB = xr[3]-xr[1];
+
+    // from https://en.wikipedia.org/wiki/Gaussian_quadrature
+    constexpr double quadraturePoints[nQPts] {-0.8611363115940526,-0.3399810435848563,0.3399810435848563,0.8611363115940526};
+    constexpr double quadratureWeights[nQPts] {0.3478548451374539,0.6521451548625461,0.6521451548625461,0.3478548451374539};
+
+    bool contact_gp[nQPts] = {};
+    bool failed_gp[nQPts] = {};
+
+    Eigen::Matrix<double,8,1> DE = Eigen::Matrix<double,8,1>::Zero();    // energy gradient
+    Eigen::Matrix<double,8,8> HE = Eigen::Matrix<double,8,8>::Zero();       // energy Hessian
+
+    // iterate over QPs
+    for(int qp=0;qp<nQPts;qp++)
+    {
+        const double qp_coord = quadraturePoints[qp];
+        const double qp_weight = quadratureWeights[qp];
+
+        const double N1 = (1-qp_coord)/2;   // shape functions (their values at current QP)
+        const double N2 = (1+qp_coord)/2;
+
+        Eigen::Vector2d openingDisplacement = deltaA*N1 + deltaB*N2;
+        double dt = openingDisplacement.x();
+        double opt = std::abs(dt);
+        double opn = openingDisplacement.y();
+        double opt_sign;
+        if(dt < epsilon) opt_sign = 0;
+        else if(dt < 0) opt_sign = -1;
+        else opt_sign = 1;
+
+        tentative_pmax[qp] = pmax[qp];
+        tentative_tmax[qp] = tmax[qp];
+
+        double Tn, Tt, Dnn, Dtt, Dnt, Dtn;
+
+        PPR_cohesive_zone_formulation(prms,
+            opn, opt,
+            contact_gp[qp], failed_gp[qp],
+            tentative_pmax[qp], tentative_tmax[qp], Tn, Tt, Dnn, Dtt, Dnt, Dtn);
+
+        Eigen::Vector2d T(Tt*opt_sign,Tn);
+        Eigen::Matrix2d DT;
+        DT << Dtt, Dtn*opt_sign, Dtn*opt_sign, Dnn;
+
+    }
 }
 
 void icy::CohesiveZone::AcceptValues()
