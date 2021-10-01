@@ -1,5 +1,46 @@
+#include <iomanip>
 #include "cohesivezone.h"
 #include "node.h"
+
+    const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] =
+        {
+            (Eigen::Matrix<double,8,2>() <<
+                 0.9305681557970262,0,
+             0,0.9305681557970262,
+             0.06943184420297371,0,
+             0,0.06943184420297371,
+             -0.9305681557970262,-0,
+             -0,-0.9305681557970262,
+             -0.06943184420297371,-0,
+             -0,-0.06943184420297371).finished(),
+            (Eigen::Matrix<double,8,2>() <<
+                 0.6699905217924281,0,
+             0,0.6699905217924281,
+             0.3300094782075719,0,
+             0,0.3300094782075719,
+             -0.6699905217924281,-0,
+             -0,-0.6699905217924281,
+             -0.3300094782075719,-0,
+             -0,-0.3300094782075719).finished(),
+            (Eigen::Matrix<double,8,2>() <<
+                 0.3300094782075719,0,
+             0,0.3300094782075719,
+             0.6699905217924281,0,
+             0,0.6699905217924281,
+             -0.3300094782075719,-0,
+             -0,-0.3300094782075719,
+             -0.6699905217924281,-0,
+             -0,-0.6699905217924281).finished(),
+            (Eigen::Matrix<double,8,2>() <<
+                 0.06943184420297371,0,
+             0,0.06943184420297371,
+             0.9305681557970262,0,
+             0,0.9305681557970262,
+             -0.06943184420297371,-0,
+             -0,-0.06943184420297371,
+             -0.9305681557970262,-0,
+             -0,-0.9305681557970262).finished(),
+            };
 
 void icy::CohesiveZone::Reset()
 {
@@ -24,7 +65,8 @@ void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
     Eigen::Vector2d xc[4];  // coordinates of the cz nodes
-    for(int i=0;i<4;i++) xc[i] = nds[i]->xt;
+    for(int i=0;i<4;i++)
+        xc[i] = nds[i]->xt;
 
     // "midplane" between the two boundaries of the cz
     Eigen::Vector2d mp[2] = {(xc[0]+xc[2])/2, (xc[1]+xc[3])/2};
@@ -34,25 +76,33 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
     for(int i=0;i<4;i++) xc[i] -= center;
     for(int i=0;i<2;i++) mp[i] -= center;
 
-    Eigen::Vector2d dir = (mp[1]-mp[0]).normalized();
-    Eigen::Matrix2d R;  // aligns midplane with x-axis
-    R << dir.x(), dir.y(), -dir.x(), dir.y();
-    Eigen::Matrix2d RT = R.transpose();
+    Eigen::Vector2d dir = mp[1]-mp[0];
+    double cz_area = dir.norm()*prms.Thickness; // "length" of the zone times an assumed thickness of the 2D material
+    dir.normalize();
+    Eigen::Matrix2d r;  // aligns midplane with x-axis
+    r << dir.x(), dir.y(), -dir.x(), dir.y();
+    Eigen::Matrix2d rT = r.transpose();
+    Eigen::Matrix<double,8,8> RT;
+    Eigen::Matrix2d z;
+    z.setZero();
+    RT << rT,z, z, z,
+          z, rT,z, z,
+          z, z, rT,z,
+          z, z, z, rT;
+
 
     Eigen::Vector2d xr[4];  // rotated cz nodes
-    for(int i=0;i<4;i++) xr[i] = R*xc[i];
+    for(int i=0;i<4;i++) xr[i] = r*xc[i];
     Eigen::Vector2d deltaA = xr[2]-xr[0];   // deltaA.x() - tangential opening; deltaA.y() - normal opening
     Eigen::Vector2d deltaB = xr[3]-xr[1];
-
-    // from https://en.wikipedia.org/wiki/Gaussian_quadrature
-    constexpr double quadraturePoints[nQPts] {-0.8611363115940526,-0.3399810435848563,0.3399810435848563,0.8611363115940526};
-    constexpr double quadratureWeights[nQPts] {0.3478548451374539,0.6521451548625461,0.6521451548625461,0.3478548451374539};
 
     bool contact_gp[nQPts] = {};
     bool failed_gp[nQPts] = {};
 
-    Eigen::Matrix<double,8,1> DE = Eigen::Matrix<double,8,1>::Zero();    // energy gradient
-    Eigen::Matrix<double,8,8> HE = Eigen::Matrix<double,8,8>::Zero();       // energy Hessian
+    Eigen::Matrix<double,8,1> DE;       // energy gradient
+    Eigen::Matrix<double,8,8> HE;       // energy Hessian
+    DE.setZero();
+    HE.setZero();
 
     // iterate over QPs
     for(int qp=0;qp<nQPts;qp++)
@@ -77,15 +127,30 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
 
         double Tn, Tt, Dnn, Dtt, Dnt, Dtn;
 
-        PPR_cohesive_zone_formulation(prms,
-            opn, opt,
-            contact_gp[qp], failed_gp[qp],
-            tentative_pmax[qp], tentative_tmax[qp], Tn, Tt, Dnn, Dtt, Dnt, Dtn);
+        PPR_cohesive_zone_formulation(prms, opn, opt,
+                                      contact_gp[qp], failed_gp[qp],
+                                      tentative_pmax[qp], tentative_tmax[qp], Tn, Tt, Dnn, Dtt, Dnt, Dtn);
 
         Eigen::Vector2d T(Tt*opt_sign,Tn);
         Eigen::Matrix2d DT;
         DT << Dtt, Dtn*opt_sign, Dtn*opt_sign, Dnn;
 
+        DE += RT*(B[qp]*T)*cz_area*qp_weight;
+        HE += RT*B[qp]*DT*B[qp].transpose()*cz_area*qp_weight;
+    }
+
+    tentative_pmax_final = *std::max_element(std::begin(tentative_pmax),std::end(tentative_pmax));
+    tentative_tmax_final = *std::max_element(std::begin(tentative_tmax),std::end(tentative_tmax));
+
+    tentative_failed = std::any_of(std::begin(failed_gp),std::end(failed_gp),[](bool k){return k;});
+    tentative_contact = std::any_of(std::begin(contact_gp),std::end(contact_gp),[](bool k){return k;});
+
+    tentative_damaged = false;
+    if(!tentative_failed)
+    {
+        for(int i=0;i<nQPts;i++)
+            if(tentative_pmax[i] >= prms.cz_del_n * prms.cz_lambda_n || tmax[i] >= prms.cz_del_t * prms.cz_lambda_t)
+            { tentative_damaged = true; break; }
     }
 }
 
@@ -362,3 +427,29 @@ void icy::CohesiveZone::PPR_cohesive_zone_formulation(
     }
     Dtn = Dnt;
 }
+
+void icy::CohesiveZone::CalculateAndPrintBMatrix()
+{
+    std::cout << "icy::CohesiveZone::CalculateAndPrintBMatrix()\n";
+    for(int i=0;i<nQPts;i++)
+    {
+        Eigen::Matrix<double,8,2> m;
+        m.setZero();
+        double xi = quadraturePoints[i];
+        const double N1 = (1-xi)/2;   // shape functions (their values at current QP)
+        const double N2 = (1+xi)/2;
+        m << Eigen::Matrix2d::Identity()*N1, Eigen::Matrix2d::Identity()*N2,
+            -Eigen::Matrix2d::Identity()*N1, -Eigen::Matrix2d::Identity()*N2;
+        std::cout << std::setprecision(16);
+        std::cout << "B[" << i << "]\n";
+        for(int k=0;k<8;k++)
+        {
+            for(int l=0;l<2;l++)
+                std::cout << m(k,l) << ',';
+            std::cout << '\n';
+        }
+
+        //        std::cout << m << "\n\n";
+    }
+}
+

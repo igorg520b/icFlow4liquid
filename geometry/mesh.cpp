@@ -12,6 +12,8 @@
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
+    //icy::CohesiveZone::CalculateAndPrintBMatrix();
+
     maxNode = nullptr;
     typeOfSetup = typeOfSetup_;
     fragments.clear();

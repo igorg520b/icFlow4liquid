@@ -16,14 +16,14 @@ namespace icy {struct CohesiveZone; struct Node; struct Element; }
 
 struct icy::CohesiveZone
 {
-    constexpr static int nQPts = 4;
 
-    Node *nds[4];           // two nodes per side: Side_A_Node_1, Side_A_Node_2, Side_B_Node_1, Side_B_Node_2
-    Element *elems[2];      // each CZ connects two elements
-    double pmax[nQPts];         // max normal separation reached
-    double tmax[nQPts];         // max tangential separation reached
-    bool isActive;          // if not active, CZ has failed
-    double avgDn, avgDt, avgTn, avgTt; // average traction-separations for subsequent analysis
+    constexpr static int nQPts = 4;     // number of quadrature points
+    Node *nds[4];                       // two nodes per side: Side_A_Node_1, Side_A_Node_2, Side_B_Node_1, Side_B_Node_2
+    Element *elems[2];                  // each CZ connects two elements
+    double pmax[nQPts];                 // max normal separation reached
+    double tmax[nQPts];                 // max tangential separation reached
+    bool isActive;                      // if not active, CZ has failed
+    double avgDn, avgDt, avgTn, avgTt;  // average traction-separations for subsequent analysis
     double maxAvgDn, maxAvgDt;
 
     void Reset();
@@ -31,6 +31,7 @@ struct icy::CohesiveZone
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
+    static void CalculateAndPrintBMatrix();
 
 private:
     bool tentative_contact, tentative_failed, tentative_damaged;
@@ -40,6 +41,10 @@ private:
 
     constexpr static double epsilon = 1e-9;
     constexpr static double epsilon_fail_traction = 0.05; // if traction is <5% of max, CZ fails
+    // from https://en.wikipedia.org/wiki/Gaussian_quadrature
+    constexpr static double quadraturePoints[nQPts] {-0.8611363115940526,-0.3399810435848563,0.3399810435848563,0.8611363115940526};
+    constexpr static double quadratureWeights[nQPts] {0.3478548451374539,0.6521451548625461,0.6521451548625461,0.3478548451374539};
+    const static Eigen::Matrix<double,8,2> B[nQPts];
 
 
     static double Tn_(const SimParams &prms, const double Dn, const double Dt);

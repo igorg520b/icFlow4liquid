@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <string>
 #include "element.h"
+#include "cohesivezone.h"
 #include "boundaryedge.h"
 #include "bvh/ConcurrentPool.h"
 #include "bvh/bvhn.h"
