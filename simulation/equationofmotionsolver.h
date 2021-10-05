@@ -29,6 +29,7 @@ public:
     void AddToEquation(const double *linearEntries, const double *quadraticEntries, const std::initializer_list<int> ids);
 
     constexpr static unsigned dofs = 2; // number of degrees of freedom per node (size of per-node blocks)
+    constexpr static unsigned dofssq = dofs*dofs;
 
     // MOSEK
     MSKrealt objective_value;    // value of the optimized expression (should be near zero)
@@ -37,10 +38,11 @@ public:
     void GetTentativeResult(int idx, Eigen::Vector2d &vec);  // solution => convenient vector form
 
 private:
-
     // nonzero values of the Q-matrix in the term 1/2 xt.Q.x; size is nnz*DOFs
     std::vector<int> qosubi, qosubj;
     std::vector<double> qoval;
+
+    std::vector<int> csr_rows, csr_cols;
 
     // linear term
     std::vector<int> csubj;
@@ -59,6 +61,7 @@ private:
 
     void AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22);
     void AddToC(const int idx, const double v1, const double v2);
+    unsigned get_offset(const int row, const int column) const;
 
     // MOSEK
     MSKenv_t env  = NULL;

@@ -29,9 +29,9 @@ struct icy::CohesiveZone
     void Reset();
     void Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b);
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
-    bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
+    void ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
-    static void CalculateAndPrintBMatrix();
+    static void CalculateAndPrintBMatrix(); // used to calculate B[]
 
 private:
     bool tentative_contact, tentative_failed, tentative_damaged;
@@ -39,13 +39,12 @@ private:
     double tentative_pmax_final, tentative_tmax_final;
     double tentative_pmax[nQPts], tentative_tmax[nQPts];
 
-    constexpr static double epsilon = 1e-9;
+    constexpr static double epsilon = 1e-12;
     constexpr static double epsilon_fail_traction = 0.05; // if traction is <5% of max, CZ fails
     // from https://en.wikipedia.org/wiki/Gaussian_quadrature
     constexpr static double quadraturePoints[nQPts] {-0.8611363115940526,-0.3399810435848563,0.3399810435848563,0.8611363115940526};
     constexpr static double quadratureWeights[nQPts] {0.3478548451374539,0.6521451548625461,0.6521451548625461,0.3478548451374539};
     const static Eigen::Matrix<double,8,2> B[nQPts];
-
 
     static double Tn_(const SimParams &prms, const double Dn, const double Dt);
     static double Tt_(const SimParams &prms, const double Dn, const double Dt);

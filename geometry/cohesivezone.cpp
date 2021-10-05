@@ -44,8 +44,10 @@
 
 void icy::CohesiveZone::Reset()
 {
-    pmax[0] = pmax[1] = 0;
-    tmax[0] = tmax[1] = 0;
+    for(int i=0;i<nQPts;i++)
+    {
+        pmax[i] = tmax[i] = 0;
+    }
     isActive = true;
     avgDn = avgDt = avgTn = avgTt = 0; // average traction-separations for subsequent analysis
     maxAvgDn = maxAvgDt = 0;
@@ -53,16 +55,19 @@ void icy::CohesiveZone::Reset()
 
 void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b)
 {
-
+    nds[0] = nd1a;
+    nds[1] = nd2a;
+    nds[2] = nd1b;
+    nds[3] = nd2b;
 }
 
 
 void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
-
+    eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId});
 }
 
-bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
+void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
     Eigen::Vector2d xc[4];  // coordinates of the cz nodes
     for(int i=0;i<4;i++)
@@ -108,7 +113,7 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
     for(int qp=0;qp<nQPts;qp++)
     {
         const double qp_coord = quadraturePoints[qp];
-        const double qp_weight = quadratureWeights[qp];
+        const double qp_weight = quadratureWeights[qp]/2;
 
         const double N1 = (1-qp_coord)/2;   // shape functions (their values at current QP)
         const double N2 = (1+qp_coord)/2;
@@ -139,6 +144,10 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
         HE += RT*B[qp]*DT*B[qp].transpose()*cz_area*qp_weight;
     }
 
+    double hsq = h*h;
+    DE *= hsq;
+    HE *= hsq;
+
     tentative_pmax_final = *std::max_element(std::begin(tentative_pmax),std::end(tentative_pmax));
     tentative_tmax_final = *std::max_element(std::begin(tentative_tmax),std::end(tentative_tmax));
 
@@ -152,6 +161,8 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
             if(tentative_pmax[i] >= prms.cz_del_n * prms.cz_lambda_n || tmax[i] >= prms.cz_del_t * prms.cz_lambda_t)
             { tentative_damaged = true; break; }
     }
+
+    eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId,nds[3]->eqId});
 }
 
 void icy::CohesiveZone::AcceptValues()

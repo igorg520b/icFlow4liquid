@@ -37,6 +37,8 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
         sln.resize(N*dofs*1.5);
     }
 
+    if(csr_rows.size() < N+1) csr_rows.resize(N*1.5+1);
+
     std::fill(cval.begin(), cval.begin()+N*dofs, 0);
 
     while(rows_neighbors.size()<N)
@@ -77,7 +79,8 @@ void EquationOfMotionSolver::CreateStructure()
     // CREATE STRUCTURE ARRAYS
 
     // sort the neighbor list of each row
-#pragma omp parallel for
+    nnz = 0;
+#pragma omp parallel for reduction(+:nnz)
     for(unsigned i=0;i<N;i++)
     {
         tbb::concurrent_vector<unsigned> &rn = *rows_neighbors[i];
@@ -85,12 +88,12 @@ void EquationOfMotionSolver::CreateStructure()
         auto unique_res = std::unique(rn.begin(), rn.end());
         unsigned newSize = std::distance(rn.begin(),unique_res);
         rn.resize(newSize);
+        nnz+=(rn.size());
     }
 
-    // count non-zero entries
-    nnz = 0;
-#pragma omp parallel for reduction(+:nnz)
-    for(unsigned i=0;i<N;i++) nnz+=(rows_neighbors[i]->size()*dofs*dofs-1);
+    csr_rows[N] = nnz;
+    if(csr_cols.size() < nnz) csr_cols.resize(nnz*1.5);
+    nnz*=dofssq;
 
     // ensure that the arrays are of sufficient sizes
     if(qosubi.size() < nnz) qosubi.resize(nnz*1.5);
@@ -102,70 +105,90 @@ void EquationOfMotionSolver::CreateStructure()
     unsigned count=0;
     for(unsigned row=0;row<N;row++)
     {
+        csr_rows[row] = count;
+
         tbb::concurrent_vector<unsigned> &sorted_vec = *rows_neighbors[row];
         if(sorted_vec.size() == 0) throw std::runtime_error("matrix row contains no entries");
 
         int previous_column = -1;
         for(unsigned int const &local_column : sorted_vec)
         {
-            rows_pcsr[row]->push_back(count);
-            if(row > local_column) {
-                qosubi[count+0]=row*dofs+0;
-                qosubj[count+0]=local_column*dofs+0;
-                qosubi[count+1]=row*dofs+0;
-                qosubj[count+1]=local_column*dofs+1;
-                qosubi[count+2]=row*dofs+1;
-                qosubj[count+2]=local_column*dofs+0;
-                qosubi[count+3]=row*dofs+1;
-                qosubj[count+3]=local_column*dofs+1;
+            if(row < local_column) throw std::runtime_error("matrix is not lower-triangular");
 
-                count+=dofs*dofs;
-            }
-            else if(row == local_column)
-            {
-                qosubi[count+0]=row*dofs+0;
-                qosubj[count+0]=local_column*dofs+0;
-                qosubi[count+1]=row*dofs+1;
-                qosubj[count+1]=local_column*dofs+0;
-                qosubi[count+2]=row*dofs+1;
-                qosubj[count+2]=local_column*dofs+1;
+            csr_cols[count] = local_column;
+            rows_pcsr[row]->push_back(count*dofssq);
 
-                count+=dofs*dofs-1;
-            }
-            else throw std::runtime_error("matrix is not lower-triangular");
+            qosubi[dofssq*count+0]=row*dofs+0;
+            qosubj[dofssq*count+0]=local_column*dofs+0;
+            qosubi[dofssq*count+1]=row*dofs+0;
+            qosubj[dofssq*count+1]=local_column*dofs+1;
+            qosubi[dofssq*count+2]=row*dofs+1;
+            qosubj[dofssq*count+2]=local_column*dofs+0;
+            qosubi[dofssq*count+3]=row*dofs+1;
+            qosubj[dofssq*count+3]=local_column*dofs+1;
+
+            count++;
             if((int)local_column <= previous_column) throw std::runtime_error("column entries are not sorted");
             previous_column = local_column;
         }
     }
 
-    if(nnz!=count)
+    if(nnz != dofssq*count)
     {
         spdlog::critical("csr_rows[{}]=={}, whereas count=={}",N,nnz,count);
         throw std::runtime_error("nnz != count");
     }
 }
 
-
-void EquationOfMotionSolver::AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22)
+unsigned EquationOfMotionSolver::get_offset(const int row, const int column) const
 {
-    if (row < 0 || column < 0 || row < column) return;
-    else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
+
+    int col_offset_begin = csr_rows[row];
+    int col_offset_end = csr_rows[row+1];
+
+    const int *start_pt = &csr_cols[col_offset_begin];
+    const int *end_pt = &csr_cols[col_offset_end];
+
+    auto it = std::lower_bound(start_pt,end_pt,column);
+    if(it == end_pt || *it != column)
+        throw std::runtime_error("EquationOfMotionSolver::get_offset(): (i,j) index not found");
+    unsigned offset = std::distance(start_pt,it)+col_offset_begin;
+    offset*=dofssq;
+
+/*
 
     // find the value array offset corresponding to the "row/column" entry
-    int offset = -1;
+    int offset2 = -1;
     tbb::concurrent_vector<unsigned>&vec = *rows_neighbors[row];
 
     for(unsigned count = 0;count<vec.size();count++)
     {
         if(vec.at(count) == (unsigned)column)
         {
-            offset = rows_pcsr[row]->at(count);
+            offset2 = rows_pcsr[row]->at(count);
             break;
         }
     }
 
-    if(offset<0) throw std::runtime_error("AddToQ: column index not found");
-    else if((unsigned)offset >= nnz) throw std::runtime_error("AddToQ: offset >= nnz");
+    if(offset2<0) throw std::runtime_error("AddToQ: column index not found");
+    else if((unsigned)offset2 >= nnz) throw std::runtime_error("AddToQ: offset >= nnz");
+
+    if(offset2 != offset)
+    {
+        spdlog::info("offset {}; offset2 {}",offset,offset2);
+        throw std::runtime_error("offsets don't match");
+    }
+*/
+    return offset;
+}
+
+void EquationOfMotionSolver::AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22)
+{
+    if (row < 0 || column < 0 || row < column) return;
+    else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
+    int offset = get_offset(row,column);
+
+
 
     if(row > column)
     {
@@ -183,9 +206,9 @@ void EquationOfMotionSolver::AddToQ(const int row, const int column, const doubl
 #pragma omp atomic
         qoval[offset+0] += v11;
 #pragma omp atomic
-        qoval[offset+1] += v21;
+        qoval[offset+2] += v21;
 #pragma omp atomic
-        qoval[offset+2] += v22;
+        qoval[offset+3] += v22;
     }
 }
 
