@@ -8,7 +8,6 @@
 #include <initializer_list>
 #include <vector>
 #include <memory>
-#include <boost/container/small_vector.hpp>
 #include "mosek.h"
 
 class EquationOfMotionSolver
@@ -52,8 +51,6 @@ private:
     unsigned nnz;    // number of non-zero entries in Q (lower triangle)
 
     std::vector<std::unique_ptr<tbb::concurrent_vector<unsigned>>> rows_neighbors;  // list of indices of nz-columns per row
-    // per row mappings between columns and offset in "values"
-    std::vector<std::unique_ptr<boost::container::small_vector<unsigned,10>>> rows_pcsr;
 
     void AddNNZEntry(int row, int column);    // reserve non-zero positions one-by-one (thread-safe)
 

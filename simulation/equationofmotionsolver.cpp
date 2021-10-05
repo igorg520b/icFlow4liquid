@@ -32,27 +32,24 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
     this->N=N_;
     if(csubj.size() < N*dofs)
     {
-        csubj.resize(N*dofs*1.5);
-        cval.resize(N*dofs*1.5);
-        sln.resize(N*dofs*1.5);
+        csubj.resize(N*dofs*2);
+        cval.resize(N*dofs*2);
+        sln.resize(N*dofs*2);
     }
 
-    if(csr_rows.size() < N+1) csr_rows.resize(N*1.5+1);
+    if(csr_rows.size() < N+1) csr_rows.resize(N*2+1);
 
     std::fill(cval.begin(), cval.begin()+N*dofs, 0);
 
-    while(rows_neighbors.size()<N)
-        rows_neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(20));
-
-    while(rows_pcsr.size()<N)
-        rows_pcsr.push_back(std::make_unique<boost::container::small_vector<unsigned,10>>(10));
+    if(rows_neighbors.size()<N)
+        while(rows_neighbors.size()<N*2)
+            rows_neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(20));
 
 #pragma omp parallel for
     for(unsigned i=0;i<N;i++)
     {
         rows_neighbors[i]->clear();
         rows_neighbors[i]->push_back(i);    // diagonal elements must be non-zero
-        rows_pcsr[i]->clear(); // clear the mapping of (i,j)->offset
         csubj[i*dofs+0]=i*dofs+0;
         csubj[i*dofs+1]=i*dofs+1;
     }
@@ -116,7 +113,6 @@ void EquationOfMotionSolver::CreateStructure()
             if(row < local_column) throw std::runtime_error("matrix is not lower-triangular");
 
             csr_cols[count] = local_column;
-            rows_pcsr[row]->push_back(count*dofssq);
 
             qosubi[dofssq*count+0]=row*dofs+0;
             qosubj[dofssq*count+0]=local_column*dofs+0;
@@ -126,6 +122,12 @@ void EquationOfMotionSolver::CreateStructure()
             qosubj[dofssq*count+2]=local_column*dofs+0;
             qosubi[dofssq*count+3]=row*dofs+1;
             qosubj[dofssq*count+3]=local_column*dofs+1;
+
+            if(row==local_column)
+            {
+                qosubi[dofssq*count+1]=row*dofs;
+                qosubj[dofssq*count+1]=local_column*dofs;
+            }
 
             count++;
             if((int)local_column <= previous_column) throw std::runtime_error("column entries are not sorted");
