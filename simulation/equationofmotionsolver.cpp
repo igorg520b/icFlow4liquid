@@ -42,14 +42,16 @@ void EquationOfMotionSolver::ClearAndResize(std::size_t N_)
     std::fill(cval.begin(), cval.begin()+N*dofs, 0);
 
     if(rows_neighbors.size()<N)
+    {
+        rows_neighbors.reserve(N*2);
         while(rows_neighbors.size()<N*2)
             rows_neighbors.push_back(std::make_unique<tbb::concurrent_vector<unsigned>>(20));
+    }
 
 #pragma omp parallel for
     for(unsigned i=0;i<N;i++)
     {
         rows_neighbors[i]->clear();
-        rows_neighbors[i]->push_back(i);    // diagonal elements must be non-zero
         csubj[i*dofs+0]=i*dofs+0;
         csubj[i*dofs+1]=i*dofs+1;
     }
@@ -81,10 +83,9 @@ void EquationOfMotionSolver::CreateStructure()
     for(unsigned i=0;i<N;i++)
     {
         tbb::concurrent_vector<unsigned> &rn = *rows_neighbors[i];
+        rn.push_back(i);    // add diagonal entry
         std::sort(rn.begin(),rn.end());
-        auto unique_res = std::unique(rn.begin(), rn.end());
-        unsigned newSize = std::distance(rn.begin(),unique_res);
-        rn.resize(newSize);
+        rn.resize(std::distance(rn.begin(),std::unique(rn.begin(), rn.end())));     // remove duplicates
         nnz+=(rn.size());
     }
 
@@ -104,11 +105,9 @@ void EquationOfMotionSolver::CreateStructure()
     {
         csr_rows[row] = count;
 
-        tbb::concurrent_vector<unsigned> &sorted_vec = *rows_neighbors[row];
-        if(sorted_vec.size() == 0) throw std::runtime_error("matrix row contains no entries");
+        tbb::concurrent_vector<unsigned> &rn = *rows_neighbors[row];
 
-        int previous_column = -1;
-        for(unsigned int const &local_column : sorted_vec)
+        for(unsigned int const &local_column : rn)
         {
             if(row < local_column) throw std::runtime_error("matrix is not lower-triangular");
 
@@ -130,8 +129,6 @@ void EquationOfMotionSolver::CreateStructure()
             }
 
             count++;
-            if((int)local_column <= previous_column) throw std::runtime_error("column entries are not sorted");
-            previous_column = local_column;
         }
     }
 
