@@ -29,6 +29,7 @@ public:
 
     void GenerateBrick(double ElementSize, double width, double height);
     void GenerateSelfCollisionBrick(double ElementSize, double width, double height);
+    void GenerateCZBrick(double ElementSize, double width, double height);
     void GenerateIndenter(double ElementSize, double cx, double cy, double radius, double aspect);
     void GenerateContainer(double ElementSize, double offset);
     void PostMeshingEvaluations();  // element/node area and connectivity information

@@ -240,6 +240,139 @@ void icy::MeshFragment::GenerateSelfCollisionBrick(double ElementSize, double wi
     ConnectIncidentElements();
 }
 
+
+void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double height)
+{
+    isDeformable = true;
+
+    // invoke Gmsh
+    gmsh::clear();
+    gmsh::option::setNumber("General.Terminal", 1);
+    gmsh::model::add("block1");
+
+    std::vector<std::pair<double,double>> ptCoords {
+        {0,0},                      // 0
+        {-width/2,0},               // 1
+        {-width/2,height},          // 2
+        {-width/50,height},         // 3
+        {0,height/2},               // 4
+        {width/50,height},          // 5
+        {width/2,height*1.1},       // 6
+        {width/2,0}                 // 7
+        };
+
+    std::vector<int> ptTags, lts;
+    for(auto p : ptCoords) ptTags.push_back(gmsh::model::occ::addPoint(p.first,p.second,0,1.0));
+
+    for(unsigned i=0;i<ptTags.size();i++) lts.push_back(gmsh::model::occ::addLine(ptTags[i],ptTags[(i+1)%ptTags.size()]));
+    int czLineTag = gmsh::model::occ::addLine(ptTags[4],ptTags[0]);
+
+//    int loop1 = gmsh::model::occ::addCurveLoop({lts[0],lts[1],lts[2],lts[3],lts[4],lts[5],lts[6],lts[7]});
+    int loop2 = gmsh::model::occ::addCurveLoop({lts[0],lts[1],lts[2],lts[3],czLineTag});
+    int loop3 = gmsh::model::occ::addCurveLoop({lts[4],lts[5],lts[6],lts[7],-czLineTag});
+
+
+    int surfaceTag2 = gmsh::model::occ::addPlaneSurface({loop2});
+    int surfaceTag3 = gmsh::model::occ::addPlaneSurface({loop3});
+    gmsh::model::occ::synchronize();
+
+//    gmsh::model::mesh::embed(1, {czLineTag},2, surfaceTag);
+
+    int groupTag0 = gmsh::model::addPhysicalGroup(1, {lts[0],lts[1],lts[2],lts[3],lts[4],lts[5],lts[6],lts[7]});
+    int groupTag1 = gmsh::model::addPhysicalGroup(1, {lts[6]});
+    int groupTag2 = gmsh::model::addPhysicalGroup(1, {lts[1]});
+    int groupTag3 = gmsh::model::addPhysicalGroup(1, {czLineTag});
+    std::vector<int> dim1groups {groupTag0,groupTag1,groupTag2,groupTag3};
+
+    int groupTag6 = gmsh::model::addPhysicalGroup(2, {loop2});
+    int groupTag7 = gmsh::model::addPhysicalGroup(2, {loop3});
+
+    gmsh::option::setNumber("Mesh.MeshSizeMax", ElementSize);
+
+    std::vector<std::size_t> nodeTags;
+    std::vector<double> nodeCoords, parametricCoords;
+    mtags.clear();
+    gmsh::model::mesh::generate(2);
+
+    // GET NODES
+    gmsh::model::mesh::getNodesByElementType(2, nodeTags, nodeCoords, parametricCoords);
+
+    // set the size of the resulting nodes array
+    for(unsigned i=0;i<nodeTags.size();i++)
+    {
+        std::size_t tag = nodeTags[i];
+        if(mtags.count(tag)>0) continue; // don't duplicate nodes
+        Node *nd = AddNode();
+        mtags[tag] = nd->locId;
+        nd->Initialize(nodeCoords[i*3+0], nodeCoords[i*3+1]);
+    }
+
+    // mark the nodes of the special boundary
+    // nodes of the "inner boundary" are placed first
+    for(unsigned i=0;i<dim1groups.size();i++)
+    {
+        nodeTags.clear();
+        nodeCoords.clear();
+        gmsh::model::mesh::getNodesForPhysicalGroup(1, dim1groups[i], nodeTags, nodeCoords);
+        for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
+    }
+
+    for(Node *nd : nodes)
+    {
+        nd->isBoundary = nd->group.test(0);
+        if(nd->group.test(1) || nd->group.test((2))) nd->pinned = true;
+    }
+
+    // left group
+    nodeTags.clear(); nodeCoords.clear();
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, groupTag6, nodeTags, nodeCoords);
+    spdlog::info("nodes for group 6 {}",nodeTags.size());
+    for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(6);
+
+    // right group
+    nodeTags.clear(); nodeCoords.clear();
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, groupTag7, nodeTags, nodeCoords);
+    for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(7);
+
+
+    // GET ELEMENTS
+    std::vector<std::size_t> trisTags, nodeTagsInTris;
+    gmsh::model::mesh::getElementsByType(2, trisTags, nodeTagsInTris);
+
+    for(std::size_t i=0;i<trisTags.size();i++)
+    {
+        icy::Element *elem = AddElement();
+        elem->Initialize(nodes[mtags.at(nodeTagsInTris[i*3+0])],
+                         nodes[mtags.at(nodeTagsInTris[i*3+1])],
+                         nodes[mtags.at(nodeTagsInTris[i*3+2])]);
+    }
+
+    // element groups
+    for(Element *e : elems)
+    {
+        if(e->nds[0]->group.test(6) && e->nds[1]->group.test(6) &&e->nds[2]->group.test(6)) e->group.set(0);
+        if(e->nds[0]->group.test(7) && e->nds[1]->group.test(7) &&e->nds[2]->group.test(7)) e->group.set(1);
+    }
+
+
+    // BOUNDARIRES - EDGES
+    std::vector<std::size_t> edgeTags, nodeTagsInEdges;
+    gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
+    spdlog::info("there are {} edges with {} nd tags", edgeTags.size(), nodeTagsInEdges.size());
+
+    for(std::size_t i=0;i<edgeTags.size();i++)
+    {
+        icy::Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
+        icy::Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
+        if(nd0->group.test(1) && nd1->group.test(1)) special_boundary.emplace_back(nd0,nd1);
+    }
+
+    PostMeshingEvaluations();
+    gmsh::clear();
+    ConnectIncidentElements();
+    spdlog::info("GenerateCZBrick done");
+}
+
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
 {
     std::cout << "\nGenerateContainer" << std::endl;;

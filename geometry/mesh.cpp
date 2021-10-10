@@ -68,6 +68,14 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         movableBoundary.reserve(fragments[0].special_boundary.size());
         for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
         break;
+
+        //CZs
+    case 4:
+        fragments.resize(1);
+        fragments[0].GenerateCZBrick(MeshSizeMax,2,1);
+        movableBoundary.reserve(fragments[0].special_boundary.size());
+        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
+        break;
     }
 
     // make a list of nodes that only belong to the movable boudnary
@@ -79,7 +87,6 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 
 
 
-    ChangeVisualizationOption(VisualizingVariable);
 
     tree_update_counter=0;
 
@@ -108,6 +115,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
                                                   [](double a, Element* m){return a+m->area_initial;});
     CreateLeaves();
     RegenerateVisualizedGeometry();
+    ChangeVisualizationOption(VisualizingVariable);
 }
 
 icy::Mesh::Mesh()
@@ -215,6 +223,7 @@ void icy::Mesh::SetIndenterPosition(double position)
         break;
     case 2:
     case 3:
+    case 4:
         Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
         for(unsigned i=0;i<movableNodes.size();i++)
         {
@@ -478,6 +487,10 @@ void icy::Mesh::UpdateValues()
 
 
     // other per-element values
+    case icy::Model::VisOpt::elem_group:
+        for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->group.to_ulong());
+        break;
+
     case icy::Model::VisOpt::elem_area:
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->area_initial);
         break;
@@ -485,7 +498,6 @@ void icy::Mesh::UpdateValues()
     case icy::Model::VisOpt::energy_density:
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->strain_energy_density);
         break;
-
 
     case icy::Model::VisOpt::volume_change:
         for(std::size_t i=0;i<allElems.size();i++) visualized_values->SetValue(i, allElems[i]->volume_change);

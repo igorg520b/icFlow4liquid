@@ -14,6 +14,7 @@ namespace icy { struct Element; struct Node; }
 struct icy::Element
 {
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
+    std::bitset<8> group;
 
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 

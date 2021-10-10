@@ -346,3 +346,9 @@ void MainWindow::on_actionSelf_collision_triggered()
     updateGUI();
 }
 
+
+void MainWindow::on_actionCZs_triggered()
+{
+    model.Reset(4);
+    updateGUI();
+}

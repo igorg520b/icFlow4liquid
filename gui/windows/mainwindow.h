@@ -114,6 +114,8 @@ private slots:
     void on_actionStretch_triggered();
     void on_actionSelf_collision_triggered();
 
+    void on_actionCZs_triggered();
+
 private:
     void render_results();
 
