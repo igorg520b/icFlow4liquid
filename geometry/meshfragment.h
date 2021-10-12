@@ -23,6 +23,7 @@ public:
     bool isDeformable;
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
+    std::vector<icy::CohesiveZone*> czs;
     std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary; // used when some nodes are pinned (movable via GUI)
 
     void SaveFragment(std::string fileName);
@@ -38,8 +39,10 @@ private:
     unsigned nFirstGroupElems, nFirstGroupNodes, nInnerBoundaryNodes;
     void GetFromGmsh();     // populate "nodes" and "elems"
 
+    constexpr static unsigned nPreallocate = 10000;
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
+    static ConcurrentPool<CohesiveZone> CZFactory;
     icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
     icy::Element* AddElement(); // add to elems vector from ElementFactory
 

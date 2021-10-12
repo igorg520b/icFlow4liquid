@@ -23,8 +23,8 @@ struct icy::CohesiveZone
     double pmax[nQPts];                 // max normal separation reached
     double tmax[nQPts];                 // max tangential separation reached
     bool isActive;                      // if not active, CZ has failed
-    double avgDn, avgDt, avgTn, avgTt;  // average traction-separations for subsequent analysis
-    double maxAvgDn, maxAvgDt;
+    //double avgDn, avgDt, avgTn, avgTt;  // average traction-separations for subsequent analysis
+    //double maxAvgDn, maxAvgDt;
 
     void Reset();
     void Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b);
@@ -35,11 +35,12 @@ struct icy::CohesiveZone
 
 private:
     bool tentative_contact, tentative_failed, tentative_damaged;
-    double tentative_avgDn, tentative_avgDt, tentative_avgTn, tentative_avgTt;
+    //double tentative_avgDn, tentative_avgDt, tentative_avgTn, tentative_avgTt;
     double tentative_pmax_final, tentative_tmax_final;
     double tentative_pmax[nQPts], tentative_tmax[nQPts];
 
-    constexpr static double epsilon = 1e-12;
+    constexpr static double epsilon = -1e-9;
+    constexpr static double epsilon_abs = 1e-9;
     constexpr static double epsilon_fail_traction = 0.05; // if traction is <5% of max, CZ fails
     // from https://en.wikipedia.org/wiki/Gaussian_quadrature
     constexpr static double quadraturePoints[nQPts] {-0.8611363115940526,-0.3399810435848563,0.3399810435848563,0.8611363115940526};

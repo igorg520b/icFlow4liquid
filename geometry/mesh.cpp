@@ -99,16 +99,24 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
                                                [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
 
+    std::size_t allCZsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
+                                               [](std::size_t val,MeshFragment &fr){return val+fr.czs.size();});
+
     allNodes.resize(allNodesSize);
     allElems.resize(allElemsSize);
+    allCZs.resize(allCZsSize);
 
     auto iter_nodes = allNodes.begin();
     auto iter_elems = allElems.begin();
+    auto iter_czs = allCZs.begin();
     for(MeshFragment &mf : fragments)
     {
         iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes);
         iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
+        iter_czs = std::copy(mf.czs.begin(),mf.czs.end(),iter_czs);
     }
+
+    spdlog::info("allczs {}",allCZs.size());
     for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
 
     area_initial = area_current = std::accumulate(allElems.begin(), allElems.end(),0.0,
@@ -170,8 +178,8 @@ icy::Mesh::Mesh()
     actor_boundary_all->GetProperty()->SetColor(0,0,0.4);
     actor_boundary_all->GetProperty()->SetEdgeColor(0,0,0.4);
     actor_boundary_all->GetProperty()->SetVertexColor(0.4,0,0);
-    actor_boundary_all->GetProperty()->SetPointSize(5);
-    actor_boundary_all->GetProperty()->SetLineWidth(3);
+    actor_boundary_all->GetProperty()->SetPointSize(3);
+    actor_boundary_all->GetProperty()->SetLineWidth(1.4);
     actor_boundary_all->PickableOff();
 
     // indenter's intended position
@@ -197,6 +205,22 @@ icy::Mesh::Mesh()
     actor_collisions->GetProperty()->SetVertexColor(0.04,0,0);
     actor_collisions->GetProperty()->SetPointSize(2);
     actor_collisions->GetProperty()->SetLineWidth(1);
+
+    //czs
+    ugrid_czs->SetPoints(points_deformable);
+    mapper_czs->SetInputData(ugrid_czs);
+    actor_czs->SetMapper(mapper_czs);
+    actor_czs->GetProperty()->VertexVisibilityOff();
+    actor_czs->GetProperty()->EdgeVisibilityOn();
+    actor_czs->GetProperty()->SetColor(0.95, 0.97, 0.91);
+    actor_czs->GetProperty()->SetEdgeColor(10.0/255.0, 20.0/255.0, 22.0/255.0);
+    actor_czs->GetProperty()->LightingOff();
+    actor_czs->GetProperty()->ShadingOff();
+    actor_czs->GetProperty()->SetInterpolationToFlat();
+    actor_czs->PickableOff();
+    actor_czs->GetProperty()->SetLineWidth(3);
+
+
 
     contacts_final_list.reserve(10000);
     broadlist_ccd.reserve(100000);
@@ -241,15 +265,24 @@ void icy::Mesh::SetIndenterPosition(double position)
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
     points_deformable->SetNumberOfPoints(allNodes.size());
-    cellArray_deformable->Reset();
 
     // deformable material - elements
+    cellArray_deformable->Reset();
     for(icy::Element *tr : allElems)
     {
         vtkIdType pts[3] = {tr->nds[0]->globId, tr->nds[1]->globId, tr->nds[2]->globId};
         cellArray_deformable->InsertNextCell(3, pts);
     }
     ugrid_deformable->SetCells(VTK_TRIANGLE, cellArray_deformable);
+
+    // czs
+    cellArray_czs->Reset();
+    for(const icy::CohesiveZone *cz : allCZs)
+    {
+        vtkIdType pts[4] = {cz->nds[0]->globId, cz->nds[1]->globId, cz->nds[3]->globId, cz->nds[2]->globId};
+        cellArray_czs->InsertNextCell(4, pts);
+    }
+    ugrid_czs->SetCells(VTK_QUAD,cellArray_czs);
 
     // VTK-displayed (thick) boundaries
     cellArray_boundary_all->Reset();

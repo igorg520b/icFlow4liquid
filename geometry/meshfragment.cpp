@@ -6,9 +6,10 @@
 #include "tbb/concurrent_unordered_map.h"
 #include "edge.h"
 
-icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(10000);
-icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(10000);
-icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(10000);
+icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(nPreallocate);
+icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(nPreallocate);
+icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(nPreallocate);
+icy::ConcurrentPool<icy::CohesiveZone> icy::MeshFragment::CZFactory(nPreallocate);
 
 
 icy::MeshFragment::~MeshFragment()
@@ -272,8 +273,8 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
     int loop3 = gmsh::model::occ::addCurveLoop({lts[4],lts[5],lts[6],lts[7],-czLineTag});
 
 
-    int surfaceTag2 = gmsh::model::occ::addPlaneSurface({loop2});
-    int surfaceTag3 = gmsh::model::occ::addPlaneSurface({loop3});
+    gmsh::model::occ::addPlaneSurface({loop2});
+    gmsh::model::occ::addPlaneSurface({loop3});
     gmsh::model::occ::synchronize();
 
 //    gmsh::model::mesh::embed(1, {czLineTag},2, surfaceTag);
@@ -317,16 +318,22 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
         for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(i);
     }
 
+    std::unordered_map<Node*,Node*> splitNodes; // for CZ insertion
     for(Node *nd : nodes)
     {
         nd->isBoundary = nd->group.test(0);
-        if(nd->group.test(1) || nd->group.test((2))) nd->pinned = true;
+        if(nd->group.test(1) || nd->group.test(2)) nd->pinned = true;
+        if(nd->group.test(3))
+        {
+            Node *nd2 = AddNode();
+            nd2->Initialize(nd);
+            splitNodes[nd] = nd2;
+        }
     }
 
     // left group
     nodeTags.clear(); nodeCoords.clear();
     gmsh::model::mesh::getNodesForPhysicalGroup(2, groupTag6, nodeTags, nodeCoords);
-    spdlog::info("nodes for group 6 {}",nodeTags.size());
     for(unsigned j=0;j<nodeTags.size();j++) nodes[mtags[nodeTags[j]]]->group.set(6);
 
     // right group
@@ -347,30 +354,41 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
                          nodes[mtags.at(nodeTagsInTris[i*3+2])]);
     }
 
-    // element groups
+    // define element groups and replace nodes with splits
     for(Element *e : elems)
     {
         if(e->nds[0]->group.test(6) && e->nds[1]->group.test(6) &&e->nds[2]->group.test(6)) e->group.set(0);
         if(e->nds[0]->group.test(7) && e->nds[1]->group.test(7) &&e->nds[2]->group.test(7)) e->group.set(1);
+
+        for(int i=0;i<3;i++)
+            if(e->group.test(0) && e->nds[i]->group.test(3)) e->nds[i] = splitNodes.at(e->nds[i]);
     }
 
 
     // BOUNDARIRES - EDGES
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
-    spdlog::info("there are {} edges with {} nd tags", edgeTags.size(), nodeTagsInEdges.size());
 
     for(std::size_t i=0;i<edgeTags.size();i++)
     {
         icy::Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
         icy::Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
         if(nd0->group.test(1) && nd1->group.test(1)) special_boundary.emplace_back(nd0,nd1);
+
+        // insert cohesive zones
+        if(nd0->group.test(3) && nd1->group.test(3))
+        {
+            CohesiveZone *cz = CZFactory.take();
+            cz->Reset();
+            cz->Initialize(nd0,nd1,splitNodes.at(nd0),splitNodes.at(nd1));
+            czs.push_back(cz);
+        }
     }
 
     PostMeshingEvaluations();
     gmsh::clear();
     ConnectIncidentElements();
-    spdlog::info("GenerateCZBrick done");
+    spdlog::info("GenerateCZBrick done; czs {}",czs.size());
 }
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
@@ -630,7 +648,6 @@ void icy::MeshFragment::PostMeshingEvaluations()
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++) elems[i]->PrecomputeInitialArea();
 
-#pragma omp parallel for
     for(unsigned i=0;i<nNodes;i++) nodes[i]->area = 0;
 
     for(unsigned i=0;i<nElems;i++)

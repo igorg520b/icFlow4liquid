@@ -46,6 +46,7 @@ public:
     std::vector<MeshFragment> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
+    std::vector<icy::CohesiveZone*> allCZs;
     std::vector<BoundaryEdge> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
@@ -103,6 +104,7 @@ private:
     { return (180.0/M_PI)*abs(acos(std::clamp((double)u.normalized().dot(v.normalized()),-1.0,1.0))); };
 
     std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
+    std::vector<CohesiveZone*> local_czs;
     std::vector<Node*> local_support;
     void RemoveAdjBoundaries(Node *nd);
     void InsertAdjBoundaries(Node *nd);
@@ -117,6 +119,7 @@ public:
     vtkNew<vtkActor> actor_mesh_deformable;
     vtkNew<vtkActor> actor_boundary_all;
     vtkNew<vtkActor> actor_boundary_intended_indenter;
+    vtkNew<vtkActor> actor_czs;
 
     enum ShowDeformationOption { initial, current };
     ShowDeformationOption showDeformation = ShowDeformationOption::current;
@@ -131,7 +134,7 @@ private:
     int VisualizingVariable = 0;
 
     vtkNew<vtkPoints> points_deformable;
-    vtkNew<vtkPoints> points_indenter_intended;   // prescribed indenter location
+
     vtkNew<vtkDoubleArray> visualized_values;
     vtkNew<vtkIntArray> visualized_values_edges;
 
@@ -146,6 +149,7 @@ private:
     vtkNew<vtkDataSetMapper> dataSetMapper_boundary_all;
 
     // boundary-intended
+    vtkNew<vtkPoints> points_indenter_intended;   // prescribed indenter location
     vtkNew<vtkUnstructuredGrid> ugrid_indenter_intended;
     vtkNew<vtkCellArray> cellArray_indenter_intended;
     vtkNew<vtkDataSetMapper> dataSetMapper_indenter_intended;
@@ -155,6 +159,11 @@ private:
     vtkNew<vtkUnstructuredGrid> ugrid_collisions;
     vtkNew<vtkDataSetMapper> mapper_collisions;
     vtkNew<vtkCellArray> cellArray_collisions;
+
+    // czs
+    vtkNew<vtkUnstructuredGrid> ugrid_czs;
+    vtkNew<vtkDataSetMapper> mapper_czs;
+    vtkNew<vtkCellArray> cellArray_czs;
 
     static constexpr double lutArrayTemperatureAdj[51][3] =
     {{0.770938, 0.951263, 0.985716}, {0.788065, 0.959241, 0.986878},

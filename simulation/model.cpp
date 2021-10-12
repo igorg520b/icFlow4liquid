@@ -48,7 +48,7 @@ bool icy::Model::Step()
         while((!prms.EnableCollisions || ccd_res) && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
             if(abortRequested) {Aborting(); return false;}
-            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.allNodes, mesh.allElems);
+            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.allNodes, mesh.allElems, mesh.allCZs);
             if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
 
             double ratio = 0;
@@ -194,25 +194,27 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
 }
 
 bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool enable_spring,
-                                  std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems)
+                                  std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems,
+                                  std::vector<icy::CohesiveZone*> &czs)
 {
     for(Node *nd : mesh.allNodes) nd->eqId = -1;
 
     unsigned nElems = elems.size();
     unsigned nNodes = nodes.size();
+    unsigned nCzs = czs.size();
 
     // assign sequential indices to free nodes
     unsigned freeNodeCount = 0;
     for(unsigned i=0;i<nNodes;i++)
-    {
-        Node *nd = nodes[i];
-        if(!nd->pinned) nd->eqId = freeNodeCount++;
-    }
+        if(!nodes[i]->pinned) nodes[i]->eqId = freeNodeCount++;
 
     eqOfMotion.ClearAndResize(freeNodeCount);
 
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++) elems[i]->AddToSparsityStructure(eqOfMotion);
+
+#pragma omp parallel for
+    for(unsigned i=0;i<nCzs;i++) czs[i]->AddToSparsityStructure(eqOfMotion);
 
     if(enable_collisions)
     {
@@ -227,14 +229,14 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
     eqOfMotion.CreateStructure();
 
     // assemble
-    bool mesh_iversion_detected = false;
+    bool mesh_inversion_detected = false;
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++)
     {
         bool elem_entry_ok = elems[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-        if(!elem_entry_ok) mesh_iversion_detected = true;
+        if(!elem_entry_ok) mesh_inversion_detected = true;
     }
-    if(mesh_iversion_detected)
+    if(mesh_inversion_detected)
     {
         spdlog::info("mesh inversion detected while assembling elements");
         return false; // mesh inversion
@@ -251,6 +253,11 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
 #pragma omp parallel for
         for(unsigned i=0;i<mesh.contacts_final_list.size();i++) mesh.contacts_final_list[i].Evaluate(eqOfMotion, prms, timeStep);
     }
+
+//#pragma omp parallel for
+    for(unsigned i=0;i<nCzs;i++)
+        czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+
 
     // solve
     bool solve_result = eqOfMotion.Solve();
@@ -355,7 +362,7 @@ void icy::Model::GetNewMaterialPosition()
 
             while(sln_res && iter < prms.MaxIter*5 && (iter < prms.MinIter || !converges))
             {
-                sln_res = AssembleAndSolve(h, false, false, mesh.allNodes, mesh.allElems);
+                sln_res = AssembleAndSolve(h, false, false, mesh.allNodes, mesh.allElems, mesh.allCZs);
 
                 double ratio = 0;
                 if(iter == 0) { first_solution_norm = eqOfMotion.solution_norm; }
@@ -489,7 +496,7 @@ void icy::Model::Fracture_LocalSubstep(double timeStep)
         while((!prms.EnableCollisions || ccd_res) && sln_res && iter < prms.MaxIter && (iter < prms.MinIter || !converges))
         {
             if(abortRequested) {Aborting(); return;}
-            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.local_support, mesh.local_elems);
+            sln_res = AssembleAndSolve(h, prms.EnableCollisions, true, mesh.local_support, mesh.local_elems, mesh.local_czs);
             if(prms.EnableCollisions) ccd_res = mesh.EnsureNoIntersectionViaCCD();
 
             double ratio = 0;

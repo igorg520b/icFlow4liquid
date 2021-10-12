@@ -168,23 +168,19 @@ public:
     double get_cz_del_t() {return cz_del_t;}
 
 
-
-
-
-
     void Reset()
     {
         // features
         EnableCollisions = true;
         EnablePlasticity = true;
-        EnableFracture = true;
+        EnableFracture = false;
         EnableCZs = true;
 
         MaxSteps = 20000;
         InitialTimeStep = 0.05;
 
         // material parameters and physical constants
-        Gravity = 9.81;
+        Gravity = 0;//9.81;
         Density = 1;
         Thickness = 0.1;
 
@@ -217,12 +213,12 @@ public:
         // cohesive zones
         cz_alpha = 4;
         cz_beta = 4;
-        cz_lambda_n = 0.015;
-        cz_lambda_t = 0.015;
-        cz_phi_n = 3;
-        cz_phi_t = 3; // fracture energy
-        cz_sigma_max = 230000;
-        cz_tau_max = 230000;
+        cz_lambda_n = 0.15;
+        cz_lambda_t = 0.15;
+        cz_phi_n = 100;
+        cz_phi_t = 100; // fracture energy
+        cz_sigma_max = 2300;
+        cz_tau_max = 2300;
         RecomputeCZParams();
     }
 

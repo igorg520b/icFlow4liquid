@@ -30,6 +30,7 @@ MainWindow::MainWindow(QWidget *parent)
     renderer->AddActor(model.mesh.actor_mesh_deformable);
     renderer->AddActor(model.mesh.actor_boundary_all);
     renderer->AddActor(model.mesh.actor_boundary_intended_indenter);
+    renderer->AddActor(model.mesh.actor_czs);
 
     renderWindow->AddRenderer(renderer);
     renderWindow->GetInteractor()->SetInteractorStyle(specialSelector2D);
@@ -130,7 +131,7 @@ MainWindow::MainWindow(QWidget *parent)
     model.Reset(settings.value("setup_option",0).toInt());
     comboBox_visualizations->setCurrentIndex(settings.value("vis_option").toInt());
 
-    slider1->setValue(200);
+    slider1->setValue(310);
     updateGUI();
 }
 

@@ -1,46 +1,46 @@
 #include <iomanip>
 #include "cohesivezone.h"
 #include "node.h"
+#include <spdlog/spdlog.h>
 
-    const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] =
-        {
-            (Eigen::Matrix<double,8,2>() <<
-                 0.9305681557970262,0,
-             0,0.9305681557970262,
-             0.06943184420297371,0,
-             0,0.06943184420297371,
-             -0.9305681557970262,-0,
-             -0,-0.9305681557970262,
-             -0.06943184420297371,-0,
-             -0,-0.06943184420297371).finished(),
-            (Eigen::Matrix<double,8,2>() <<
-                 0.6699905217924281,0,
-             0,0.6699905217924281,
-             0.3300094782075719,0,
-             0,0.3300094782075719,
-             -0.6699905217924281,-0,
-             -0,-0.6699905217924281,
-             -0.3300094782075719,-0,
-             -0,-0.3300094782075719).finished(),
-            (Eigen::Matrix<double,8,2>() <<
-                 0.3300094782075719,0,
-             0,0.3300094782075719,
-             0.6699905217924281,0,
-             0,0.6699905217924281,
-             -0.3300094782075719,-0,
-             -0,-0.3300094782075719,
-             -0.6699905217924281,-0,
-             -0,-0.6699905217924281).finished(),
-            (Eigen::Matrix<double,8,2>() <<
-                 0.06943184420297371,0,
-             0,0.06943184420297371,
-             0.9305681557970262,0,
-             0,0.9305681557970262,
-             -0.06943184420297371,-0,
-             -0,-0.06943184420297371,
-             -0.9305681557970262,-0,
-             -0,-0.9305681557970262).finished(),
-            };
+const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
+    (Eigen::Matrix<double,8,2>() <<
+         0.9305681557970262,0,
+     0,0.9305681557970262,
+     0.06943184420297371,0,
+     0,0.06943184420297371,
+     -0.9305681557970262,-0,
+     -0,-0.9305681557970262,
+     -0.06943184420297371,-0,
+     -0,-0.06943184420297371).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.6699905217924281,0,
+     0,0.6699905217924281,
+     0.3300094782075719,0,
+     0,0.3300094782075719,
+     -0.6699905217924281,-0,
+     -0,-0.6699905217924281,
+     -0.3300094782075719,-0,
+     -0,-0.3300094782075719).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.3300094782075719,0,
+     0,0.3300094782075719,
+     0.6699905217924281,0,
+     0,0.6699905217924281,
+     -0.3300094782075719,-0,
+     -0,-0.3300094782075719,
+     -0.6699905217924281,-0,
+     -0,-0.6699905217924281).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.06943184420297371,0,
+     0,0.06943184420297371,
+     0.9305681557970262,0,
+     0,0.9305681557970262,
+     -0.06943184420297371,-0,
+     -0,-0.06943184420297371,
+     -0.9305681557970262,-0,
+     -0,-0.9305681557970262).finished(),
+    };
 
 void icy::CohesiveZone::Reset()
 {
@@ -49,8 +49,8 @@ void icy::CohesiveZone::Reset()
         pmax[i] = tmax[i] = 0;
     }
     isActive = true;
-    avgDn = avgDt = avgTn = avgTt = 0; // average traction-separations for subsequent analysis
-    maxAvgDn = maxAvgDt = 0;
+    //avgDn = avgDt = avgTn = avgTt = 0; // average traction-separations for subsequent analysis
+    //maxAvgDn = maxAvgDt = 0;
 }
 
 void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b)
@@ -64,28 +64,36 @@ void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2
 
 void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
+    if(!isActive) return;
     eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId});
 }
 
 void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
+    if(!isActive) return;
+
     Eigen::Vector2d xc[4];  // coordinates of the cz nodes
     for(int i=0;i<4;i++)
         xc[i] = nds[i]->xt;
 
-    // "midplane" between the two boundaries of the cz
-    Eigen::Vector2d mp[2] = {(xc[0]+xc[2])/2, (xc[1]+xc[3])/2};
-
     // center
-    Eigen::Vector2d center = (mp[0]+mp[1])/2;
+    Eigen::Vector2d center = (xc[0]+xc[1]+xc[2]+xc[3])*0.25;
+    //center = xc[0];
     for(int i=0;i<4;i++) xc[i] -= center;
-    for(int i=0;i<2;i++) mp[i] -= center;
 
-    Eigen::Vector2d dir = mp[1]-mp[0];
+    spdlog::info("nds {} {} {} {}", nds[0]->globId,nds[1]->globId,nds[2]->globId,nds[3]->globId);
+
+
+    Eigen::Vector2d dir;
+    dir = ((xc[1]-xc[0])+(xc[3]-xc[2]))*0.5;
+
+    spdlog::info("cz length {:.3e}",dir.norm());
+
     double cz_area = dir.norm()*prms.Thickness; // "length" of the zone times an assumed thickness of the 2D material
     dir.normalize();
     Eigen::Matrix2d r;  // aligns midplane with x-axis
-    r << dir.x(), dir.y(), -dir.x(), dir.y();
+    r << dir.y(), dir.x(),
+        -dir.x(), dir.y();
     Eigen::Matrix2d rT = r.transpose();
     Eigen::Matrix<double,8,8> RT;
     Eigen::Matrix2d z;
@@ -95,11 +103,22 @@ void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
           z, z, rT,z,
           z, z, z, rT;
 
+//    std::cout << "RT \n" << RT << std::endl;
 
     Eigen::Vector2d xr[4];  // rotated cz nodes
     for(int i=0;i<4;i++) xr[i] = r*xc[i];
+
+    spdlog::info("xr0 ({:.3e},{:.3e})   xr1 ({:.3e},{:.3e})",xr[0].x(),xr[0].y(),xr[1].x(),xr[1].y());
+    spdlog::info("xr2 ({:.3e},{:.3e})   xr3 ({:.3e},{:.3e})",xr[2].x(),xr[2].y(),xr[3].x(),xr[3].y());
+
+
     Eigen::Vector2d deltaA = xr[2]-xr[0];   // deltaA.x() - tangential opening; deltaA.y() - normal opening
     Eigen::Vector2d deltaB = xr[3]-xr[1];
+
+    spdlog::info("delA ({:.3e},{:.3e})   delB ({:.3e},{:.3e})",deltaA.x(),deltaA.y(),deltaB.x(),deltaB.y());
+
+//    std::cout << "deltaA " << deltaA.transpose() << std::endl;
+//    std::cout << "deltaB " << deltaB.transpose() << std::endl;
 
     bool contact_gp[nQPts] = {};
     bool failed_gp[nQPts] = {};
@@ -119,13 +138,20 @@ void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
         const double N2 = (1+qp_coord)/2;
 
         Eigen::Vector2d openingDisplacement = deltaA*N1 + deltaB*N2;
+//        std::cout << "openingDisplacement " << openingDisplacement.transpose() << std::endl;
+
         double dt = openingDisplacement.x();
         double opt = std::abs(dt);
         double opn = openingDisplacement.y();
         double opt_sign;
-        if(dt < epsilon) opt_sign = 0;
+        if(opt < epsilon_abs) opt_sign = 0;
         else if(dt < 0) opt_sign = -1;
         else opt_sign = 1;
+
+        //opt_sign = 0;
+        //opt=0;
+
+//        spdlog::info("qp {}, opt {}, opn {}", qp, opt, opn);
 
         tentative_pmax[qp] = pmax[qp];
         tentative_tmax[qp] = tmax[qp];
@@ -138,15 +164,16 @@ void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
 
         Eigen::Vector2d T(Tt*opt_sign,Tn);
         Eigen::Matrix2d DT;
-        DT << Dtt, Dtn*opt_sign, Dtn*opt_sign, Dnn;
+        DT << Dtt*opt_sign*opt_sign, Dtn*opt_sign, Dtn*opt_sign, Dnn;
 
-        DE += RT*(B[qp]*T)*cz_area*qp_weight;
-        HE += RT*B[qp]*DT*B[qp].transpose()*cz_area*qp_weight;
+//        std::cout << "DT \n" << DT << std::endl;
+        spdlog::info("qp {}; ({:.3e},{:.3e}) -> ({:.3e},{:.3e}); cont {}; fail {}",qp, opn,opt, Tn, Tt, contact_gp[qp],failed_gp[qp]);
+//        std::cout << ";  T " << T.transpose() << std::endl;
+
+        DE -= RT*(B[qp]*T)*cz_area*qp_weight;
+        HE -= RT*B[qp]*DT*B[qp].transpose()*cz_area*qp_weight;
     }
 
-    double hsq = h*h;
-    DE *= hsq;
-    HE *= hsq;
 
     tentative_pmax_final = *std::max_element(std::begin(tentative_pmax),std::end(tentative_pmax));
     tentative_tmax_final = *std::max_element(std::begin(tentative_tmax),std::end(tentative_tmax));
@@ -162,12 +189,27 @@ void icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
             { tentative_damaged = true; break; }
     }
 
+    double hsq = h*h;
+    DE *= hsq;
+    HE *= hsq;
+
     eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId,nds[3]->eqId});
+//    std::cout << "DE:\n" << DE.transpose() << "\n";
+//    std::cout << "HE:\n" << HE << "\n\n" << std::endl;
 }
 
 void icy::CohesiveZone::AcceptValues()
 {
+    if(!isActive) return;
+    isActive = !tentative_failed;
+    for(int i=0;i<nQPts;i++)
+    {
+        pmax[i] = tentative_pmax[i];
+        tmax[i] = tentative_tmax[i];
+    }
 
+//    if (maxAvgDn < avgDn) maxAvgDn = avgDn;
+//    if (maxAvgDt < avgDt) maxAvgDt = avgDt;
 }
 
 double icy::CohesiveZone::Tn_(const SimParams &prms, const double Dn, const double Dt)
@@ -296,6 +338,7 @@ void icy::CohesiveZone::PPR_cohesive_zone_formulation(
     {
         cz_contact = false;
         cz_failed = true;
+//        spdlog::info("failed: opn {}; deln {}; opt {}; delt {}", opn, deln, opt, delt);
         return;
     }
     cz_contact = (opn < 0);
@@ -459,8 +502,6 @@ void icy::CohesiveZone::CalculateAndPrintBMatrix()
                 std::cout << m(k,l) << ',';
             std::cout << '\n';
         }
-
-        //        std::cout << m << "\n\n";
     }
 }
 
