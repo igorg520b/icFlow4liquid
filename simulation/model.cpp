@@ -280,6 +280,13 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
 
 bool icy::Model::AcceptTentativeValues(double timeStep)
 {
+#pragma omp parallel for
+    for(unsigned i=0;i<mesh.allCZs.size();i++)
+    {
+        CohesiveZone *cz = mesh.allCZs[i];
+        cz->AcceptValues();
+    }
+
     vtk_update_mutex.lock();
     unsigned nNodes = mesh.allNodes.size();
 #pragma omp parallel for
@@ -290,7 +297,18 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
         nd->vn = dx/timeStep;
         nd->xn = nd->xt;
     }
+
+    // remove failed czs from the list
+    auto result = std::remove_if(mesh.allCZs.begin(),mesh.allCZs.end(),[](CohesiveZone *cz){return !cz->isActive;});
+
+    if(result != mesh.allCZs.end())
+    {
+        mesh.allCZs.erase(result,mesh.allCZs.end());
+        topologyInvalid = true;
+    }
     vtk_update_mutex.unlock();
+
+
 
     // plastic behavior
     unsigned nElems = mesh.allElems.size();

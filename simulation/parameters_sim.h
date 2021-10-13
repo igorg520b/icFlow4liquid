@@ -180,7 +180,7 @@ public:
         InitialTimeStep = 0.05;
 
         // material parameters and physical constants
-        Gravity = 0;//9.81;
+        Gravity = 9.81;
         Density = 1;
         Thickness = 0.1;
 
