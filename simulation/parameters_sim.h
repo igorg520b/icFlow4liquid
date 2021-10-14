@@ -141,7 +141,7 @@ public:
     double cz_p_m, cz_p_n;
     double cz_pMtn, cz_pMnt; // < phi_t - phi_n >, < phi_n - phi_t >
     double cz_gam_n, cz_gam_t;
-    //double cz_nThreshold, cz_tThreshold; // CZ peak separation point
+    double cz_nThreshold, cz_tThreshold; // CZ peak separation point
 
     void set_cz_alpha(double value) { cz_alpha=value; RecomputeCZParams(); emit propertyChanged(); }
     double get_cz_alpha() {return cz_alpha;}
@@ -254,8 +254,8 @@ public:
                    pow((1.0 - cz_lambda_t), (cz_beta - 1.0)) * ((cz_beta / cz_p_n) + 1.0) *
                    pow(((cz_beta / cz_p_n) * cz_lambda_t + 1.0), (cz_p_n - 1.0));
 
-        //cz_nThreshold = cz_del_n * cz_lambda_n;
-        //cz_tThreshold = cz_del_t * cz_lambda_t;
+        cz_nThreshold = cz_del_n * cz_lambda_n;
+        cz_tThreshold = cz_del_t * cz_lambda_t;
     }
 
 signals:

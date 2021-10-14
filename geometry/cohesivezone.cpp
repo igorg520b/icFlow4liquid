@@ -138,6 +138,17 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
 
         DE -= (B[qp]*T)*(cz_area*qp_weight);
         HE -= (B[qp]*DT*B[qp].transpose())*(cz_area*qp_weight);
+
+        // ensure that CZ is not openend too quickly
+        double delta_n = tentative_pmax[qp] - pmax[qp];
+        double delta_t = tentative_tmax[qp] - tmax[qp];
+        constexpr double coeff = 0.35;   // max progression coeff
+
+        if(pmax[qp]<prms.cz_nThreshold && delta_n > prms.cz_nThreshold*coeff) return false;
+        if(pmax[qp]>=prms.cz_nThreshold && delta_n > prms.cz_del_n*coeff) return false;
+        if(tmax[qp] < prms.cz_tThreshold && delta_t > prms.cz_tThreshold*coeff) return false;
+        if(tmax[qp] >= prms.cz_tThreshold && delta_t > prms.cz_del_t*coeff) return false;
+
     }
 
     // rotate back to the initial reference frace
@@ -167,7 +178,7 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
     if(!tentative_failed)
     {
         for(int i=0;i<nQPts;i++)
-            if(tentative_pmax[i] >= prms.cz_del_n * prms.cz_lambda_n || tmax[i] >= prms.cz_del_t * prms.cz_lambda_t)
+            if(tentative_pmax[i] >= prms.cz_nThreshold || tmax[i] >= prms.cz_tThreshold)
             { tentative_damaged = true; break; }
     }
 
