@@ -126,7 +126,6 @@ public:
     bool updateMinMax;
 
 private:
-    vtkNew<vtkLookupTable> hueLutBlackRed;
 
     void UpdateValues();
     void UnsafeUpdateGeometry();
@@ -135,15 +134,15 @@ private:
 
     vtkNew<vtkPoints> points_deformable;
 
-    vtkNew<vtkDoubleArray> visualized_values;
-    vtkNew<vtkIntArray> visualized_values_edges;
-
     // elements
+    vtkNew<vtkDoubleArray> visualized_values;
     vtkNew<vtkUnstructuredGrid> ugrid_deformable;
     vtkNew<vtkCellArray> cellArray_deformable;
     vtkNew<vtkDataSetMapper> dataSetMapper_deformable;
 
     // boundary
+    vtkNew<vtkLookupTable> hueLutBlackRed;
+    vtkNew<vtkIntArray> visualized_values_edges;
     vtkNew<vtkUnstructuredGrid> ugrid_boundary_all;
     vtkNew<vtkCellArray> cellArray_boundary_all;
     vtkNew<vtkDataSetMapper> dataSetMapper_boundary_all;
@@ -161,6 +160,8 @@ private:
     vtkNew<vtkCellArray> cellArray_collisions;
 
     // czs
+    vtkNew<vtkLookupTable> hueLut_czs;
+    vtkNew<vtkIntArray> visualized_values_czs;
     vtkNew<vtkUnstructuredGrid> ugrid_czs;
     vtkNew<vtkDataSetMapper> mapper_czs;
     vtkNew<vtkCellArray> cellArray_czs;

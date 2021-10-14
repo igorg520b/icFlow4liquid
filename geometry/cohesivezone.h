@@ -23,13 +23,14 @@ struct icy::CohesiveZone
     double pmax[nQPts];                 // max normal separation reached
     double tmax[nQPts];                 // max tangential separation reached
     bool isActive;                      // if not active, CZ has failed
+    bool isDamaged;
     //double avgDn, avgDt, avgTn, avgTt;  // average traction-separations for subsequent analysis
     //double maxAvgDn, maxAvgDt;
 
     void Reset();
     void Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b);
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
-    void ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
+    bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
     static void CalculateAndPrintBMatrix(); // used to calculate B[]
 

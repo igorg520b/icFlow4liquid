@@ -142,9 +142,15 @@ icy::Mesh::Mesh()
     hueLutBlackRed->SetTableValue(2,0,   0.5, 0, 1.0);
     hueLutBlackRed->SetTableRange(0,2);
 
+    hueLut_czs->SetNumberOfTableValues(2);
+    hueLut_czs->SetTableValue(0,0.95, 0.97, 0.91, 1.0);
+    hueLut_czs->SetTableValue(1,0.45, 0.47, 0.41, 1.0);
+    hueLut_czs->SetTableRange(0,1);
+
     // initialize various VTK objects
     visualized_values->SetName("visualized_values");
     visualized_values_edges->SetName("visualized_values_edges");
+    visualized_values_czs->SetName("visualized_values_czs");
 
     ugrid_deformable->SetPoints(points_deformable);
     dataSetMapper_deformable->SetInputData(ugrid_deformable);
@@ -209,6 +215,12 @@ icy::Mesh::Mesh()
     //czs
     ugrid_czs->SetPoints(points_deformable);
     mapper_czs->SetInputData(ugrid_czs);
+    mapper_czs->SetLookupTable(hueLut_czs);
+
+    ugrid_czs->GetCellData()->AddArray(visualized_values_czs);
+    ugrid_czs->GetCellData()->SetActiveScalars("visualized_values_czs");
+    mapper_czs->SetScalarModeToUseCellData();
+
     actor_czs->SetMapper(mapper_czs);
     actor_czs->GetProperty()->VertexVisibilityOff();
     actor_czs->GetProperty()->EdgeVisibilityOn();
@@ -219,8 +231,6 @@ icy::Mesh::Mesh()
     actor_czs->GetProperty()->SetInterpolationToFlat();
     actor_czs->PickableOff();
     actor_czs->GetProperty()->SetLineWidth(3);
-
-
 
     contacts_final_list.reserve(10000);
     broadlist_ccd.reserve(100000);
@@ -283,6 +293,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
         cellArray_czs->InsertNextCell(4, pts);
     }
     ugrid_czs->SetCells(VTK_QUAD,cellArray_czs);
+    visualized_values_czs->SetNumberOfValues(allCZs.size());
 
     // VTK-displayed (thick) boundaries
     cellArray_boundary_all->Reset();
@@ -585,6 +596,10 @@ void icy::Mesh::UpdateValues()
             hueLut->SetTableRange(minmax[0], minmax[1]);
         }
     }
+
+    for(std::size_t i=0;i<allCZs.size();i++) visualized_values_czs->SetValue(i, allCZs[i]->isDamaged ? 1 : 0);
+    visualized_values_czs->Modified();
+
 }
 
 

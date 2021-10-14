@@ -254,9 +254,18 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
         for(unsigned i=0;i<mesh.contacts_final_list.size();i++) mesh.contacts_final_list[i].Evaluate(eqOfMotion, prms, timeStep);
     }
 
-//#pragma omp parallel for
+    bool non_smooth_loading_detected = false;
+#pragma omp parallel for
     for(unsigned i=0;i<nCzs;i++)
-        czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+    {
+        bool result = czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+        if(!result) non_smooth_loading_detected = true;
+    }
+    if(non_smooth_loading_detected)
+    {
+        spdlog::info("non-smooth cz loading");
+        return false; // mesh inversion
+    }
 
 
     // solve
