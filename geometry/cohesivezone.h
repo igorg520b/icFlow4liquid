@@ -29,6 +29,7 @@ struct icy::CohesiveZone
 
     void Reset();
     void Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b);
+    void Disconnect();
     void AddToSparsityStructure(EquationOfMotionSolver &eq) const;
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();

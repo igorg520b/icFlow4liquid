@@ -16,6 +16,7 @@ void icy::Node::Reset()
     isBoundary = isCrackTip = false;
     time_loaded_above_threshold = 0;
     adj_elems.clear();
+    adj_czs.clear();
 }
 
 void icy::Node::Initialize(double x, double y)

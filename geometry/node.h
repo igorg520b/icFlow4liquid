@@ -9,7 +9,7 @@
 #include "parameters_sim.h"
 #include "edge.h"
 
-namespace icy { struct Node; struct Element; class MeshFragment;}
+namespace icy { struct Node; struct Element; struct CohesiveZone; class MeshFragment;}
 
 struct icy::Node
 {
@@ -62,13 +62,12 @@ struct icy::Node
         Eigen::Vector2d tn, tn_p;
         double phi[2], theta[2];
         double trac_normal, trac_tangential;
-//        icy::Edge e[4];
-//        icy::Edge e_opposite[2]; // edges that lie opposite of the center node
         double angle0[2], angle1[2];
         double sectorSpan(const int idx) const {return theta[idx]+phi[idx];}
     };
 
     boost::container::small_vector<icy::Element*, 8> adj_elems;
+    boost::container::small_vector<icy::CohesiveZone*, 4> adj_czs;
     boost::container::small_vector<icy::Node::Sector,8> fan;
     double fan_angle_span;  // assigned in UpdateFan();
     bool isCrackTip;

@@ -312,6 +312,7 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
 
     if(result != mesh.allCZs.end())
     {
+        for(auto iter = result; iter!=mesh.allCZs.end(); iter++) (*iter)->Disconnect();     // "inform" the nodes that CZ disappeared
         mesh.allCZs.erase(result,mesh.allCZs.end());
         topologyInvalid = true;
     }

@@ -50,8 +50,6 @@ void icy::CohesiveZone::Reset()
     }
     isActive = true;
     isDamaged = false;
-    //avgDn = avgDt = avgTn = avgTt = 0; // average traction-separations for subsequent analysis
-    //maxAvgDn = maxAvgDt = 0;
 }
 
 void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b)
@@ -60,6 +58,17 @@ void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2
     nds[1] = nd2a;
     nds[2] = nd1b;
     nds[3] = nd2b;
+    for(int i=0;i<4;i++) nds[i]->adj_czs.push_back(this);
+}
+
+void icy::CohesiveZone::Disconnect()
+{
+    for(int i=0;i<4;i++)
+    {
+        auto v = nds[i]->adj_czs;
+        auto iter = std::find(v.begin(),v.end(),this);
+        v.erase(iter);
+    }
 }
 
 

@@ -620,6 +620,7 @@ void icy::Mesh::CreateLeaves()
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
         fragmentRoots_ccd.push_back(&mf.root_ccd);
     }
+    //spdlog::info("icy::Mesh::CreateLeaves(): boundary edges {}",globalBoundaryEdges.size());
 }
 
 void icy::Mesh::UpdateTree(float distance_threshold)
@@ -1353,9 +1354,8 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->nds[nd0Idx_orig] = split;
 
     if(originalElem->incident_elems[nd0Idx_orig]!=nullptr)
-    {
         originalElem->incident_elems[nd0Idx_orig]->ReplaceIncidentElem(originalElem,insertedElem);
-    }
+
     insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
     insertedElem->incident_elems[nd1Idx_orig] = nullptr; // originalElem;
@@ -1399,6 +1399,8 @@ void icy::Mesh::InferLocalSupport(SimParams &prms)
     if(maxNode==nullptr) throw std::runtime_error("InferLocalSupport: maxNode==nullptr");
 
     local_elems.clear();
+    local_czs.clear();
+
     std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems));
     CreateSupportRange(prms.FractureSubstepLevels, local_elems);
 
@@ -1452,7 +1454,7 @@ void icy::Mesh::CreateSupportRange(int neighborLevel, std::vector<Element*> &ini
             for(int i=0;i<3;i++)
             {
                 icy::Element *adj_e = elem->incident_elems[i];
-                if(adj_e!= nullptr && adj_e->traversal==0)
+                if(adj_e != nullptr && adj_e->traversal == 0)
                 {
                     adj_e->traversal=level+1;
                     q_wave.push(adj_e);
