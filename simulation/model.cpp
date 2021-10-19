@@ -477,8 +477,7 @@ void icy::Model::Fracture(double timeStep)
         topologyInvalid = true;
         vtk_update_mutex.unlock();
 
-        mesh.InferLocalSupport(prms);
-        Fracture_LocalSubstep(timeStep);
+        Fracture_LocalSubstep();
 
         vtk_update_mutex.lock();
         mesh.ComputeFractureDirections(prms, 0, false);
@@ -490,19 +489,20 @@ void icy::Model::Fracture(double timeStep)
     mesh.updateMinMax = true;
 
 
-    // set xt=xn, re-evaluate Cauchy Stress
-
     if(fracture_step_count > 0)
     {
-        // any work that occurs after fracture, e.g. identify separated fragments, re-create BVH
+        // any work that occurs after fracture, e.g. identify separated fragments
     }
 }
 
-void icy::Model::Fracture_LocalSubstep(double timeStep)
+void icy::Model::Fracture_LocalSubstep()
 {
+    mesh.ResetFractureTimer(prms);
+    mesh.InferLocalSupport(prms);
+
     if(mesh.local_support.size() == 0) throw std::runtime_error("Fracture_LocalSubstep: local node range is zero");
 
-    double substepping_timestep_factor = 0.5;//0.001;
+    double substepping_timestep_factor = 0.1;
     int attempt = 0;
     bool converges=false;
     bool sln_res, ccd_res=true; // false if matrix is not PSD

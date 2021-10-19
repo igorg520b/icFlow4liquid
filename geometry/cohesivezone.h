@@ -24,8 +24,7 @@ struct icy::CohesiveZone
     double tmax[nQPts];                 // max tangential separation reached
     bool isActive;                      // if not active, CZ has failed
     bool isDamaged;
-    //double avgDn, avgDt, avgTn, avgTt;  // average traction-separations for subsequent analysis
-    //double maxAvgDn, maxAvgDt;
+    bool traversed;                 // used for identifying disjoint regions and n-regions around crack tips
 
     void Reset();
     void Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b);
@@ -37,7 +36,6 @@ struct icy::CohesiveZone
 
 private:
     bool tentative_contact, tentative_failed, tentative_damaged;
-    //double tentative_avgDn, tentative_avgDt, tentative_avgTn, tentative_avgTt;
     double tentative_pmax_final, tentative_tmax_final;
     double tentative_pmax[nQPts], tentative_tmax[nQPts];
 

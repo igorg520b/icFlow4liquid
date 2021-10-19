@@ -232,8 +232,12 @@ icy::Mesh::Mesh()
     actor_czs->PickableOff();
     actor_czs->GetProperty()->SetLineWidth(3);
 
-    contacts_final_list.reserve(10000);
-    broadlist_ccd.reserve(100000);
+    constexpr int initial_size =1000;
+    contacts_final_list.reserve(initial_size*10);
+    broadlist_ccd.reserve(initial_size*100);
+    local_czs.reserve(initial_size);
+    local_elems.reserve(initial_size);
+    local_support.reserve(initial_size);
 
     mesh_root_ccd.test_self_collision = true;
     mesh_root_ccd.boundaryEdge = nullptr;
@@ -1402,65 +1406,81 @@ void icy::Mesh::InferLocalSupport(SimParams &prms)
     local_czs.clear();
 
     std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems));
-    CreateSupportRange(prms.FractureSubstepLevels, local_elems);
-
-    std::unordered_set<Node*> local_support_set;
-    for(Element *elem : local_elems) for(int k=0;k<3;k++) local_support_set.insert(elem->nds[k]);
-    local_support.clear();
-    std::copy(local_support_set.begin(), local_support_set.end(),std::back_inserter(local_support));
-
-    // reset the loading timer in the vicinity of the crack
-    local_elems2.clear();
-    std::copy(maxNode->adj_elems.begin(),maxNode->adj_elems.end(),std::back_inserter(local_elems2));
-    CreateSupportRange(prms.FractureTimerLevels, local_elems2);
-    for(unsigned i=0;i<allNodes.size();i++)
-    {
-        Node *nd = allNodes[i];
-        if(nd==nullptr) {spdlog::critical("InferLocalSupport: allNodes[{}]==nullptr ",i); throw std::runtime_error("node==nullptr");}
-        nd->reset_timing = nd->isSupportNode = false;
-    }
-    for(Element *e : local_elems2)
-        for(int k=0;k<3;k++)
-        {
-            e->nds[k]->time_loaded_above_threshold = 0;
-            e->nds[k]->reset_timing=true;
-        }
-
-    // for visualization - mark support range (stored in breakable_range)
-    for(icy::Node *nd : local_support) nd->isSupportNode = true; // for visualization
+    CreateSupportRange(prms.FractureSubstepLevels);
 }
 
-void icy::Mesh::CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set)
+void icy::Mesh::ResetFractureTimer(SimParams &prms)
 {
-    for(unsigned i=0;i<allElems.size();i++) allElems[i]->traversal=0;
+    // reset the loading timer in the vicinity of the crack
+    CreateSupportRange(prms.FractureTimerLevels);
+    for(Node *nd : local_support) nd->time_loaded_above_threshold = 0;
+}
 
-    std::queue<Element*> q_wave;
-    for(Element *e : initial_set)
-    {
-        e->traversal=1;
-        q_wave.push(e);
-    }
-    initial_set.clear();
+
+
+void icy::Mesh::CreateSupportRange(const int neighborLevel)
+{
+    local_czs.clear();
+    local_support.clear();
+    local_elems.clear();
+
+    for(auto &elem : allElems) elem->traversed=false;
+    for(auto &cz : allCZs) cz->traversed = false;
+    for(auto &nd : allNodes) nd->traversal = 0;
+
+
+    std::queue<Node*> q_wave;
+    q_wave.push(maxNode);
+    maxNode->traversal = 1;
 
     while(q_wave.size() > 0)
     {
-        icy::Element *elem = q_wave.front();
+        Node *nd = q_wave.front();
         q_wave.pop();
-        initial_set.push_back(elem);
+        local_support.push_back(nd);
+        unsigned short level = nd->traversal;
 
-        unsigned short level = elem->traversal;
-        if(level < neighborLevel)
+        for(Element *e : nd->adj_elems)
         {
-            for(int i=0;i<3;i++)
+            if(!e->traversed)
             {
-                icy::Element *adj_e = elem->incident_elems[i];
-                if(adj_e != nullptr && adj_e->traversal == 0)
+                local_elems.push_back(e);
+                e->traversed = true;
+                if(level<neighborLevel)
                 {
-                    adj_e->traversal=level+1;
-                    q_wave.push(adj_e);
+                    for(Node *nd2 : e->nds)
+                    {
+                        if(nd2->traversal == 0)
+                        {
+                            nd2->traversal = level+1;
+                            q_wave.push(nd2);
+                        }
+                    }
                 }
             }
         }
+
+        for(CohesiveZone *cz : nd->adj_czs)
+        {
+            if(!cz->traversed)
+            {
+                local_czs.push_back(cz);
+                cz->traversed = true;
+                if(level<neighborLevel)
+                {
+                    for(Node *nd2 : cz->nds)
+                    {
+                        if(nd2->traversal == 0)
+                        {
+                            nd2->traversal = level+1;
+                            q_wave.push(nd2);
+                        }
+                    }
+                }
+            }
+        }
+
     }
+
 }
 

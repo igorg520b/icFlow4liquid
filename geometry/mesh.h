@@ -98,12 +98,13 @@ private:
     Node* Fix_X_Topology(Node *nd);
 
     void InferLocalSupport(SimParams &prms);
-    void CreateSupportRange(int neighborLevel, std::vector<Element*> &initial_set);
+    void ResetFractureTimer(SimParams &prms);
+    void CreateSupportRange(const int neighborLevel);     // result is in local_elems, local_czs, local_support
 
     static double get_angle(const Eigen::Vector2d u, const Eigen::Vector2d v)
     { return (180.0/M_PI)*abs(acos(std::clamp((double)u.normalized().dot(v.normalized()),-1.0,1.0))); };
 
-    std::vector<Element*> local_elems, local_elems2; // elems corresponding to breakable_range;
+    std::vector<Element*> local_elems; // elems corresponding to breakable_range;
     std::vector<CohesiveZone*> local_czs;
     std::vector<Node*> local_support;
     void RemoveAdjBoundaries(Node *nd);

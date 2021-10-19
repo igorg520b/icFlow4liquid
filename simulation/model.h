@@ -55,7 +55,7 @@ public:
 
 private:
     void Fracture(double timeStep);
-    void Fracture_LocalSubstep(double timeStep);    // part of Fracture()
+    void Fracture_LocalSubstep();    // part of Fracture()
     void InitialGuess(double timeStep, double timeStepFactor);
     bool AssembleAndSolve(double timeStep, bool enable_collisions, bool enable_spring,
                           std::vector<icy::Node*> &nodes, std::vector<icy::Element*> &elems,

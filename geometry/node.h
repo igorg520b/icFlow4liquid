@@ -41,6 +41,7 @@ struct icy::Node
 // FRACTURE MODEL
     MeshFragment *fragment;         // mesh fragment to which the node belongs
     Node *CWBoundaryNode, *CCWBoundaryNode;     // if this->isBoundary, then these point to adjacent nodes
+    unsigned short traversal;
 
     struct Sector
     {
@@ -71,7 +72,6 @@ struct icy::Node
     boost::container::small_vector<icy::Node::Sector,8> fan;
     double fan_angle_span;  // assigned in UpdateFan();
     bool isCrackTip;
-    bool isSupportNode, reset_timing;
     SepStressResult result_with_max_traction;
     Eigen::Vector2d dir;
     Eigen::Vector2d weakening_direction;    // used when isCrackTip==true

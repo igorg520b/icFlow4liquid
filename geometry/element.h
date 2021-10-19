@@ -55,7 +55,7 @@ public:
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
-    unsigned traversal;     // used for identifying disjoint regions and n-regions around crack tips
+    bool traversed;     // used for identifying disjoint regions and n-regions around crack tips
     bool isBoundaryEdge(const short idx) const {return incident_elems[idx]==nullptr;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
