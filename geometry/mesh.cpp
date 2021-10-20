@@ -401,6 +401,7 @@ void icy::Mesh::ChangeVisualizationOption(int option)
     case icy::Model::VisOpt::adj_elems_count_nd:
     case icy::Model::VisOpt::nd_max_normal_traction:
     case icy::Model::VisOpt::nd_isBoundary:
+    case icy::Model::VisOpt::node_traversal:
         ugrid_deformable->GetCellData()->RemoveArray("visualized_values");
         ugrid_deformable->GetPointData()->AddArray(visualized_values);
         ugrid_deformable->GetPointData()->SetActiveScalars("visualized_values");
@@ -457,6 +458,11 @@ void icy::Mesh::UpdateValues()
     case icy::Model::VisOpt::nd_isBoundary:
         visualized_values->SetNumberOfValues(allNodes.size());
         for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->isBoundary ? 1 : 0);
+        break;
+
+    case icy::Model::VisOpt::node_traversal:
+        visualized_values->SetNumberOfValues(allNodes.size());
+        for(std::size_t i=0;i<allNodes.size();i++) visualized_values->SetValue(i, allNodes[i]->traversal);
         break;
 
         // plasticity
@@ -517,7 +523,7 @@ void icy::Mesh::UpdateValues()
 
 
         // mesh quality measures
-    case icy::Model::VisOpt::QM1:
+    case icy::Model::VisOpt::quality_measure:
         for(std::size_t i=0;i<allElems.size();i++)
             visualized_values->SetValue(i, allElems[i]->quality_measure_Wicke);
         break;
@@ -591,7 +597,7 @@ void icy::Mesh::UpdateValues()
         {
             hueLut->SetTableRange(0, 0.5);
         }
-        else if(VisualizingVariable == icy::Model::VisOpt::QM1)
+        else if(VisualizingVariable == icy::Model::VisOpt::quality_measure)
         {
             hueLut->SetTableRange(0, 1);
         }
@@ -1046,6 +1052,8 @@ void icy::Mesh::SplitNode(const SimParams &prms)
 
     Node *split1, *split2=nullptr, *split3=nullptr;
     split1 = Fix_X_Topology(nd);
+//    if(prms.EnableInsertCZs) InsertCohesiveZone(nd,edge_split0,split1)
+
 
     if(!isBoundary)
     {
@@ -1484,3 +1492,9 @@ void icy::Mesh::CreateSupportRange(const int neighborLevel)
 
 }
 
+void icy::Mesh::InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2)
+{
+    MeshFragment *fr = ndA1->fragment;
+    CohesiveZone *cz = fr->AddCZ();
+    cz->Initialize(ndA1, ndA2, ndB1, ndB2);
+}

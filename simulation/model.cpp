@@ -213,8 +213,11 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
 #pragma omp parallel for
     for(unsigned i=0;i<nElems;i++) elems[i]->AddToSparsityStructure(eqOfMotion);
 
+    if(prms.EnableCZs)
+    {
 #pragma omp parallel for
-    for(unsigned i=0;i<nCzs;i++) czs[i]->AddToSparsityStructure(eqOfMotion);
+        for(unsigned i=0;i<nCzs;i++) czs[i]->AddToSparsityStructure(eqOfMotion);
+    }
 
     if(enable_collisions)
     {
@@ -254,17 +257,20 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
         for(unsigned i=0;i<mesh.contacts_final_list.size();i++) mesh.contacts_final_list[i].Evaluate(eqOfMotion, prms, timeStep);
     }
 
-    bool non_smooth_loading_detected = false;
+    if(prms.EnableCZs)
+    {
+        bool non_smooth_loading_detected = false;
 #pragma omp parallel for
-    for(unsigned i=0;i<nCzs;i++)
-    {
-        bool result = czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
-        if(!result) non_smooth_loading_detected = true;
-    }
-    if(non_smooth_loading_detected)
-    {
-        spdlog::info("non-smooth cz loading");
-        return false; // mesh inversion
+        for(unsigned i=0;i<nCzs;i++)
+        {
+            bool result = czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
+            if(!result) non_smooth_loading_detected = true;
+        }
+        if(non_smooth_loading_detected)
+        {
+            spdlog::info("non-smooth cz loading");
+            return false; // mesh inversion
+        }
     }
 
 

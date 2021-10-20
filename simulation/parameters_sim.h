@@ -17,6 +17,7 @@ class icy::SimParams : public QObject
 
     // features
     Q_PROPERTY(bool f_EnableFracture MEMBER EnableFracture NOTIFY propertyChanged)
+    Q_PROPERTY(bool f_InsertCZs MEMBER EnableInsertCZs NOTIFY propertyChanged)
     Q_PROPERTY(bool f_EnableCollisions MEMBER EnableCollisions NOTIFY propertyChanged)
     Q_PROPERTY(bool f_EnablePlasticity MEMBER EnablePlasticity NOTIFY propertyChanged)
     Q_PROPERTY(bool f_EnableCZs MEMBER EnableCZs NOTIFY propertyChanged)
@@ -77,6 +78,7 @@ public:
     bool EnableFracture;
     bool EnablePlasticity;
     bool EnableCollisions;
+    bool EnableInsertCZs;
 
     // integrator / simulation
     int MaxSteps, MinIter, MaxIter;
@@ -173,7 +175,8 @@ public:
         // features
         EnableCollisions = true;
         EnablePlasticity = true;
-        EnableFracture = false;
+        EnableFracture = true;
+        EnableInsertCZs = true;
         EnableCZs = true;
 
         MaxSteps = 20000;

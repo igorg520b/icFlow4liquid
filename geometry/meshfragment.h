@@ -45,6 +45,7 @@ private:
     static ConcurrentPool<CohesiveZone> CZFactory;
     icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
     icy::Element* AddElement(); // add to elems vector from ElementFactory
+    icy::CohesiveZone* AddCZ();
 
     struct GmshEntity
     {

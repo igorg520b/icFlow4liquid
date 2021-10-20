@@ -69,8 +69,9 @@ public:
                   nd_isBoundary, elem_isBoundary,
                   stress_xx, stress_yy, stress_hydrostatic, ps1, ps2, shear_stress,
                   Green_strain_xx, Green_strain_yy, Green_strain_xy,
-                  QM1, avg_edge_len,
+                  quality_measure, avg_edge_len,
                   elem_area, energy_density, volume_change, velocity_div, node_group, elem_group,
+                  node_traversal,
                   vel_mag, adj_elems_count_nd};
     Q_ENUM(VisOpt)
 

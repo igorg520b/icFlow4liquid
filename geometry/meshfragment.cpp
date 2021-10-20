@@ -38,6 +38,13 @@ icy::Element* icy::MeshFragment::AddElement()
     return elem;
 }
 
+icy::CohesiveZone* icy::MeshFragment::AddCZ()
+{
+    CohesiveZone *cz = CZFactory.take();
+    cz->Reset();
+    czs.push_back(cz);
+}
+
 
 
 void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double height)
@@ -378,10 +385,8 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
         // insert cohesive zones
         if(nd0->group.test(3) && nd1->group.test(3))
         {
-            CohesiveZone *cz = CZFactory.take();
-            cz->Reset();
+            CohesiveZone *cz = AddCZ();
             cz->Initialize(nd0,nd1,splitNodes.at(nd0),splitNodes.at(nd1));
-            czs.push_back(cz);
         }
     }
 

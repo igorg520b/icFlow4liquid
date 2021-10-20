@@ -96,6 +96,7 @@ private:
     void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                      Node *nd0, Node *nd1, double where, Node*& insertedNode);
     Node* Fix_X_Topology(Node *nd);
+    void InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2);
 
     void InferLocalSupport(SimParams &prms);
     void ResetFractureTimer(SimParams &prms);
