@@ -415,3 +415,12 @@ uint64_t icy::Node::make_global_key(Node *nd0, Node *nd1)
     if(nd0idx > nd1idx) std::swap(nd0idx, nd1idx);
     return ((uint64_t)nd0idx << 32) | nd1idx;
 }
+
+void icy::Node::ReplaceAdjacentElement(Element *originalElem, Element *replacement)
+{
+    auto iter = std::find(adj_elems.begin(),adj_elems.end(),originalElem);
+    if(iter == adj_elems.end())
+        throw std::runtime_error("icy::Node::ReplaceAdjacentElement: can't find the original element to replace");
+    else *iter = replacement;
+}
+

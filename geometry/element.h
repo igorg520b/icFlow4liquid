@@ -26,6 +26,7 @@ struct icy::Element
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void ComputeVisualizedVariables();  // Cauchy stress, Green strain, etc.
     bool PlasticDeformation(const SimParams &prms, double timeStep);  // true if plastic deformation occurred
+    void RecalculatePiMultiplierFromDeformationGradient(Eigen::Matrix2d F_tilda);
 
     Eigen::Matrix2d CauchyStress, GreenStrain;
     double area_initial, area_current;

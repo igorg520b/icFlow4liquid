@@ -43,6 +43,7 @@ icy::CohesiveZone* icy::MeshFragment::AddCZ()
     CohesiveZone *cz = CZFactory.take();
     cz->Reset();
     czs.push_back(cz);
+    return cz;
 }
 
 

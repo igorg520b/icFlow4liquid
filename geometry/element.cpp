@@ -372,3 +372,7 @@ void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
     else throw std::runtime_error("ReplaceIncidentElem: incident elem not found");
 }
 
+void icy::Element::RecalculatePiMultiplierFromDeformationGradient(Eigen::Matrix2d F_tilda)
+{
+    PiMultiplier = Dm * getDs_at_n().inverse() * F_tilda;
+}

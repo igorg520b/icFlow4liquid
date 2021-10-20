@@ -90,6 +90,7 @@ private:
     icy::Node *maxNode;
     constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
+    Node* AddNode(MeshFragment* fragment);
     void SplitNode(const SimParams &prms);
     void EstablishSplittingEdge(Node* nd, const double phi, const double theta, Element *elem, Node* &adjacentNode);
     void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& insertedNode);
@@ -109,6 +110,7 @@ private:
     std::vector<CohesiveZone*> local_czs;
     std::vector<Node*> local_support;
     void RemoveAdjBoundaries(Node *nd);
+    void RemoveBoundaryEdgeIfExists(Node *nd1, Node *nd2);
     void InsertAdjBoundaries(Node *nd);
 
 

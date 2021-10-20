@@ -81,6 +81,7 @@ struct icy::Node
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);
+    void ReplaceAdjacentElement(Element *originalElem, Element *replacement);
 
     static uint64_t make_local_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
     static uint64_t make_global_key(Node *nd0, Node *nd1); // return unique id for a segment defined by two nodes
