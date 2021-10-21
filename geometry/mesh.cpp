@@ -1083,6 +1083,16 @@ void icy::Mesh::SplitNode(const SimParams &prms)
         {
             nd_split->adj_elems.push_back(s.face);
             s.face->ReplaceNode(nd, nd_split);
+            if(s.face->isCWBoundary(nd_split))
+            {
+                Node *cw = s.face->CW_Node(nd_split);
+                ReplaceBoundary(s.face, nd,cw,nd_split,cw);
+            }
+            else if(s.face->isCCWBoundary(nd_split))
+            {
+                Node *ccw = s.face->CCW_Node(nd_split);
+                ReplaceBoundary(s.face, nd,ccw,nd_split,ccw);
+            }
         }
     }
     //nd->isBoundary = nd_split->isBoundary = true;
@@ -1097,8 +1107,6 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(edge_split0->isBoundary)
     {
         Node *edge_split0_split = Fix_X_Topology(edge_split0, nd_split);
- //       fr->boundaryEdges.push_back(BoundaryEdge(edge_split0,nd_split,));
-//        fr->boundaryEdges.push_back(BoundaryEdge(edge_split0_split,nd));
     }
     else
     {
@@ -1167,51 +1175,6 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     }
 }
 
-void icy::Mesh::RemoveAdjBoundaries(Node *nd)
-{
-    if(!nd->isBoundary)return;
-    MeshFragment *fr = nd->fragment;
-    for(const Node::Sector &s : nd->fan)
-    {
-        Node *cwn, *ccwn;
-        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
-        if(s.face->isCWBoundary(nd)) RemoveBoundaryEdgeIfExists(nd,cwn);
-        if(s.face->isCCWBoundary(nd)) RemoveBoundaryEdgeIfExists(nd,ccwn);
-    }
-}
-
-void icy::Mesh::RemoveBoundaryEdgeIfExists(Node *nd1, Node *nd2)
-{
-    MeshFragment *fr = nd1->fragment;
-    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(nd1,nd2));
-    if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
-}
-
-
-void icy::Mesh::InsertAdjBoundaries(Node *nd)
-{
-    if(!nd->isBoundary)return;
-    MeshFragment *fr = nd->fragment;
-    for(const Node::Sector &s : nd->fan)
-    {
-        Node *cwn, *ccwn;
-        std::tie(cwn,ccwn) = s.face->CW_CCW_Node(nd);
-        if(s.face->isCWBoundary(nd))
-        {
-            BoundaryEdge boundary_to_insert(nd,cwn,s.face);
-            auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert);
-            if(iter==fr->boundaryEdges.end())
-                fr->boundaryEdges.push_back(boundary_to_insert);
-        }
-        if(s.face->isCCWBoundary(nd))
-        {
-            BoundaryEdge boundary_to_insert2(nd,ccwn,s.face);
-            auto iter = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),boundary_to_insert2);
-            if(iter==fr->boundaryEdges.end())
-                fr->boundaryEdges.push_back(boundary_to_insert2);
-        }
-    }
-}
 
 
 
@@ -1239,6 +1202,16 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
         {
             s.face->ReplaceNode(nd, split);
             split->adj_elems.push_back(s.face);
+            if(s.face->isCWBoundary(split))
+            {
+                Node *cw = s.face->CW_Node(split);
+                ReplaceBoundary(s.face, nd,cw,split,cw);
+            }
+            else if(s.face->isCCWBoundary(split))
+            {
+                Node *ccw = s.face->CCW_Node(split);
+                ReplaceBoundary(s.face, nd,ccw,split,ccw);
+            }
         }
         else
         {
@@ -1253,15 +1226,24 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
     return split;
 }
 
+void icy::Mesh::ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *newA, Node *newB)
+{
+    MeshFragment *fr = oldA->fragment;
+    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(oldA,oldB));
+    if(find_result == fr->boundaryEdges.end()) return;
+    *find_result = BoundaryEdge(newA,newB,elem);
+}
+
+
 // upon completion, "split" is assigned with the newly inserted node
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& split)
 {
     // erase split boundary from the boundary list
 
     MeshFragment *fr = nd1->fragment;
-//    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(nd0,nd1));
-//    if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
-//    else throw std::runtime_error("SplitBoundaryElem: can't find the boundary that is supposed to exist");
+    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(nd0,nd1,originalElem));
+    if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
+    else throw std::runtime_error("SplitBoundaryElem: can't find the boundary that is supposed to exist");
 
     short ndIdx = originalElem->getNodeIdx(nd);
     short nd0Idx = originalElem->getNodeIdx(nd0);
@@ -1315,6 +1297,12 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
 
     // "fix" the fan for the node, whose element was just replaced
     nd1->PrepareFan();
+
+
+
+    fr->boundaryEdges.push_back(BoundaryEdge(nd0,split,originalElem));
+    fr->boundaryEdges.push_back(BoundaryEdge(nd1,split,insertedElem));
+
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,

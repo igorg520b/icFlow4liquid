@@ -99,6 +99,8 @@ private:
     Node* Fix_X_Topology(Node *nd_to_split, Node *alignment_node);
     void InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2);
 
+    void ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *newA, Node *newB);
+
     void InferLocalSupport(SimParams &prms);
     void ResetFractureTimer(SimParams &prms);
     void CreateSupportRange(const int neighborLevel);     // result is in local_elems, local_czs, local_support
@@ -109,9 +111,6 @@ private:
     std::vector<Element*> local_elems; // elems corresponding to breakable_range;
     std::vector<CohesiveZone*> local_czs;
     std::vector<Node*> local_support;
-    void RemoveAdjBoundaries(Node *nd);
-    void RemoveBoundaryEdgeIfExists(Node *nd1, Node *nd2);
-    void InsertAdjBoundaries(Node *nd);
 
 
     // VTK

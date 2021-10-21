@@ -32,8 +32,8 @@ struct icy::BoundaryEdge
 
     bool operator==(const icy::BoundaryEdge &other)
     {
-        return (vertices.first == other.vertices.first && vertices.second == other.vertices.second) ||
-               (vertices.first == other.vertices.second && vertices.second == other.vertices.first);
+        return ((vertices.first == other.vertices.first && vertices.second == other.vertices.second)||
+                (vertices.first == other.vertices.second && vertices.second == other.vertices.first));
     }
 
     std::pair<Eigen::Vector2d,Eigen::Vector2d> offsetEdge(double offsetMag)
