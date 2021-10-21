@@ -96,7 +96,7 @@ private:
     void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& insertedNode);
     void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                      Node *nd0, Node *nd1, double where, Node*& insertedNode);
-    Node* Fix_X_Topology(Node *nd);
+    Node* Fix_X_Topology(Node *nd_to_split, Node *alignment_node);
     void InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2);
 
     void InferLocalSupport(SimParams &prms);

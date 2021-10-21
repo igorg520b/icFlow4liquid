@@ -1034,70 +1034,95 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
 
     Node *edge_split0, *edge_split1 = nullptr;
-    Node *nd0 = ssr.faces[0]->nds[0];
-    Node *nd1 = ssr.faces[0]->nds[1];
-    Node *nd2 = ssr.faces[0]->nds[2];
 
-    RemoveAdjBoundaries(nd);
     EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], edge_split0);
-    RemoveAdjBoundaries(edge_split0);
 
     if(!isBoundary)
     {
         if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
         EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], edge_split1);
-        RemoveAdjBoundaries(edge_split1);
     }
 
-    Node *split1, *split2=nullptr, *split3=nullptr;
-    split1 = Fix_X_Topology(nd);
-//    if(prms.EnableInsertCZs) InsertCohesiveZone(nd,edge_split0,split1)
+    // at this pont, new edges are introduced if needed
 
+    // SPLIT nd
+    nd->CreateUnrotatedFan();
 
-    if(!isBoundary)
+    // find the sector whose CW boundary is nd--edge_split0
+    auto cw_boundary_sector = std::find_if(nd->fan.begin(), nd->fan.end(),
+                                    [edge_split0](const Node::Sector &f){return f.nd[0]==edge_split0;});
+    if(cw_boundary_sector == nd->fan.end()) throw std::runtime_error("SplitNode: cw boundary not found 1");
+    std::rotate(nd->fan.begin(), cw_boundary_sector, nd->fan.end());
+
+    nd->fan.front().face->DisconnectCWElem(nd);
+    // TODO: ADD 2 BOUNDARY EDGES to fr->boundaryEdges; nd--edge_split0 and nd_split--edge_split_0
+
+    nd->adj_elems.clear();
+    Node *nd_split = AddNode(nd->fragment);
+    nd_split->Initialize(nd);
+    bool other_side = false;
+
+    for(Node::Sector &s : nd->fan)
     {
-        if(edge_split1==nullptr) throw std::runtime_error("SplitNode: split1==nullptr");
-        if(edge_split1->isBoundary)
+        if(isBoundary && s.face->isCWBoundary(nd) && s.nd[0] != edge_split0)
         {
-            split2 = Fix_X_Topology(edge_split1);
+            other_side = true;
+        }
+        else if(!isBoundary && s.nd[0] == edge_split1)
+        {
+            other_side = true;
+            s.face->DisconnectCWElem(nd);
+            // TODO ADD 2 BOUNDARY EDGES along nd--edge_split1 and nd_split--edge_split_1
+        }
+
+        if(!other_side)
+        {
+            nd->adj_elems.push_back(s.face);
         }
         else
         {
-            edge_split1->isCrackTip = true;
-            new_crack_tips.push_back(edge_split1);
-            edge_split1->weakening_direction = (edge_split1->xn - nd->xn).normalized();
+            nd_split->adj_elems.push_back(s.face);
+            s.face->ReplaceNode(nd, nd_split);
         }
     }
+    //nd->isBoundary = nd_split->isBoundary = true;
+    nd->weakening_direction = Eigen::Vector2d::Zero();
+    nd->isCrackTip = false;
+    nd->PrepareFan();
+    nd_split->PrepareFan();
+
+    MeshFragment *fr = nd->fragment;
+
 
     if(edge_split0->isBoundary)
     {
-        split3 = Fix_X_Topology(edge_split0);
+        Node *edge_split0_split = Fix_X_Topology(edge_split0, nd_split);
+ //       fr->boundaryEdges.push_back(BoundaryEdge(edge_split0,nd_split,));
+//        fr->boundaryEdges.push_back(BoundaryEdge(edge_split0_split,nd));
     }
     else
     {
         edge_split0->isCrackTip = true;
-        new_crack_tips.push_back(edge_split0);
         edge_split0->weakening_direction = (edge_split0->xn - nd->xn).normalized();
+        new_crack_tips.push_back(edge_split0);
+        edge_split0->PrepareFan();
     }
 
-    nd0->PrepareFan();
-    nd1->PrepareFan();
-    nd2->PrepareFan();
-    edge_split0->PrepareFan();
-    InsertAdjBoundaries(edge_split0);
-    if(edge_split1!=nullptr)
+    if(!isBoundary)
     {
-        edge_split1->PrepareFan();
-        InsertAdjBoundaries(edge_split1);
+        if(edge_split1->isBoundary)
+        {
+            Node *edge_split1_split = Fix_X_Topology(edge_split1, nd);
+        }
+        else
+        {
+            edge_split1->isCrackTip = true;
+            edge_split1->weakening_direction = (edge_split1->xn - nd->xn).normalized();
+            new_crack_tips.push_back(edge_split1);
+            edge_split1->PrepareFan();
+        }
     }
-    if(split1!=nullptr) InsertAdjBoundaries(split1);
-    if(split2!=nullptr) InsertAdjBoundaries(split2);
-    if(split3!=nullptr) InsertAdjBoundaries(split3);
-    InsertAdjBoundaries(nd);
 
-
-    nd->weakening_direction = Eigen::Vector2d::Zero();
-    nd->isCrackTip = false;
 }
 
 void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double theta, Element *elem, Node* &adjacentNode)
@@ -1122,18 +1147,12 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     {
         // will split along the counter-clockwise boundary
         short idx = elem->getNodeIdx(nd0);
-        Element* incident_elem = elem->incident_elems[idx];
-        incident_elem->DisconnectFromElem(elem);
-        elem->incident_elems[idx] = nullptr;
         adjacentNode = nd1;
     }
     else if(phi == 0 && !elem->isCWBoundary(nd))
     {
         // will split along the clockwise boundary
         short idx = elem->getNodeIdx(nd1);
-        Element* incident_elem = elem->incident_elems[idx];
-        incident_elem->DisconnectFromElem(elem);
-        elem->incident_elems[idx] = nullptr;
         adjacentNode = nd0;
     }
     else if(elem_adj == nullptr)
@@ -1196,64 +1215,41 @@ void icy::Mesh::InsertAdjBoundaries(Node *nd)
 
 
 
-icy::Node* icy::Mesh::Fix_X_Topology(Node *nd)
+icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
 {
     // create a new "fan" with X-topology allowed
-    nd->fan.clear();
-    for(unsigned k=0;k<nd->adj_elems.size();k++)
-    {
-        icy::Element *elem = nd->adj_elems[k];
-        Node::Sector s;
-        s.face = elem;
-        Eigen::Vector2d tcv = elem->getCenter() - nd->x_initial;
-        s.centerAngle = atan2(tcv.y(), tcv.x());
-        short thisIdx, CWIdx, CCWIdx;
-        elem->getIdxs(nd, thisIdx, CWIdx, CCWIdx);
-        s.nd[0] = elem->nds[CWIdx];
-        s.nd[1] = elem->nds[CCWIdx];
-        nd->fan.push_back(s);
-    }
-    std::sort(nd->fan.begin(), nd->fan.end());
+    nd->CreateUnrotatedFan();
 
     // in the fan, find the entry with clock-wise boundary
     auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
-                                    [nd](const Node::Sector &f){return f.face->isCWBoundary(nd);});
+                                    [nd,alignment_node](const Node::Sector &f){return f.face->isCWBoundary(nd) && f.nd[0]==alignment_node;});
+    if(cw_boundary == nd->fan.end()) throw std::runtime_error("Fix_X_Topology: could not rotate");
+    std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
 
-    Node *split = nullptr;
-    if(cw_boundary != nd->fan.end())
+    Node *split = AddNode(nd->fragment);
+    split->Initialize(nd);
+
+    bool other_side = false;
+    nd->adj_elems.clear();
+
+    for(Node::Sector &s : nd->fan)
     {
-        std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
-        nd->adj_elems.clear();
-        nd->adj_elems.push_back(nd->fan.front().face);
-
-        for(auto iter = nd->fan.begin()+1; iter != nd->fan.end(); ++iter)
+        if(s.nd[0] != alignment_node && s.face->isCWBoundary(nd)) other_side = true;
+        if(other_side)
         {
-            Node::Sector &s = *iter;
-            if(s.face->isCWBoundary(nd))
-            {
-                if(split == nullptr)
-                {
-                    split = AddNode(nd->fragment);
-                    split->Initialize(nd);
-                }
-                else throw std::runtime_error("not X-topology");
-            }
-
-            if(split != nullptr) { s.face->ReplaceNode(nd, split); split->adj_elems.push_back(s.face);}
-            else { nd->adj_elems.push_back(s.face); }
+            s.face->ReplaceNode(nd, split);
+            split->adj_elems.push_back(s.face);
+        }
+        else
+        {
+            nd->adj_elems.push_back(s.face);
         }
     }
 
-    if(split == nullptr)
-    {
-        spdlog::warn("Fix_X_Topology: nothing to split; locId {}",nd->locId);
-        nd->PrintoutFan();
-    }
-    else
-    {
-        split->PrepareFan();
-        nd->PrepareFan();
-    }
+    if(!other_side) { nd->PrintoutFan(); throw std::runtime_error("Fix_X_Topology: could not split"); }
+
+    split->PrepareFan();
+    nd->PrepareFan();
     return split;
 }
 
@@ -1261,7 +1257,11 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd)
 void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& split)
 {
     // erase split boundary from the boundary list
-    RemoveBoundaryEdgeIfExists(nd0,nd1);
+
+    MeshFragment *fr = nd1->fragment;
+//    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(nd0,nd1));
+//    if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
+//    else throw std::runtime_error("SplitBoundaryElem: can't find the boundary that is supposed to exist");
 
     short ndIdx = originalElem->getNodeIdx(nd);
     short nd0Idx = originalElem->getNodeIdx(nd0);
@@ -1296,11 +1296,11 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->nds[nd0Idx] = split;
 
     // initialize the inserted element's adjacency data
+    insertedElem->incident_elems[ndIdx] = nullptr;
     insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
     if(originalElem->incident_elems[nd0Idx]!=nullptr) originalElem->incident_elems[nd0Idx]->ReplaceIncidentElem(originalElem,insertedElem);
-    originalElem->incident_elems[nd0Idx] = nullptr; // insertedElem;
-    insertedElem->incident_elems[ndIdx] = nullptr;
-    insertedElem->incident_elems[nd1Idx] = nullptr; // originalElem;
+    originalElem->incident_elems[nd0Idx] = insertedElem; // nullptr;
+    insertedElem->incident_elems[nd1Idx] = originalElem; // nullptr;
 
     // from node "nd1", disconnect the original element and replace it with the inserted element
     nd1->ReplaceAdjacentElement(originalElem, insertedElem);
@@ -1352,6 +1352,7 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     allNodes.push_back(split);
     split->InitializeLERP(nd0, nd1, where);
     split->adj_elems.insert(split->adj_elems.end(),{originalElem,insertedElem,adjElem,insertedElem_adj});
+    split->isBoundary = false;
 
     // modify the original element
     originalElem->nds[nd1Idx_orig] = split;
@@ -1368,8 +1369,8 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
 
     insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
-    insertedElem->incident_elems[nd1Idx_orig] = nullptr; // originalElem;
-    originalElem->incident_elems[nd0Idx_orig] = nullptr; // insertedElem;
+    insertedElem->incident_elems[nd1Idx_orig] = originalElem; // nullptr;
+    originalElem->incident_elems[nd0Idx_orig] = insertedElem; // nullptr;
 
     // similarly, modify the existing adjacent element
     adjElem->nds[nd1Idx_adj] = split;

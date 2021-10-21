@@ -78,6 +78,7 @@ struct icy::Node
     double max_normal_traction;
     double time_loaded_above_threshold;
 
+    void CreateUnrotatedFan();
     void PrepareFan();  // performed when topology changes
     void PrintoutFan(); // for testing
     void ComputeFanVariables(const SimParams &prms);

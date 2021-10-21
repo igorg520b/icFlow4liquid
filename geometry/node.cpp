@@ -50,8 +50,33 @@ void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, const SimParams &pr
 }
 
 
+void icy::Node::CreateUnrotatedFan()
+{
+    if(adj_elems.size() == 0) throw std::runtime_error("Node::CreateUnorderedFan: disconnected node");
+    fan.clear();
+    area = 0;
+    for(Element *elem : adj_elems)
+    {
+        area += elem->area_initial/3;
+        Node::Sector s;
+        s.face = elem;
+        Eigen::Vector2d tcv = elem->getCenter() - x_initial;
+        s.centerAngle = atan2(tcv.y(), tcv.x());
+        short thisIdx, CWIdx, CCWIdx;
+        elem->getIdxs(this, thisIdx, CWIdx, CCWIdx);
+        s.nd[0] = elem->nds[CWIdx];
+        s.nd[1] = elem->nds[CCWIdx];
+        fan.push_back(s);
+    }
+    std::sort(fan.begin(), fan.end());  // order by angle of the element, counter-clockwise
+}
+
+
 void icy::Node::PrepareFan()
 {
+    CreateUnrotatedFan();
+    isBoundary = std::any_of(fan.begin(),fan.end(),[this](Sector &s){return s.face->isOnBoundary(this);});
+/*
     if(adj_elems.size()==0) throw std::runtime_error("PrepareFan: disconnected node");
 
     fan.clear();
@@ -79,7 +104,7 @@ void icy::Node::PrepareFan()
     }
 
     std::sort(fan.begin(), fan.end());
-
+*/
     // if boundary, then ensure that sectors start with a boundary element and end with a boundary element
     if(isBoundary)
     {
@@ -87,7 +112,7 @@ void icy::Node::PrepareFan()
         auto cw_boundary = std::find_if(fan.begin(), fan.end(), [this](const Sector &f){return f.face->isCWBoundary(this);});
         if(cw_boundary == fan.end()) { PrintoutFan(); throw std::runtime_error("cw boundary not found"); }
         std::rotate(fan.begin(), cw_boundary, fan.end());
-        if(!fan.back().face->isCCWBoundary(this)) throw std::runtime_error("PrepareFan(): no CCW boundary");
+        if(!fan.back().face->isCCWBoundary(this)) { PrintoutFan(); throw std::runtime_error("PrepareFan(): no CCW boundary"); }
 
         // assign CWBoundaryNode and CCWBoundaryNode
         this->CWBoundaryNode = fan.front().face->CW_Node(this);
@@ -142,7 +167,7 @@ void icy::Node::PrintoutFan()
     spdlog::info("fan.size {}; adj_elems.size {}", fan.size(), adj_elems.size());
     spdlog::info("fan_angle_span: {}", fan_angle_span);
 
-    spdlog::info("┌ {0: ^9} ┬ {1: ^14} ┬ {2: ^14} ┬ {3: ^6} ┬ {4: ^6} ┬ {5: ^8} ┬ {6: ^8}",
+    spdlog::info("┌ {0: ^9} ┬ {1: ^14} ┬ {2: ^14} ┬ {3: ^6} ┬ {4: ^10} ┬ {5: ^8} ┬ {6: ^8}",
                  "nd1-nd2", "nds 0-1-2", "angle0-angle1", "cAngle", "area", "CWB", "CCWB");
 
     for(Sector &s : fan)

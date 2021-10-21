@@ -364,6 +364,17 @@ void icy::Element::DisconnectFromElem(Element* other)
     else throw std::runtime_error("DisconnectFromElem: incident elem not found");
 }
 
+
+void icy::Element::DisconnectCWElem(Node *center)
+{
+    short idx_center = getNodeIdx(center);
+    short cw_edge_idx = (idx_center+2)%3;
+    Element* incident_elem = incident_elems[cw_edge_idx];
+    incident_elem->DisconnectFromElem(this);
+    incident_elems[cw_edge_idx] = nullptr;
+}
+
+
 void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
 {
     if(incident_elems[0]==which) incident_elems[0]=withWhat;

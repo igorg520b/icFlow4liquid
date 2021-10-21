@@ -74,6 +74,7 @@ public:
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
     void DisconnectFromElem(Element* other);
+    void DisconnectCWElem(Node *center);
     void ReplaceIncidentElem(Element* which, Element* withWhat);
 
 private:
