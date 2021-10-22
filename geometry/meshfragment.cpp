@@ -524,6 +524,30 @@ void icy::MeshFragment::GetFromGmsh()
 }
 
 
+void icy::MeshFragment::ConvertBoundaryEdges()
+{
+    boundaryEdges.clear();
+//    boundaryEdges.reserve(boundaryEdgesAsElemIdx.size());
+/*    for(auto &p : boundaryEdgesAsElemIdx)
+    {
+        Element *elem = p.first;
+        uint8_t edgeIdx = p.second;
+        uint8_t nd1Idx = (edgeIdx+2)%3;
+        uint8_t nd2Idx = (edgeIdx+1)%3;
+        boundaryEdges.push_back(BoundaryEdge(elem->nds[nd1Idx],elem->nds[nd2Idx],elem));
+    }
+    spdlog::info("MeshFragment::ConvertBoundaryEdges {}",boundaryEdges.size());
+*/
+    for(Element *elem : this->elems)
+    {
+        for(uint8_t idx=0;idx<3;idx++)
+        {
+            if(elem->incident_elems[idx]==nullptr)
+                boundaryEdges.emplace_back(elem->nds[(idx+2)%3],elem->nds[(idx+1)%3],elem);
+        }
+    }
+}
+
 void icy::MeshFragment::CreateLeaves()
 {
     root_ccd.boundaryEdge = nullptr;
@@ -704,6 +728,7 @@ void icy::MeshFragment::ConnectIncidentElements()
     }
 
     boundaryEdges.clear();
+    boundaryEdgesAsElemIdx.clear();
     for(const auto &kvpair : edges_map)
     {
         const icy::Edge &e = kvpair.second;
@@ -721,13 +746,20 @@ void icy::MeshFragment::ConnectIncidentElements()
         }
         else
         {
-            if(e.elems[0]!=nullptr)
-                boundaryEdges.emplace_back(e.nds[1],e.nds[0],e.elems[0]);
+            if(e.elems[0] != nullptr)
+            {
+                boundaryEdgesAsElemIdx.emplace_back(e.elems[0],e.edge_in_elem_idx[0]);
+//                boundaryEdges.emplace_back(e.nds[1],e.nds[0],e.elems[0]);
+            }
             else
-                boundaryEdges.emplace_back(e.nds[0],e.nds[1],e.elems[1]);
+            {
+                boundaryEdgesAsElemIdx.emplace_back(e.elems[1],e.edge_in_elem_idx[1]);
+//                boundaryEdges.emplace_back(e.nds[0],e.nds[1],e.elems[1]);
+            }
         }
     }
 
+    //ConvertBoundaryEdges();
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
 }

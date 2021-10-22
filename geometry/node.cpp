@@ -62,7 +62,7 @@ void icy::Node::CreateUnrotatedFan()
         s.face = elem;
         Eigen::Vector2d tcv = elem->getCenter() - x_initial;
         s.centerAngle = atan2(tcv.y(), tcv.x());
-        short thisIdx, CWIdx, CCWIdx;
+        uint8_t thisIdx, CWIdx, CCWIdx;
         elem->getIdxs(this, thisIdx, CWIdx, CCWIdx);
         s.nd[0] = elem->nds[CWIdx];
         s.nd[1] = elem->nds[CCWIdx];

@@ -245,7 +245,7 @@ bool icy::Element::PlasticDeformation(const SimParams &prms, double timeStep)
 
 
 // FRACTURE ALGORITHM
-void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, short &CCWIdx) const
+void icy::Element::getIdxs(const icy::Node*nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const
 {
     if(nd==nds[0]) thisIdx=0;
     else if(nd==nds[1]) thisIdx=1;
@@ -257,19 +257,19 @@ void icy::Element::getIdxs(const icy::Node*nd, short &thisIdx, short &CWIdx, sho
 
 std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
+    uint8_t idx = getNodeIdx(nd);
     return {nds[(idx+1)%3],nds[(idx+2)%3]};
 }
 
 icy::Node* icy::Element::CW_Node(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
+    uint8_t idx = getNodeIdx(nd);
     return nds[(idx+1)%3];
 }
 
 icy::Node* icy::Element::CCW_Node(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
+    uint8_t idx = getNodeIdx(nd);
     return nds[(idx+2)%3];
 }
 
@@ -285,23 +285,23 @@ bool icy::Element::isEdgeCW(const Node *nd1, const Node *nd2) const
 
 bool icy::Element::isOnBoundary(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
-    short cw_idx = (idx+1)%3;
-    short ccw_idx = (idx+2)%3;
+    uint8_t idx = getNodeIdx(nd);
+    uint8_t cw_idx = (idx+1)%3;
+    uint8_t ccw_idx = (idx+2)%3;
     return isBoundaryEdge(cw_idx) || isBoundaryEdge(ccw_idx);
 }
 
 bool icy::Element::isCWBoundary(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
-    short cw_idx = (idx+2)%3;
+    uint8_t idx = getNodeIdx(nd);
+    uint8_t cw_idx = (idx+2)%3;
     return isBoundaryEdge(cw_idx);
 }
 
 bool icy::Element::isCCWBoundary(const Node* nd) const
 {
-    short idx = getNodeIdx(nd);
-    short ccw_idx = (idx+1)%3;
+    uint8_t idx = getNodeIdx(nd);
+    uint8_t ccw_idx = (idx+1)%3;
     return isBoundaryEdge(ccw_idx);
 }
 
@@ -315,7 +315,7 @@ icy::Element* icy::Element::getAdjacentElementOppositeToNode(Node *nd)
     else throw std::runtime_error("getAdjacentElementOppositeToNode");
 }
 
-short icy::Element::getNodeIdx(const Node *nd) const
+uint8_t icy::Element::getNodeIdx(const Node *nd) const
 {
     if(nds[0]==nd) return 0;
     else if(nds[1]==nd) return 1;
@@ -367,8 +367,8 @@ void icy::Element::DisconnectFromElem(Element* other)
 
 void icy::Element::DisconnectCWElem(Node *center)
 {
-    short idx_center = getNodeIdx(center);
-    short cw_edge_idx = (idx_center+2)%3;
+    uint8_t idx_center = getNodeIdx(center);
+    uint8_t cw_edge_idx = (idx_center+2)%3;
     Element* incident_elem = incident_elems[cw_edge_idx];
     incident_elem->DisconnectFromElem(this);
     incident_elems[cw_edge_idx] = nullptr;

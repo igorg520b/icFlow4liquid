@@ -624,6 +624,7 @@ void icy::Mesh::CreateLeaves()
 
     for(MeshFragment &mf : fragments)
     {
+        if(mf.isDeformable) mf.ConvertBoundaryEdges();
         mf.CreateLeaves();
         globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf.boundaryEdges.begin(),mf.boundaryEdges.end());
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
@@ -1154,13 +1155,13 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     if(theta == 0 && !elem->isCCWBoundary(nd))
     {
         // will split along the counter-clockwise boundary
-        short idx = elem->getNodeIdx(nd0);
+        uint8_t idx = elem->getNodeIdx(nd0);
         adjacentNode = nd1;
     }
     else if(phi == 0 && !elem->isCWBoundary(nd))
     {
         // will split along the clockwise boundary
-        short idx = elem->getNodeIdx(nd1);
+        uint8_t idx = elem->getNodeIdx(nd1);
         adjacentNode = nd0;
     }
     else if(elem_adj == nullptr)
@@ -1241,13 +1242,10 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     // erase split boundary from the boundary list
 
     MeshFragment *fr = nd1->fragment;
-    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(nd0,nd1,originalElem));
-    if(find_result!=fr->boundaryEdges.end()) fr->boundaryEdges.erase(find_result);
-    else throw std::runtime_error("SplitBoundaryElem: can't find the boundary that is supposed to exist");
 
-    short ndIdx = originalElem->getNodeIdx(nd);
-    short nd0Idx = originalElem->getNodeIdx(nd0);
-    short nd1Idx = originalElem->getNodeIdx(nd1);
+    uint8_t ndIdx = originalElem->getNodeIdx(nd);
+    uint8_t nd0Idx = originalElem->getNodeIdx(nd0);
+    uint8_t nd1Idx = originalElem->getNodeIdx(nd1);
     if(ndIdx == nd0Idx || ndIdx == nd1Idx || nd0Idx == nd1Idx) throw std::runtime_error("SplitBoundaryElem idx error");
     if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
 
@@ -1277,10 +1275,24 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->nds[nd1Idx] = nd1;
     insertedElem->nds[nd0Idx] = split;
 
+//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+//    if(originalElem->incident_elems[nd0Idx] == nullptr)
+//    {
+//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+//                              std::pair<Element*,uint8_t>(originalElem,nd0Idx));
+//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
+//        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
+//    }
+//    // else
+    if(originalElem->incident_elems[nd0Idx]!= nullptr)
+        originalElem->incident_elems[nd0Idx]->ReplaceIncidentElem(originalElem,insertedElem);
+
     // initialize the inserted element's adjacency data
     insertedElem->incident_elems[ndIdx] = nullptr;
+
+//    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
+
     insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
-    if(originalElem->incident_elems[nd0Idx]!=nullptr) originalElem->incident_elems[nd0Idx]->ReplaceIncidentElem(originalElem,insertedElem);
     originalElem->incident_elems[nd0Idx] = insertedElem; // nullptr;
     insertedElem->incident_elems[nd1Idx] = originalElem; // nullptr;
 
@@ -1298,19 +1310,16 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     // "fix" the fan for the node, whose element was just replaced
     nd1->PrepareFan();
 
-
-
-    fr->boundaryEdges.push_back(BoundaryEdge(nd0,split,originalElem));
-    fr->boundaryEdges.push_back(BoundaryEdge(nd1,split,insertedElem));
-
 }
 
 void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
                                  Node *nd0, Node *nd1, double where, Node*& split)
 {
-    short ndIdx_orig = originalElem->getNodeIdx(nd);
-    short nd0Idx_orig = originalElem->getNodeIdx(nd0);
-    short nd1Idx_orig = originalElem->getNodeIdx(nd1);
+    MeshFragment *fr = nd1->fragment;
+
+    uint8_t ndIdx_orig = originalElem->getNodeIdx(nd);
+    uint8_t nd0Idx_orig = originalElem->getNodeIdx(nd0);
+    uint8_t nd1Idx_orig = originalElem->getNodeIdx(nd1);
 
     if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
 
@@ -1319,9 +1328,9 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     Eigen::Matrix2d F_adj = adjElem->getF_at_n();
 
     Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
-    short nd0Idx_adj = adjElem->getNodeIdx(nd0);
-    short nd1Idx_adj = adjElem->getNodeIdx(nd1);
-    short oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
+    uint8_t nd0Idx_adj = adjElem->getNodeIdx(nd0);
+    uint8_t nd1Idx_adj = adjElem->getNodeIdx(nd1);
+    uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
 
     MeshFragment *fragment = nd->fragment;
 
@@ -1352,6 +1361,16 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->nds[nd1Idx_orig] = nd1;
     insertedElem->nds[nd0Idx_orig] = split;
 
+//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+//    if(originalElem->incident_elems[nd0Idx_orig] == nullptr)
+//    {
+//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+//                              std::pair<Element*,uint8_t>(originalElem,nd0Idx_orig));
+//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
+//        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
+//    }
+//    // else
+
     if(originalElem->incident_elems[nd0Idx_orig] != nullptr)
         originalElem->incident_elems[nd0Idx_orig]->ReplaceIncidentElem(originalElem,insertedElem);
 
@@ -1366,6 +1385,15 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem_adj->nds[nd1Idx_adj] = nd1;
     insertedElem_adj->nds[nd0Idx_adj] = split;
 
+//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+//    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
+//    {
+//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+//                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
+//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
+//        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
+//    }
+//    // else
     if(adjElem->incident_elems[nd0Idx_adj] != nullptr)
         adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
 

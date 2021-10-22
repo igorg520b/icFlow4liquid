@@ -3,6 +3,7 @@
 #define MESHFRAGMENT_H
 
 #include <vector>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
@@ -36,7 +37,6 @@ public:
     void PostMeshingEvaluations();  // element/node area and connectivity information
 
 private:
-    unsigned nFirstGroupElems, nFirstGroupNodes, nInnerBoundaryNodes;
     void GetFromGmsh();     // populate "nodes" and "elems"
 
     constexpr static unsigned nPreallocate = 10000;
@@ -69,7 +69,9 @@ public:
     std::vector<BVHN*> leaves_for_ccd;
     void CreateLeaves();
 
-    std::vector<BoundaryEdge> boundaryEdges; // for collision with rigid shapes
+    std::vector<BoundaryEdge> boundaryEdges; // collision boundary for a rigid object
+    std::vector<std::pair<icy::Element*,uint8_t>> boundaryEdgesAsElemIdx;    // boundaries in the Element-Index form
+    void ConvertBoundaryEdges(); // convert boundaryEdgesAsElemIdx to boundaryEdges - deformables only
 
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
