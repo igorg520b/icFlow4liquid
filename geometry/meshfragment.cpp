@@ -527,8 +527,8 @@ void icy::MeshFragment::GetFromGmsh()
 void icy::MeshFragment::ConvertBoundaryEdges()
 {
     boundaryEdges.clear();
-//    boundaryEdges.reserve(boundaryEdgesAsElemIdx.size());
-/*    for(auto &p : boundaryEdgesAsElemIdx)
+    boundaryEdges.reserve(boundaryEdgesAsElemIdx.size());
+    for(auto &p : boundaryEdgesAsElemIdx)
     {
         Element *elem = p.first;
         uint8_t edgeIdx = p.second;
@@ -537,7 +537,8 @@ void icy::MeshFragment::ConvertBoundaryEdges()
         boundaryEdges.push_back(BoundaryEdge(elem->nds[nd1Idx],elem->nds[nd2Idx],elem));
     }
     spdlog::info("MeshFragment::ConvertBoundaryEdges {}",boundaryEdges.size());
-*/
+
+    /*
     for(Element *elem : this->elems)
     {
         for(uint8_t idx=0;idx<3;idx++)
@@ -546,6 +547,7 @@ void icy::MeshFragment::ConvertBoundaryEdges()
                 boundaryEdges.emplace_back(elem->nds[(idx+2)%3],elem->nds[(idx+1)%3],elem);
         }
     }
+    */
 }
 
 void icy::MeshFragment::CreateLeaves()
