@@ -283,6 +283,24 @@ bool icy::Element::isEdgeCW(const Node *nd1, const Node *nd2) const
     throw std::runtime_error("icy::Element::isEdgeCW: edge not found");
 }
 
+bool icy::Element::containsEdge(const Node *nd1, const Node *nd2) const
+{
+    for(uint8_t i=0;i<3;i++)
+        if((nds[(i+1)%3]==nd1 && nds[(i+2)%3]==nd2) || (nds[(i+2)%3]==nd1 && nds[(i+1)%3]==nd2))
+            return true;
+    return false;
+}
+
+
+uint8_t icy::Element::getEdgeIdx(const Node *nd1, const Node *nd2) const
+{
+    for(uint8_t i=0;i<3;i++)
+        if((nds[(i+1)%3]==nd1 && nds[(i+2)%3]==nd2) || (nds[(i+2)%3]==nd1 && nds[(i+1)%3]==nd2))
+            return i;
+    throw std::runtime_error("icy::Element::getEdgeIdx: edge not found");
+}
+
+
 bool icy::Element::isOnBoundary(const Node* nd) const
 {
     uint8_t idx = getNodeIdx(nd);

@@ -705,55 +705,7 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
     contacts_final_list.resize(contacts_narrow_set.size());
     std::copy(contacts_narrow_set.begin(),contacts_narrow_set.end(),contacts_final_list.begin());
 }
-/*
-void icy::Mesh::AddToNarrowSet_NodeVsDeformable(Node *nd, const Element *elem, const double distance_threshold)
-{
-    if(!nd->isBoundary) return;
-    Node *nd0 = elem->nds[0];
-    Node *nd1 = elem->nds[1];
-    Node *nd2 = elem->nds[2];
-    if(!PointInTriangle(nd->xt,nd0->xt,nd1->xt,nd2->xt)) return;
-    std::set<std::pair<Node*,Node*>> edges;
 
-    for(Node *en : elem->nds)
-    {
-        if(en->isBoundary)
-        {
-            if(en->globId < en->CCWBoundaryNode->globId)
-                edges.emplace(en,en->CCWBoundaryNode);
-            else
-                edges.emplace(en->CCWBoundaryNode,en);
-
-            if(en->globId < en->CWBoundaryNode->globId)
-                edges.emplace(en,en->CWBoundaryNode);
-            else
-                edges.emplace(en->CWBoundaryNode,en);
-        }
-    }
-    if(edges.size()==0) return;
-    boost::container::small_vector<std::tuple<Node*,Node*,double, Eigen::Vector2d>,6> edges_vec;
-
-    for(auto p : edges)
-    {
-        Eigen::Vector2d D;
-        double dist = icy::Interaction::SegmentPointDistance(p.first->xt, p.second->xt, nd->xt, D);
-        edges_vec.emplace_back(p.first,p.second,dist,D);
-    }
-
-    auto min_dist = std::min_element(edges_vec.begin(),edges_vec.end(),
-                                     [](std::tuple<Node*,Node*,double, Eigen::Vector2d> entry1,
-                                     std::tuple<Node*,Node*,double, Eigen::Vector2d> entry2)
-                                    {return (std::get<2>(entry1))<(std::get<2>(entry2));});
-
-    std::tuple<Node*,Node*,double, Eigen::Vector2d> res = *min_dist;
-    double dist = std::get<2>(res);
-    if(dist != 0 && dist < distance_threshold)
-    {
-        Interaction i(std::get<0>(res),std::get<1>(res),nd,std::get<3>(res),false);
-        contacts_narrow_set.insert(i);
-    }
-}
-*/
 
 bool icy::Mesh::PointInTriangle(Eigen::Vector2d pt, Eigen::Vector2d v1, Eigen::Vector2d v2, Eigen::Vector2d v3)
 {
@@ -1025,6 +977,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     new_crack_tips.clear();
     icy::Node* nd = maxNode;
     nd->time_loaded_above_threshold = 0;
+    MeshFragment *fr = nd->fragment;
 
     // subsequent calculations are based on the fracture direction where the traction is maximal
     icy::Node::SepStressResult &ssr = nd->result_with_max_traction;
@@ -1038,13 +991,25 @@ void icy::Mesh::SplitNode(const SimParams &prms)
 
     EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], edge_split0);
 
+    // add new boundaries
+    uint8_t edge_idx = ssr.faces[0]->getEdgeIdx(nd,edge_split0);
+    fr->boundaryEdgesAsElemIdx.emplace_back(ssr.faces[0],edge_idx);
+    Element* insertedElem1 = ssr.faces[0]->incident_elems[edge_idx];
+    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0));
+
+
+
     if(!isBoundary)
     {
         if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
         EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], edge_split1);
-    }
 
-    // at this pont, new edges are introduced if needed
+        // add new boundaries
+        uint8_t edge_idx2 = ssr.faces[1]->getEdgeIdx(nd,edge_split1);
+        fr->boundaryEdgesAsElemIdx.emplace_back(ssr.faces[1],edge_idx2);
+        Element* insertedElem2 = ssr.faces[1]->incident_elems[edge_idx2];
+        fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1));
+    }
 
     // SPLIT nd
     nd->CreateUnrotatedFan();
@@ -1101,8 +1066,6 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     nd->isCrackTip = false;
     nd->PrepareFan();
     nd_split->PrepareFan();
-
-    MeshFragment *fr = nd->fragment;
 
 
     if(edge_split0->isBoundary)
@@ -1185,10 +1148,10 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
     nd->CreateUnrotatedFan();
 
     // in the fan, find the entry with clock-wise boundary
-    auto cw_boundary = std::find_if(nd->fan.begin(), nd->fan.end(),
-                                    [nd,alignment_node](const Node::Sector &f){return f.face->isCWBoundary(nd) && f.nd[0]==alignment_node;});
-    if(cw_boundary == nd->fan.end()) throw std::runtime_error("Fix_X_Topology: could not rotate");
-    std::rotate(nd->fan.begin(), cw_boundary, nd->fan.end());
+    auto cw_bdry = std::find_if(nd->fan.begin(), nd->fan.end(),
+                                [nd,alignment_node](const Node::Sector &f){return f.face->isCWBoundary(nd) && f.nd[0]==alignment_node;});
+    if(cw_bdry == nd->fan.end()) throw std::runtime_error("Fix_X_Topology: could not rotate");
+    std::rotate(nd->fan.begin(), cw_bdry, nd->fan.end());
 
     Node *split = AddNode(nd->fragment);
     split->Initialize(nd);
@@ -1275,14 +1238,14 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     insertedElem->nds[nd1Idx] = nd1;
     insertedElem->nds[nd0Idx] = split;
 
-//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-//    if(originalElem->incident_elems[nd0Idx] == nullptr)
-//    {
-//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-//                              std::pair<Element*,uint8_t>(originalElem,nd0Idx));
-//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
-//        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
-//    }
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(originalElem->incident_elems[nd0Idx] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(originalElem,nd0Idx));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
+        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
+    }
 //    // else
     if(originalElem->incident_elems[nd0Idx]!= nullptr)
         originalElem->incident_elems[nd0Idx]->ReplaceIncidentElem(originalElem,insertedElem);
@@ -1290,7 +1253,8 @@ void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, No
     // initialize the inserted element's adjacency data
     insertedElem->incident_elems[ndIdx] = nullptr;
 
-//    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
+    // add the boundary that has just appeared
+    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
 
     insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
     originalElem->incident_elems[nd0Idx] = insertedElem; // nullptr;
@@ -1361,15 +1325,15 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem->nds[nd1Idx_orig] = nd1;
     insertedElem->nds[nd0Idx_orig] = split;
 
-//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-//    if(originalElem->incident_elems[nd0Idx_orig] == nullptr)
-//    {
-//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-//                              std::pair<Element*,uint8_t>(originalElem,nd0Idx_orig));
-//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
-//        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
-//    }
-//    // else
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(originalElem->incident_elems[nd0Idx_orig] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(originalElem,nd0Idx_orig));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
+        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
+    }
+    // else
 
     if(originalElem->incident_elems[nd0Idx_orig] != nullptr)
         originalElem->incident_elems[nd0Idx_orig]->ReplaceIncidentElem(originalElem,insertedElem);
@@ -1385,15 +1349,15 @@ void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, No
     insertedElem_adj->nds[nd1Idx_adj] = nd1;
     insertedElem_adj->nds[nd0Idx_adj] = split;
 
-//    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-//    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
-//    {
-//        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-//                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
-//        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
-//        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
-//    }
-//    // else
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
+        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
+    }
+    // else
     if(adjElem->incident_elems[nd0Idx_adj] != nullptr)
         adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
 
@@ -1507,7 +1471,7 @@ void icy::Mesh::CreateSupportRange(const int neighborLevel)
     }
 
 }
-
+/*
 void icy::Mesh::InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2)
 {
     MeshFragment *fr = ndA1->fragment;
@@ -1515,7 +1479,7 @@ void icy::Mesh::InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB
     cz->Initialize(ndA1, ndA2, ndB1, ndB2);
     allCZs.push_back(cz);
 }
-
+*/
 icy::Node* icy::Mesh::AddNode(MeshFragment* fragment)
 {
     Node *result = fragment->AddNode();

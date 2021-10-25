@@ -62,6 +62,8 @@ public:
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;
     bool isEdgeCW(const Node *nd1, const Node *nd2) const; // true if nd1-nd2 is oriented clockwise
+    uint8_t getEdgeIdx(const Node *nd1, const Node *nd2) const;
+    bool containsEdge(const Node *nd1, const Node *nd2) const;
     std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
     Node* CW_Node(const Node* nd) const;
     Node* CCW_Node(const Node* nd) const;

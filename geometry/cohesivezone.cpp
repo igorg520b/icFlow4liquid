@@ -1,5 +1,6 @@
 #include <iomanip>
 #include "cohesivezone.h"
+#include "element.h"
 #include "node.h"
 #include <spdlog/spdlog.h>
 
@@ -52,6 +53,7 @@ void icy::CohesiveZone::Reset()
     isDamaged = false;
 }
 
+
 void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b)
 {
     nds[0] = nd1a;
@@ -59,6 +61,25 @@ void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2
     nds[2] = nd1b;
     nds[3] = nd2b;
     for(int i=0;i<4;i++) nds[i]->adj_czs.push_back(this);
+}
+
+
+void icy::CohesiveZone::Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1)
+{
+    elems2[0] = elem0;
+    elems2[1] = elem1;
+    edgeIds[0] = edgeIdx0;
+    edgeIds[1] = edgeIdx1;
+    GetNodes();
+//    for(int i=0;i<4;i++) nds[i]->adj_czs.push_back(this);
+}
+
+void icy::CohesiveZone::GetNodes()
+{
+    nds[0] = elems2[0]->nds[(edgeIds[0]+2)%3];
+    nds[1] = elems2[0]->nds[(edgeIds[0]+1)%3];
+    nds[2] = elems2[1]->nds[(edgeIds[1]+1)%3];
+    nds[3] = elems2[1]->nds[(edgeIds[1]+2)%3];
 }
 
 void icy::CohesiveZone::Disconnect()
@@ -71,16 +92,17 @@ void icy::CohesiveZone::Disconnect()
     }
 }
 
-
-void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq) const
+void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq)
 {
     if(!isActive) return;
+    GetNodes();
     eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId});
 }
 
 bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
     if(!isActive) return true;
+    GetNodes();
 
     Eigen::Vector2d xc[4];  // coordinates of the cz nodes
     for(int i=0;i<4;i++)
@@ -334,7 +356,6 @@ void icy::CohesiveZone::PPR_cohesive_zone_formulation(
     {
         cz_contact = false;
         cz_failed = true;
-//        spdlog::info("failed: opn {}; deln {}; opt {}; delt {}", opn, deln, opt, delt);
         return;
     }
     cz_contact = (opn < 0);

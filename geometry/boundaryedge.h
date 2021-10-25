@@ -10,7 +10,7 @@ namespace icy {struct BoundaryEdge; struct Element;}
 struct icy::BoundaryEdge
 {
     Element *elem = nullptr;
-    BoundaryEdge(Node *nd1, Node *nd2, Element *elem_ = nullptr) : elem(elem_)
+    BoundaryEdge(Node *nd1, Node *nd2, Element *elem_ = nullptr, uint8_t status_ = 0) : elem(elem_)
     {
         if(elem_!=nullptr)
         {

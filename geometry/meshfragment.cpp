@@ -372,8 +372,9 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
             if(e->group.test(0) && e->nds[i]->group.test(3)) e->nds[i] = splitNodes.at(e->nds[i]);
     }
 
+    PostMeshingEvaluations();
 
-    // BOUNDARIRES - EDGES
+    // Edges and cohesive zones
     std::vector<std::size_t> edgeTags, nodeTagsInEdges;
     gmsh::model::mesh::getElementsByType(1, edgeTags, nodeTagsInEdges);
 
@@ -387,14 +388,31 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
         if(nd0->group.test(3) && nd1->group.test(3))
         {
             CohesiveZone *cz = AddCZ();
-            cz->Initialize(nd0,nd1,splitNodes.at(nd0),splitNodes.at(nd1));
+            Node *nd2 = splitNodes.at(nd0);
+            Node *nd3 = splitNodes.at(nd1);
+            auto iter1 = std::find_if(elems.begin(),elems.end(),
+                                   [nd0,nd1](Element *elem){return elem->containsEdge(nd0,nd1);});
+
+            auto iter2 = std::find_if(elems.begin(),elems.end(),
+                                   [nd2,nd3](Element *elem){return elem->containsEdge(nd2,nd3);});
+            if(iter1==elems.end() || iter2==elems.end()) throw std::runtime_error("GenerateCZBrick");
+
+            Element *e1 = *iter1;
+            Element *e2 = *iter2;
+
+            uint8_t edgeIdx1 = e1->getEdgeIdx(nd0,nd1);
+            uint8_t edgeIdx2 = e2->getEdgeIdx(nd2,nd3);
+
+            if(e1->isEdgeCW(nd0,nd1)) cz->Initialize(e1,edgeIdx1,e2,edgeIdx2);
+            else cz->Initialize(e2,edgeIdx2,e1,edgeIdx1);
         }
     }
 
-    PostMeshingEvaluations();
     gmsh::clear();
     ConnectIncidentElements();
     spdlog::info("GenerateCZBrick done; czs {}",czs.size());
+    for(auto *cz : czs) cz->GetNodes();
+
 }
 
 void icy::MeshFragment::GenerateContainer(double ElementSize, double offset)
