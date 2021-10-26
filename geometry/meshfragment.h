@@ -19,13 +19,16 @@ namespace icy { class MeshFragment; class Mesh; }
 class icy::MeshFragment
 {    
 public:
+    MeshFragment(Mesh *parent_) : parentMesh(parent_) {};
     ~MeshFragment();
+    MeshFragment& operator=(MeshFragment&) = delete;
 
     bool isDeformable;
     std::vector<icy::Node*> nodes;
     std::vector<icy::Element*> elems;
     std::vector<icy::CohesiveZone*> czs;
     std::vector<std::pair<icy::Node*,icy::Node*>> special_boundary; // used when some nodes are pinned (movable via GUI)
+    Mesh *parentMesh;
 
     void SaveFragment(std::string fileName);
 
@@ -36,6 +39,9 @@ public:
     void GenerateContainer(double ElementSize, double offset);
     void PostMeshingEvaluations();  // element/node area and connectivity information
 
+    icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
+    icy::Element* AddElement(); // add to elems vector from ElementFactory
+    icy::CohesiveZone* AddCZ();
 private:
     void GetFromGmsh();     // populate "nodes" and "elems"
 
@@ -43,9 +49,6 @@ private:
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
     static ConcurrentPool<CohesiveZone> CZFactory;
-    icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
-    icy::Element* AddElement(); // add to elems vector from ElementFactory
-    icy::CohesiveZone* AddCZ();
 
     struct GmshEntity
     {

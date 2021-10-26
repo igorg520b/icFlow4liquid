@@ -15,13 +15,11 @@ class EquationOfMotionSolver
 public:
     EquationOfMotionSolver();
     ~EquationOfMotionSolver();
-    EquationOfMotionSolver(EquationOfMotionSolver&) = delete;
-    EquationOfMotionSolver(EquationOfMotionSolver&&) = delete;
     EquationOfMotionSolver& operator=(EquationOfMotionSolver&) = delete;
-    EquationOfMotionSolver& operator=(EquationOfMotionSolver&&) = delete;
 
     void ClearAndResize(std::size_t N);     // size N must be set; return execution time
-    void AddEntriesToStructure(const std::initializer_list<int> indices); // insert nxn matrix of indices of non-zero entries
+
+    void AddEntriesToStructure(const int* idx_begin, const int* idx_end); // insert nxn matrix of indices of non-zero entries
     void CreateStructure();
 
     // add values to non-zero elements

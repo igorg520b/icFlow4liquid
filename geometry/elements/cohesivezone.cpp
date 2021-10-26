@@ -96,7 +96,8 @@ void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq)
 {
     if(!isActive) return;
     GetNodes();
-    eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId});
+    int idxs[] {nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId};
+    eq.AddEntriesToStructure(std::begin(idxs),std::end(idxs));
 }
 
 bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)

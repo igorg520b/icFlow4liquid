@@ -23,16 +23,22 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     contacts_final_list.clear();
     allNodes.clear();
     allElems.clear();
+    allCZs.clear();
+    allNodes.reserve(reserve_param);
+    allElems.reserve(reserve_param);
+    allCZs.reserve(reserve_param);
 
     switch(typeOfSetup)
     {
     // indentation
     case 0:
-        fragments.resize(3);
-        fragments[0].GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
-        fragments[1].GenerateBrick(MeshSizeMax,2,1);
-        fragments[2].GenerateContainer(MeshSizeMax,offset);
-        for(const auto &b : fragments[0].boundaryEdges) movableBoundary.push_back(b.vertices);
+        for(int k=0;k<3;k++)
+            fragments.push_back(std::make_unique<MeshFragment>(this));
+
+        fragments[0]->GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
+        fragments[1]->GenerateBrick(MeshSizeMax,2,1);
+        fragments[2]->GenerateContainer(MeshSizeMax,offset);
+        for(const auto &b : fragments[0]->boundaryEdges) movableBoundary.push_back(b.vertices);
         break;
 
         // shear
@@ -41,40 +47,42 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         const double radius = 0.1;
         const double height = 0.8;
         const double width = 2.0;
-        fragments.resize(5);
-        fragments[0].GenerateBrick(MeshSizeMax, width, height);
-        for(Node *nd : fragments[0].nodes) if(nd->group.test(3)) nd->pinned=true;
-        fragments[1].GenerateIndenter(MeshSizeMax/2, width*0.1/2, height+radius+offset*1.5, radius, 1);
-        fragments[2].GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
-        fragments[3].GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
-        fragments[4].GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
-        for(const auto &b : fragments[1].boundaryEdges) movableBoundary.push_back(b.vertices);
+        for(int k=0;k<5;k++)
+            fragments.push_back(std::make_unique<MeshFragment>(this));
+
+        fragments[0]->GenerateBrick(MeshSizeMax, width, height);
+        for(Node *nd : fragments[0]->nodes) if(nd->group.test(3)) nd->pinned=true;
+        fragments[1]->GenerateIndenter(MeshSizeMax/2, width*0.1/2, height+radius+offset*1.5, radius, 1);
+        fragments[2]->GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
+        fragments[3]->GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
+        fragments[4]->GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
+        for(const auto &b : fragments[1]->boundaryEdges) movableBoundary.push_back(b.vertices);
     }
         break;
 
         // stretch
     case 2:
-        fragments.resize(1);
-        fragments[0].GenerateBrick(MeshSizeMax,2,1);
-        for(Node *nd : fragments[0].nodes) if(nd->group.test(1) || nd->group.test(2)) nd->pinned=true;
-        movableBoundary.reserve(fragments[0].special_boundary.size());
-        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
+        fragments.push_back(std::make_unique<MeshFragment>(this));
+        fragments[0]->GenerateBrick(MeshSizeMax,2,1);
+        for(Node *nd : fragments[0]->nodes) if(nd->group.test(1) || nd->group.test(2)) nd->pinned=true;
+        movableBoundary.reserve(fragments[0]->special_boundary.size());
+        for(const auto &b : fragments[0]->special_boundary) movableBoundary.push_back(b);
         break;
 
         // self-collision test
     case 3:
-        fragments.resize(1);
-        fragments[0].GenerateSelfCollisionBrick(MeshSizeMax,2,1);
-        movableBoundary.reserve(fragments[0].special_boundary.size());
-        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
+        fragments.push_back(std::make_unique<MeshFragment>(this));
+        fragments[0]->GenerateSelfCollisionBrick(MeshSizeMax,2,1);
+        movableBoundary.reserve(fragments[0]->special_boundary.size());
+        for(const auto &b : fragments[0]->special_boundary) movableBoundary.push_back(b);
         break;
 
         //CZs
     case 4:
-        fragments.resize(1);
-        fragments[0].GenerateCZBrick(MeshSizeMax,2,1);
-        movableBoundary.reserve(fragments[0].special_boundary.size());
-        for(const auto &b : fragments[0].special_boundary) movableBoundary.push_back(b);
+        fragments.push_back(std::make_unique<MeshFragment>(this));
+        fragments[0]->GenerateCZBrick(MeshSizeMax,2,1);
+        movableBoundary.reserve(fragments[0]->special_boundary.size());
+        for(const auto &b : fragments[0]->special_boundary) movableBoundary.push_back(b);
         break;
     }
 
@@ -92,7 +100,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 
     updateMinMax = true;
 
-
+/*
     // copy fragment's nodes into allNodes
     std::size_t allNodesSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
                                                [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
@@ -117,7 +125,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     }
 
     for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
-
+*/
     area_initial = area_current = std::accumulate(allElems.begin(), allElems.end(),0.0,
                                                   [](double a, Element* m){return a+m->area_initial;});
     CreateLeaves();
@@ -622,15 +630,14 @@ void icy::Mesh::CreateLeaves()
     fragmentRoots_ccd.clear();
     globalBoundaryEdges.clear();
 
-    for(MeshFragment &mf : fragments)
+    for(auto &mf : fragments)
     {
-        if(mf.isDeformable) mf.ConvertBoundaryEdges();
-        mf.CreateLeaves();
-        globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf.boundaryEdges.begin(),mf.boundaryEdges.end());
-        global_leaves_ccd.insert(global_leaves_ccd.end(), mf.leaves_for_ccd.begin(), mf.leaves_for_ccd.end());
-        fragmentRoots_ccd.push_back(&mf.root_ccd);
+        mf->ConvertBoundaryEdges();
+        mf->CreateLeaves();
+        globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf->boundaryEdges.begin(),mf->boundaryEdges.end());
+        global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());
+        fragmentRoots_ccd.push_back(&mf->root_ccd);
     }
-    //spdlog::info("icy::Mesh::CreateLeaves(): boundary edges {}",globalBoundaryEdges.size());
 }
 
 void icy::Mesh::UpdateTree(float distance_threshold)
@@ -655,15 +662,15 @@ void icy::Mesh::UpdateTree(float distance_threshold)
 
         if(fragmentRoots_ccd.size()>1)
         {
-            for(MeshFragment &mf : fragments)
+            for(auto &mf : fragments)
             {
-                mf.root_ccd.Build(&mf.leaves_for_ccd,0);
+                mf->root_ccd.Build(&mf->leaves_for_ccd,0);
             }
             mesh_root_ccd.Build(&fragmentRoots_ccd,0);
         }
         else
         {
-            mesh_root_ccd.Build(&fragments.front().leaves_for_ccd,0);
+            mesh_root_ccd.Build(&fragments.front()->leaves_for_ccd,0);
         }
     }
     tree_update_counter++;
@@ -970,7 +977,7 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
     }
 }
 
-void icy::Mesh::SplitNode(const SimParams &prms)
+void icy::Mesh::PropagateCrack(const SimParams &prms)
 {
     if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
 
@@ -1024,7 +1031,7 @@ void icy::Mesh::SplitNode(const SimParams &prms)
     // TODO: ADD 2 BOUNDARY EDGES to fr->boundaryEdges; nd--edge_split0 and nd_split--edge_split_0
 
     nd->adj_elems.clear();
-    Node *nd_split = AddNode(nd->fragment);
+    Node *nd_split = fr->AddNode();
     nd_split->Initialize(nd);
     bool other_side = false;
 
@@ -1113,30 +1120,12 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     if((theta == 0 && elem->isCCWBoundary(nd)) || (phi == 0 && elem->isCWBoundary(nd)))
         throw std::runtime_error("trying to split the boundary");
 
-    icy::Element *elem_adj = elem->getAdjacentElementOppositeToNode(nd);
-
     if(theta == 0 && !elem->isCCWBoundary(nd))
-    {
-        // will split along the counter-clockwise boundary
-        uint8_t idx = elem->getNodeIdx(nd0);
         adjacentNode = nd1;
-    }
     else if(phi == 0 && !elem->isCWBoundary(nd))
-    {
-        // will split along the clockwise boundary
-        uint8_t idx = elem->getNodeIdx(nd1);
         adjacentNode = nd0;
-    }
-    else if(elem_adj == nullptr)
-    {
-        // the element is at the boundary - just one split
-        SplitBoundaryElem(elem, nd, nd0, nd1, whereToSplit, adjacentNode);
-    }
     else
-    {
-        // will split the element and the one that follows
-        SplitNonBoundaryElem(elem, elem_adj, nd, nd0, nd1, whereToSplit, adjacentNode);
-    }
+        adjacentNode = elem->SplitElem(nd,nd0,nd1,whereToSplit);
 }
 
 
@@ -1153,7 +1142,7 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
     if(cw_bdry == nd->fan.end()) throw std::runtime_error("Fix_X_Topology: could not rotate");
     std::rotate(nd->fan.begin(), cw_bdry, nd->fan.end());
 
-    Node *split = AddNode(nd->fragment);
+    Node *split = nd->fragment->AddNode();
     split->Initialize(nd);
 
     bool other_side = false;
@@ -1199,190 +1188,8 @@ void icy::Mesh::ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *new
 }
 
 
-// upon completion, "split" is assigned with the newly inserted node
-void icy::Mesh::SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& split)
-{
-    // erase split boundary from the boundary list
 
-    MeshFragment *fr = nd1->fragment;
 
-    uint8_t ndIdx = originalElem->getNodeIdx(nd);
-    uint8_t nd0Idx = originalElem->getNodeIdx(nd0);
-    uint8_t nd1Idx = originalElem->getNodeIdx(nd1);
-    if(ndIdx == nd0Idx || ndIdx == nd1Idx || nd0Idx == nd1Idx) throw std::runtime_error("SplitBoundaryElem idx error");
-    if(originalElem->incident_elems[ndIdx]!=nullptr) throw std::runtime_error("SplitBoundaryElem: elem is not boundary");
-
-    Eigen::Matrix2d F_orig = originalElem->getF_at_n();     // save the deformation gradient
-
-    MeshFragment *fragment = nd->fragment;
-
-    // insert element
-    Element *insertedElem = fragment->AddElement();
-    allElems.push_back(insertedElem);
-    nd->adj_elems.push_back(insertedElem);
-
-    // insert the node between nd0 and nd1; initialize its coordinates; connect to adjacent elements
-    split = fragment->AddNode();
-    split->globId = (int)allNodes.size();
-    allNodes.push_back(split);
-    split->InitializeLERP(nd0, nd1, where);
-    split->isBoundary = true;
-    split->adj_elems.push_back(originalElem);
-    split->adj_elems.push_back(insertedElem);
-
-    // modify the original element
-    originalElem->nds[nd1Idx] = split;
-
-    // initialize the inserted element's nodes
-    insertedElem->nds[ndIdx] = nd;
-    insertedElem->nds[nd1Idx] = nd1;
-    insertedElem->nds[nd0Idx] = split;
-
-    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(originalElem->incident_elems[nd0Idx] == nullptr)
-    {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(originalElem,nd0Idx));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
-        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
-    }
-//    // else
-    if(originalElem->incident_elems[nd0Idx]!= nullptr)
-        originalElem->incident_elems[nd0Idx]->ReplaceIncidentElem(originalElem,insertedElem);
-
-    // initialize the inserted element's adjacency data
-    insertedElem->incident_elems[ndIdx] = nullptr;
-
-    // add the boundary that has just appeared
-    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
-
-    insertedElem->incident_elems[nd0Idx] = originalElem->incident_elems[nd0Idx];
-    originalElem->incident_elems[nd0Idx] = insertedElem; // nullptr;
-    insertedElem->incident_elems[nd1Idx] = originalElem; // nullptr;
-
-    // from node "nd1", disconnect the original element and replace it with the inserted element
-    nd1->ReplaceAdjacentElement(originalElem, insertedElem);
-
-    // compute the new area and reference shape matrix
-    originalElem->PrecomputeInitialArea();
-    insertedElem->PrecomputeInitialArea();
-
-    // re-evaluate PiMultiplier on both elements to maintain consistent plasticity
-    originalElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
-    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
-
-    // "fix" the fan for the node, whose element was just replaced
-    nd1->PrepareFan();
-
-}
-
-void icy::Mesh::SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
-                                 Node *nd0, Node *nd1, double where, Node*& split)
-{
-    MeshFragment *fr = nd1->fragment;
-
-    uint8_t ndIdx_orig = originalElem->getNodeIdx(nd);
-    uint8_t nd0Idx_orig = originalElem->getNodeIdx(nd0);
-    uint8_t nd1Idx_orig = originalElem->getNodeIdx(nd1);
-
-    if(originalElem->incident_elems[ndIdx_orig]==nullptr) throw std::runtime_error("SplitNonBoundaryElem: elem has boundary");
-
-    // preserve deformation gradient
-    Eigen::Matrix2d F_orig = originalElem->getF_at_n();
-    Eigen::Matrix2d F_adj = adjElem->getF_at_n();
-
-    Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
-    uint8_t nd0Idx_adj = adjElem->getNodeIdx(nd0);
-    uint8_t nd1Idx_adj = adjElem->getNodeIdx(nd1);
-    uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
-
-    MeshFragment *fragment = nd->fragment;
-
-    // insert "main" element
-    Element *insertedElem = fragment->AddElement();
-    allElems.push_back(insertedElem);
-    nd->adj_elems.push_back(insertedElem);
-
-    // insert "adjacent" element
-    Element *insertedElem_adj = fragment->AddElement();
-    allElems.push_back(insertedElem_adj);
-
-    // insert the "split" node between nd0 and nd1
-    split = fragment->AddNode();
-    split->globId = (int)allNodes.size();
-    allNodes.push_back(split);
-    split->InitializeLERP(nd0, nd1, where);
-    split->adj_elems.insert(split->adj_elems.end(),{originalElem,insertedElem,adjElem,insertedElem_adj});
-    split->isBoundary = false;
-
-    // modify the original element
-    originalElem->nds[nd1Idx_orig] = split;
-
-    nd1->ReplaceAdjacentElement(originalElem,insertedElem);
-
-    // initialize the inserted "main" element
-    insertedElem->nds[ndIdx_orig] = nd;
-    insertedElem->nds[nd1Idx_orig] = nd1;
-    insertedElem->nds[nd0Idx_orig] = split;
-
-    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(originalElem->incident_elems[nd0Idx_orig] == nullptr)
-    {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(originalElem,nd0Idx_orig));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
-        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
-    }
-    // else
-
-    if(originalElem->incident_elems[nd0Idx_orig] != nullptr)
-        originalElem->incident_elems[nd0Idx_orig]->ReplaceIncidentElem(originalElem,insertedElem);
-
-    insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
-    insertedElem->incident_elems[nd0Idx_orig] = originalElem->incident_elems[nd0Idx_orig];
-    insertedElem->incident_elems[nd1Idx_orig] = originalElem; // nullptr;
-    originalElem->incident_elems[nd0Idx_orig] = insertedElem; // nullptr;
-
-    // similarly, modify the existing adjacent element
-    adjElem->nds[nd1Idx_adj] = split;
-    insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
-    insertedElem_adj->nds[nd1Idx_adj] = nd1;
-    insertedElem_adj->nds[nd0Idx_adj] = split;
-
-    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
-    {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
-        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
-    }
-    // else
-    if(adjElem->incident_elems[nd0Idx_adj] != nullptr)
-        adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
-
-    insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
-    insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
-    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
-    adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
-
-    oppositeNode->adj_elems.push_back(insertedElem_adj);
-    nd1->ReplaceAdjacentElement(adjElem,insertedElem_adj);
-
-    originalElem->PrecomputeInitialArea();
-    insertedElem->PrecomputeInitialArea();
-    adjElem->PrecomputeInitialArea();
-    insertedElem_adj->PrecomputeInitialArea();
-
-    // "fix" palsticity on all four elements
-    originalElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
-    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
-    adjElem->RecalculatePiMultiplierFromDeformationGradient(F_adj);
-    insertedElem_adj->RecalculatePiMultiplierFromDeformationGradient(F_adj);
-
-    oppositeNode->PrepareFan();
-    nd1->PrepareFan();
-}
 
 
 
@@ -1471,19 +1278,5 @@ void icy::Mesh::CreateSupportRange(const int neighborLevel)
     }
 
 }
-/*
-void icy::Mesh::InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2)
-{
-    MeshFragment *fr = ndA1->fragment;
-    CohesiveZone *cz = fr->AddCZ();
-    cz->Initialize(ndA1, ndA2, ndB1, ndB2);
-    allCZs.push_back(cz);
-}
-*/
-icy::Node* icy::Mesh::AddNode(MeshFragment* fragment)
-{
-    Node *result = fragment->AddNode();
-    result->globId = (int)allNodes.size();
-    allNodes.push_back(result);
-    return result;
-}
+
+

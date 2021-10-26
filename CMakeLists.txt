@@ -68,25 +68,30 @@ add_executable(fl4liquid
 
     simulation/modelcontrollerinterface.h
 
+
     geometry/node.cpp
     geometry/node.h
-    geometry/element.cpp
-    geometry/element.h
-    geometry/edge.cpp
-    geometry/edge.h
+
+    geometry/elements/baseelement.h
+    geometry/elements/element.cpp
+    geometry/elements/element.h
+    geometry/elements/edge.cpp
+    geometry/elements/edge.h
+    geometry/elements/interaction.h
+    geometry/elements/interaction.cpp
+
+
     geometry/meshfragment.cpp
     geometry/meshfragment.h
     geometry/mesh.cpp
     geometry/mesh.h
     geometry/boundaryedge.h
-    geometry/cohesivezone.cpp
-    geometry/cohesivezone.h
+    geometry/elements/cohesivezone.cpp
+    geometry/elements/cohesivezone.h
 
     simulation/parameters_sim.h
     simulation/model.cpp
     simulation/model.h
-    simulation/interaction.h
-    simulation/interaction.cpp
 
     simulation/equationofmotionsolver.cpp
     simulation/equationofmotionsolver.h
@@ -103,7 +108,7 @@ add_executable(fl4liquid
 
 target_include_directories(fl4liquid PRIVATE ${HDF5_INCLUDE_DIRS})
 target_include_directories(fl4liquid PRIVATE ${Boost_INCLUDE_DIRS})
-target_include_directories(fl4liquid PRIVATE gui geometry simulation gui/propertybrowser)
+target_include_directories(fl4liquid PRIVATE gui geometry geometry/elements simulation gui/propertybrowser)
 target_include_directories(fl4liquid PRIVATE gui/objectpropertybrowser gui/windows)
 target_include_directories(fl4liquid PRIVATE gui/interactor)
 

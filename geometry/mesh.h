@@ -43,7 +43,7 @@ class icy::Mesh
 public:
     unsigned typeOfSetup; // 0:intentation; 1:shear; 2:stretching
 
-    std::vector<MeshFragment> fragments;   // including the indenter
+    std::vector<std::unique_ptr<MeshFragment>> fragments;   // including the indenter
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
     std::vector<icy::CohesiveZone*> allCZs;
@@ -56,6 +56,9 @@ public:
     void Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_);
     void SetIndenterPosition(double position);
     double area_initial, area_current;
+
+private:
+    constexpr static unsigned reserve_param = 10000;
 
 
 // COLLISION DETECTION
@@ -90,14 +93,9 @@ private:
     icy::Node *maxNode;
     constexpr static double fracture_epsilon = 0.1;   // if an edge splits too close to its vertex, then just go through the vertex
     void ComputeFractureDirections(const SimParams &prms, double timeStep, bool startingFracture);
-    Node* AddNode(MeshFragment* fragment);
-    void SplitNode(const SimParams &prms);
+    void PropagateCrack(const SimParams &prms);
     void EstablishSplittingEdge(Node* nd, const double phi, const double theta, Element *elem, Node* &adjacentNode);
-    void SplitBoundaryElem(Element *originalElem, Node *nd, Node *nd0, Node *nd1, double where, Node*& insertedNode);
-    void SplitNonBoundaryElem(Element *originalElem, Element *adjElem, Node *nd,
-                                     Node *nd0, Node *nd1, double where, Node*& insertedNode);
     Node* Fix_X_Topology(Node *nd_to_split, Node *alignment_node);
-//    void InsertCohesiveZone(Node *ndA1, Node* ndA2, Node *ndB1, Node *ndB2);
 
     void ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *newA, Node *newB);
 

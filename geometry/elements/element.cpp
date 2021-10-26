@@ -1,5 +1,6 @@
 #include "element.h"
 #include "node.h"
+#include "meshfragment.h"
 
 #include <cstdlib>
 #include <algorithm>
@@ -85,7 +86,8 @@ void icy::Element::PrecomputeInitialArea()
 
 void icy::Element::AddToSparsityStructure(EquationOfMotionSolver &eq) const
 {
-    eq.AddEntriesToStructure({nds[0]->eqId, nds[1]->eqId, nds[2]->eqId});
+    int idxs[] {nds[0]->eqId, nds[1]->eqId, nds[2]->eqId};
+    eq.AddEntriesToStructure(std::begin(idxs),std::end(idxs));
 }
 
 
@@ -404,4 +406,190 @@ void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
 void icy::Element::RecalculatePiMultiplierFromDeformationGradient(Eigen::Matrix2d F_tilda)
 {
     PiMultiplier = Dm * getDs_at_n().inverse() * F_tilda;
+}
+
+
+
+icy::Node* icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
+{
+    bool boundary_elem = (getAdjacentElementOppositeToNode(nd) == nullptr);
+    if(boundary_elem)
+        return SplitBoundaryElem(nd, nd0, nd1, where);
+    else
+        return SplitNonBoundaryElem(nd, nd0, nd1, where);
+}
+
+
+icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where)
+{
+    MeshFragment *fr = nd1->fragment;
+
+    uint8_t ndIdx = getNodeIdx(nd);
+    uint8_t nd0Idx = getNodeIdx(nd0);
+    uint8_t nd1Idx = getNodeIdx(nd1);
+
+    Eigen::Matrix2d F_orig = getF_at_n();     // save the deformation gradient
+
+    MeshFragment *fragment = nd->fragment;
+
+    // insert element
+    Element *insertedElem = fragment->AddElement();
+    nd->adj_elems.push_back(insertedElem);
+
+    // insert the node between nd0 and nd1; initialize its coordinates; connect to adjacent elements
+    Node *split = fragment->AddNode();
+    split->InitializeLERP(nd0, nd1, where);
+    split->isBoundary = true;
+    split->adj_elems.push_back(this);
+    split->adj_elems.push_back(insertedElem);
+
+    // modify the original element
+    nds[nd1Idx] = split;
+
+    // initialize the inserted element's nodes
+    insertedElem->nds[ndIdx] = nd;
+    insertedElem->nds[nd1Idx] = nd1;
+    insertedElem->nds[nd0Idx] = split;
+
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(incident_elems[nd0Idx] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(this,nd0Idx));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
+        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
+    }
+//    // else
+    if(incident_elems[nd0Idx]!= nullptr)
+        incident_elems[nd0Idx]->ReplaceIncidentElem(this,insertedElem);
+
+    // initialize the inserted element's adjacency data
+    insertedElem->incident_elems[ndIdx] = nullptr;
+
+    // add the boundary that has just appeared
+    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
+
+    insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
+    incident_elems[nd0Idx] = insertedElem;
+    insertedElem->incident_elems[nd1Idx] = this;
+
+    // from node "nd1", disconnect the original element and replace it with the inserted element
+    nd1->ReplaceAdjacentElement(this, insertedElem);
+
+    // compute the new area and reference shape matrix
+    this->PrecomputeInitialArea();
+    insertedElem->PrecomputeInitialArea();
+
+    // re-evaluate PiMultiplier on both elements to maintain consistent plasticity
+    this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+
+    // "fix" the fan for the node, whose element was just replaced
+    nd1->PrepareFan();
+    return split;
+
+}
+
+icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where)
+{
+    icy::Element *adjElem = getAdjacentElementOppositeToNode(nd);
+
+    MeshFragment *fr = nd1->fragment;
+
+    uint8_t ndIdx_orig = getNodeIdx(nd);
+    uint8_t nd0Idx_orig = getNodeIdx(nd0);
+    uint8_t nd1Idx_orig = getNodeIdx(nd1);
+
+    // preserve deformation gradient
+    Eigen::Matrix2d F_orig = getF_at_n();
+    Eigen::Matrix2d F_adj = adjElem->getF_at_n();
+
+    Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
+    uint8_t nd0Idx_adj = adjElem->getNodeIdx(nd0);
+    uint8_t nd1Idx_adj = adjElem->getNodeIdx(nd1);
+    uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
+
+    MeshFragment *fragment = nd->fragment;
+
+    // insert "main" element
+    Element *insertedElem = fragment->AddElement();
+    nd->adj_elems.push_back(insertedElem);
+
+    // insert "adjacent" element
+    Element *insertedElem_adj = fragment->AddElement();
+
+    // insert the "split" node between nd0 and nd1
+    Node *split = fragment->AddNode();
+    split->InitializeLERP(nd0, nd1, where);
+    split->adj_elems.insert(split->adj_elems.end(),{this,insertedElem,adjElem,insertedElem_adj});
+    split->isBoundary = false;
+
+    // modify the original element
+    nds[nd1Idx_orig] = split;
+
+    nd1->ReplaceAdjacentElement(this,insertedElem);
+
+    // initialize the inserted "main" element
+    insertedElem->nds[ndIdx_orig] = nd;
+    insertedElem->nds[nd1Idx_orig] = nd1;
+    insertedElem->nds[nd0Idx_orig] = split;
+
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(incident_elems[nd0Idx_orig] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(this,nd0Idx_orig));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
+        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
+    }
+    // else
+
+    if(incident_elems[nd0Idx_orig] != nullptr)
+        incident_elems[nd0Idx_orig]->ReplaceIncidentElem(this,insertedElem);
+
+    insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
+    insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
+    insertedElem->incident_elems[nd1Idx_orig] = this;
+    incident_elems[nd0Idx_orig] = insertedElem;
+
+    // similarly, modify the existing adjacent element
+    adjElem->nds[nd1Idx_adj] = split;
+    insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
+    insertedElem_adj->nds[nd1Idx_adj] = nd1;
+    insertedElem_adj->nds[nd0Idx_adj] = split;
+
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
+    {
+        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
+                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
+        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
+        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
+    }
+    // else
+    if(adjElem->incident_elems[nd0Idx_adj] != nullptr)
+        adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
+
+    insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
+    insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
+    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
+    adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
+
+    oppositeNode->adj_elems.push_back(insertedElem_adj);
+    nd1->ReplaceAdjacentElement(adjElem,insertedElem_adj);
+
+    this->PrecomputeInitialArea();
+    insertedElem->PrecomputeInitialArea();
+    adjElem->PrecomputeInitialArea();
+    insertedElem_adj->PrecomputeInitialArea();
+
+    // "fix" palsticity on all four elements
+    this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+    adjElem->RecalculatePiMultiplierFromDeformationGradient(F_adj);
+    insertedElem_adj->RecalculatePiMultiplierFromDeformationGradient(F_adj);
+
+    oppositeNode->PrepareFan();
+    nd1->PrepareFan();
+    return split;
 }

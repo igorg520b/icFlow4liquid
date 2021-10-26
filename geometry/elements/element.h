@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "baseelement.h"
 #include "parameters_sim.h"
 #include "node.h"
 #include "edge.h"
@@ -15,6 +16,7 @@ struct icy::Element
 {
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
     std::bitset<8> group;
+    icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
 
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 
@@ -53,10 +55,12 @@ private:
 
 // FRACTURE ALGORITHM
 public:
+    bool traversed;     // used for identifying disjoint regions and n-regions around crack tips
+
+    Node* SplitElem(Node *nd, Node *nd0, Node *nd1, double where); // split the element by inserting a node between nd0 and nd1
+
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
-    icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
-    bool traversed;     // used for identifying disjoint regions and n-regions around crack tips
     bool isBoundaryEdge(const uint8_t idx) const {return incident_elems[idx]==nullptr;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
@@ -81,6 +85,8 @@ public:
 
 private:
     constexpr static double threshold_area = 1e-7;
+    Node* SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
+    Node* SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
 };
 
 #endif // ELEMENT123_H

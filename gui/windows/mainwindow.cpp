@@ -260,6 +260,7 @@ void MainWindow::sliderValueChanged(int val)
 
 void MainWindow::on_actionSave_Mesh_triggered()
 {
+    /*
     qDebug() << "Save mesh";
 
     QDir outputDirectory;
@@ -285,8 +286,8 @@ void MainWindow::on_actionSave_Mesh_triggered()
     QString fileName = qfd.selectedFiles()[0];
 
     if (fileName.isEmpty()) return;
-    model.mesh.fragments[1].SaveFragment(fileName.toStdString());
-
+    model.mesh.fragments[1]->SaveFragment(fileName.toStdString());
+*/
 }
 
 

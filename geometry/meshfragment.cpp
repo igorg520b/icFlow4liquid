@@ -5,6 +5,7 @@
 #include "meshfragment.h"
 #include "tbb/concurrent_unordered_map.h"
 #include "edge.h"
+#include "mesh.h"
 
 icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(nPreallocate);
 icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(nPreallocate);
@@ -27,6 +28,8 @@ icy::Node* icy::MeshFragment::AddNode()
     result->fragment = this;
     result->locId = (int)nodes.size();
     nodes.push_back(result);
+    result->globId = (int)parentMesh->allNodes.size();
+    parentMesh->allNodes.push_back(result);
     return result;
 }
 
@@ -35,6 +38,7 @@ icy::Element* icy::MeshFragment::AddElement()
     Element* elem = ElementFactory.take();
     elem->Reset();
     elems.push_back(elem);
+    parentMesh->allElems.push_back(elem);
     return elem;
 }
 
@@ -43,6 +47,7 @@ icy::CohesiveZone* icy::MeshFragment::AddCZ()
     CohesiveZone *cz = CZFactory.take();
     cz->Reset();
     czs.push_back(cz);
+    parentMesh->allCZs.push_back(cz);
     return cz;
 }
 
@@ -544,6 +549,7 @@ void icy::MeshFragment::GetFromGmsh()
 
 void icy::MeshFragment::ConvertBoundaryEdges()
 {
+    if(!isDeformable) return;
     boundaryEdges.clear();
     boundaryEdges.reserve(boundaryEdgesAsElemIdx.size());
     for(auto &p : boundaryEdgesAsElemIdx)
@@ -555,17 +561,6 @@ void icy::MeshFragment::ConvertBoundaryEdges()
         boundaryEdges.push_back(BoundaryEdge(elem->nds[nd1Idx],elem->nds[nd2Idx],elem));
     }
     spdlog::info("MeshFragment::ConvertBoundaryEdges {}",boundaryEdges.size());
-
-    /*
-    for(Element *elem : this->elems)
-    {
-        for(uint8_t idx=0;idx<3;idx++)
-        {
-            if(elem->incident_elems[idx]==nullptr)
-                boundaryEdges.emplace_back(elem->nds[(idx+2)%3],elem->nds[(idx+1)%3],elem);
-        }
-    }
-    */
 }
 
 void icy::MeshFragment::CreateLeaves()

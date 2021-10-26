@@ -65,10 +65,10 @@ void EquationOfMotionSolver::AddNNZEntry(int row, int column)
     rows_neighbors[row]->push_back(column);
 }
 
-void EquationOfMotionSolver::AddEntriesToStructure(const std::initializer_list<int> l)
+void EquationOfMotionSolver::AddEntriesToStructure(const int* idx_begin, const int* idx_end)
 {
-    for(auto iter = (l.begin()+1);iter!=l.end();iter++)
-        for(auto j=l.begin();j!=iter;j++)
+    for(auto iter=(idx_begin+1); iter!=idx_end; ++iter)
+        for(auto j=idx_begin; j!=iter; ++j)
             AddNNZEntry(*iter,*j);
 }
 

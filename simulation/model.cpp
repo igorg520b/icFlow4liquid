@@ -357,19 +357,19 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
 void icy::Model::GetNewMaterialPosition()
 {
     // relax each mesh fragment separately
-    for(MeshFragment &mf : mesh.fragments)
+    for(auto &mf : mesh.fragments)
     {
-        if(!mf.isDeformable) continue;
+        if(!mf->isDeformable) continue;
 
         unsigned freeNodes = 0;
-        for(Node *nd : mf.nodes)
+        for(Node *nd : mf->nodes)
         {
             if(nd->pinned) nd->eqId = -1;
             else nd->eqId = freeNodes++;
         }
 
-        unsigned nNodes = mf.nodes.size();
-        unsigned nElems = mf.elems.size();
+        unsigned nNodes = mf->nodes.size();
+        unsigned nElems = mf->elems.size();
 
         // solve the equation iteratively (as usual, but without collisions)
         int attempt = 0;
@@ -384,7 +384,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
             for(std::size_t i=0;i<nNodes;i++)
             {
-                icy::Node *nd = mf.nodes[i];
+                icy::Node *nd = mf->nodes[i];
                 nd->xt = nd->x_hat = nd->x_initial;
             }
 
@@ -431,7 +431,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(std::size_t i=0;i<nNodes;i++)
         {
-            icy::Node *nd = mf.nodes[i];
+            icy::Node *nd = mf->nodes[i];
             Eigen::Vector2d delta_x;
             if(!nd->pinned)
             {
@@ -444,7 +444,7 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(unsigned i=0;i<nElems;i++)
         {
-            icy::Element *elem = mf.elems[i];
+            icy::Element *elem = mf->elems[i];
             Eigen::Matrix2d DmPrime;
             DmPrime << elem->nds[0]->xt-elem->nds[2]->xt, elem->nds[1]->xt-elem->nds[2]->xt;
             elem->PiMultiplier = DmPrime*elem->DmInv*elem->PiMultiplier;
@@ -453,11 +453,11 @@ void icy::Model::GetNewMaterialPosition()
 #pragma omp parallel for
         for(std::size_t i=0;i<nNodes;i++)
         {
-            icy::Node *nd = mf.nodes[i];
+            icy::Node *nd = mf->nodes[i];
             if(!nd->pinned) nd->x_initial = nd->xt;
         }
 
-        mf.PostMeshingEvaluations();
+        mf->PostMeshingEvaluations();
     }
 }
 
@@ -478,7 +478,7 @@ void icy::Model::Fracture(double timeStep)
 
         // perform the FractureStep - identify the fracturing node, change topology and do local relaxation
         vtk_update_mutex.lock();
-        mesh.SplitNode(prms);
+        mesh.PropagateCrack(prms);
         mesh.CreateLeaves();
         topologyInvalid = true;
         vtk_update_mutex.unlock();
