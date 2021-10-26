@@ -157,7 +157,8 @@ void icy::BVHN::Expand_CCD(float distance_threshold)
     if(!isLeaf) throw std::runtime_error("Expand_CCD: not leaf");
     if(boundaryEdge != nullptr)
     {
-        auto[nd1,nd2] = boundaryEdge->vertices;
+        Node *nd1 = boundaryEdge->nds[0];
+        Node *nd2 = boundaryEdge->nds[1];
         box.Expand(nd1->xt[0], nd1->xt[1]);
         box.Expand(nd2->xt[0], nd2->xt[1]);
         box.Expand(nd1->xn[0], nd1->xn[1]);

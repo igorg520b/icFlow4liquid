@@ -38,7 +38,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[0]->GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
         fragments[1]->GenerateBrick(MeshSizeMax,2,1);
         fragments[2]->GenerateContainer(MeshSizeMax,offset);
-        for(const auto &b : fragments[0]->boundaryEdges) movableBoundary.push_back(b.vertices);
+        for(const auto &b : fragments[0]->boundaryEdges) movableBoundary.emplace_back(b.nds[0],b.nds[1]);
         break;
 
         // shear
@@ -56,7 +56,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[2]->GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
         fragments[3]->GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
         fragments[4]->GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
-        for(const auto &b : fragments[1]->boundaryEdges) movableBoundary.push_back(b.vertices);
+        for(const auto &b : fragments[1]->boundaryEdges) movableBoundary.emplace_back(b.nds[0],b.nds[1]);
     }
         break;
 
@@ -313,7 +313,7 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     unsigned count = 0;
     for(const auto &b : globalBoundaryEdges)
     {
-        vtkIdType pts[2] = {b.vertices.first->globId, b.vertices.second->globId};
+        vtkIdType pts[2] = {b.nds[0]->globId, b.nds[1]->globId};
         cellArray_boundary_all->InsertNextCell(2, pts);
         visualized_values_edges->SetValue(count++, 0);
     }
@@ -696,8 +696,10 @@ void icy::Mesh::DetectContactPairs(const double distance_threshold)
         if(!bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
             // indenter-deformable interaction
-            auto [nd1,nd2] = bvhn1->boundaryEdge->vertices;
-            auto [nd3,nd4] = bvhn2->boundaryEdge->vertices;
+            Node *nd1 = bvhn1->boundaryEdge->nds[0];
+            Node *nd2 = bvhn1->boundaryEdge->nds[1];
+            Node *nd3 = bvhn2->boundaryEdge->nds[0];
+            Node *nd4 = bvhn2->boundaryEdge->nds[1];
             AddToNarrowSet_NodeVsEdge(nd1, nd2, nd3, distance_threshold);
             AddToNarrowSet_NodeVsEdge(nd1, nd2, nd4, distance_threshold);
             AddToNarrowSet_NodeVsEdge(nd3, nd4, nd1, distance_threshold);
@@ -759,8 +761,10 @@ bool icy::Mesh::EnsureNoIntersectionViaCCD()
 
         if(!bvhn1->boundaryEdge->isDeformable() && bvhn2->boundaryEdge->isDeformable())
         {
-            auto [nd1,nd2] = bvhn1->boundaryEdge->vertices;
-            auto [nd3,nd4] = bvhn2->boundaryEdge->vertices;
+            Node *nd1 = bvhn1->boundaryEdge->nds[0];
+            Node *nd2 = bvhn1->boundaryEdge->nds[1];
+            Node *nd3 = bvhn2->boundaryEdge->nds[0];
+            Node *nd4 = bvhn2->boundaryEdge->nds[1];
             if(EdgeIntersection(nd1,nd2,nd3,nd4)) intersection_detected = true;
             if(CCD(nd1, nd2, nd3)) intersection_detected = true;
             if(CCD(nd1, nd2, nd4)) intersection_detected = true;

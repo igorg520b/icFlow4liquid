@@ -12,12 +12,11 @@
 
 namespace icy { struct Element; struct Node; }
 
-struct icy::Element
+struct icy::Element : public icy::BaseElement
 {
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
     std::bitset<8> group;
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
-
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 
     void Reset(void);

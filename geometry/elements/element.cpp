@@ -36,6 +36,8 @@ Eigen::Matrix<double,6,6> icy::Element::consistentMassMatrix =
 
 void icy::Element::Reset(void)
 {
+    type = ElementType::TriangularElement;
+
     nds[0] = nds[1] = nds[2] = nullptr;
     incident_elems[0] = incident_elems[1] = incident_elems[2] = nullptr;
     area_initial = area_current = 0;
