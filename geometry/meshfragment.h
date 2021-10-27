@@ -48,6 +48,7 @@ private:
     constexpr static unsigned nPreallocate = 10000;
     static ConcurrentPool<Node> NodeFactory;
     static ConcurrentPool<Element> ElementFactory;
+    static ConcurrentPool<BoundaryEdge> BoundaryEdgeFactory;
     static ConcurrentPool<CohesiveZone> CZFactory;
 
     struct GmshEntity
@@ -72,15 +73,15 @@ public:
     std::vector<BVHN*> leaves_for_ccd;
     void CreateLeaves();
 
-    std::vector<BoundaryEdge> boundaryEdges; // collision boundary for a rigid object
-    std::vector<std::pair<icy::Element*,uint8_t>> boundaryEdgesAsElemIdx;    // boundaries in the Element-Index form
-    void ConvertBoundaryEdges(); // convert boundaryEdgesAsElemIdx to boundaryEdges - deformables only
+    std::vector<BoundaryEdge*> boundaryEdges; // collision boundary
 
 private:
     static ConcurrentPool<BVHN> BVHNLeafFactory;
 
 
 // FRACTURE MODEL
+public:
+    void AddBoundary(Element *elem, uint8_t edge_idx);
 private:
     void ConnectIncidentElements();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
 

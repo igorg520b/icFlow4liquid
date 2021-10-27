@@ -38,7 +38,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[0]->GenerateIndenter(MeshSizeMax/2, 0, 1+0.15*1.1, 0.15, 2);
         fragments[1]->GenerateBrick(MeshSizeMax,2,1);
         fragments[2]->GenerateContainer(MeshSizeMax,offset);
-        for(const auto &b : fragments[0]->boundaryEdges) movableBoundary.emplace_back(b.nds[0],b.nds[1]);
+        for(const auto &b : fragments[0]->boundaryEdges) movableBoundary.emplace_back(b->nds[0],b->nds[1]);
         break;
 
         // shear
@@ -56,7 +56,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         fragments[2]->GenerateIndenter(MeshSizeMax/2, -width*0.9/2, height+radius+offset*1.5, radius, 1);
         fragments[3]->GenerateIndenter(MeshSizeMax/2, -width*0.1/2, -(radius+offset*1.5), radius, 1);
         fragments[4]->GenerateIndenter(MeshSizeMax/2, width*0.9/2, -(radius+offset*1.5), radius, 1);
-        for(const auto &b : fragments[1]->boundaryEdges) movableBoundary.emplace_back(b.nds[0],b.nds[1]);
+        for(const auto &b : fragments[1]->boundaryEdges) movableBoundary.emplace_back(b->nds[0],b->nds[1]);
     }
         break;
 
@@ -100,32 +100,6 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 
     updateMinMax = true;
 
-/*
-    // copy fragment's nodes into allNodes
-    std::size_t allNodesSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
-                                               [](std::size_t val,MeshFragment &fr){return val+fr.nodes.size();});
-    std::size_t allElemsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
-                                               [](std::size_t val,MeshFragment &fr){return val+fr.elems.size();});
-
-    std::size_t allCZsSize = std::accumulate(fragments.begin(),fragments.end(),0UL,
-                                               [](std::size_t val,MeshFragment &fr){return val+fr.czs.size();});
-
-    allNodes.resize(allNodesSize);
-    allElems.resize(allElemsSize);
-    allCZs.resize(allCZsSize);
-
-    auto iter_nodes = allNodes.begin();
-    auto iter_elems = allElems.begin();
-    auto iter_czs = allCZs.begin();
-    for(MeshFragment &mf : fragments)
-    {
-        iter_nodes = std::copy(mf.nodes.begin(),mf.nodes.end(),iter_nodes);
-        iter_elems = std::copy(mf.elems.begin(),mf.elems.end(),iter_elems);
-        iter_czs = std::copy(mf.czs.begin(),mf.czs.end(),iter_czs);
-    }
-
-    for(std::size_t i=0;i<allNodes.size();i++) allNodes[i]->globId=(int)i; // assign global Ids
-*/
     area_initial = area_current = std::accumulate(allElems.begin(), allElems.end(),0.0,
                                                   [](double a, Element* m){return a+m->area_initial;});
     CreateLeaves();
@@ -143,11 +117,12 @@ icy::Mesh::Mesh()
                     lutArrayTemperatureAdj[i][1],
                     lutArrayTemperatureAdj[i][2], 1.0);
 
-    hueLutBlackRed->SetNumberOfTableValues(3);
-    hueLutBlackRed->SetTableValue(0,0,   0,   0, 1.0);
-    hueLutBlackRed->SetTableValue(1,0.5, 0,   0, 1.0);
-    hueLutBlackRed->SetTableValue(2,0,   0.5, 0, 1.0);
-    hueLutBlackRed->SetTableRange(0,2);
+    hueLutBoundary->SetNumberOfTableValues(4);
+    hueLutBoundary->SetTableValue(0,0,     0,     0, 1.0);
+    hueLutBoundary->SetTableValue(1,0,     0,   0.2, 1.0);
+    hueLutBoundary->SetTableValue(2,0,   0.5,   0.5, 1.0);
+    hueLutBoundary->SetTableValue(3,0.6,   0,     0, 1.0);
+    hueLutBoundary->SetTableRange(0,3);
 
     hueLut_czs->SetNumberOfTableValues(2);
     hueLut_czs->SetTableValue(1,0.95, 0.97, 0.91, 1.0);
@@ -180,7 +155,7 @@ icy::Mesh::Mesh()
     dataSetMapper_boundary_all->SetInputData(ugrid_boundary_all);
 
     dataSetMapper_boundary_all->UseLookupTableScalarRangeOn();
-    dataSetMapper_boundary_all->SetLookupTable(hueLutBlackRed);
+    dataSetMapper_boundary_all->SetLookupTable(hueLutBoundary);
     ugrid_boundary_all->GetCellData()->AddArray(visualized_values_edges);
     ugrid_boundary_all->GetCellData()->SetActiveScalars("visualized_values_edges");
     dataSetMapper_boundary_all->SetScalarModeToUseCellData();
@@ -311,11 +286,11 @@ void icy::Mesh::RegenerateVisualizedGeometry()
     visualized_values_edges->SetNumberOfValues(globalBoundaryEdges.size());
 
     unsigned count = 0;
-    for(const auto &b : globalBoundaryEdges)
+    for(const auto b : globalBoundaryEdges)
     {
-        vtkIdType pts[2] = {b.nds[0]->globId, b.nds[1]->globId};
+        vtkIdType pts[2] = {b->nds[0]->globId, b->nds[1]->globId};
         cellArray_boundary_all->InsertNextCell(2, pts);
-        visualized_values_edges->SetValue(count++, 0);
+        visualized_values_edges->SetValue(count++, b->status);
     }
     ugrid_boundary_all->SetCells(VTK_LINE, cellArray_boundary_all);
 
@@ -632,7 +607,7 @@ void icy::Mesh::CreateLeaves()
 
     for(auto &mf : fragments)
     {
-        mf->ConvertBoundaryEdges();
+        for(auto be : mf->boundaryEdges) be->UpdateNodes(); // temporary fix?
         mf->CreateLeaves();
         globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf->boundaryEdges.begin(),mf->boundaryEdges.end());
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());
@@ -1004,11 +979,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
     // add new boundaries
     uint8_t edge_idx = ssr.faces[0]->getEdgeIdx(nd,edge_split0);
-    fr->boundaryEdgesAsElemIdx.emplace_back(ssr.faces[0],edge_idx);
+    fr->AddBoundary(ssr.faces[0],edge_idx);
     Element* insertedElem1 = ssr.faces[0]->incident_elems[edge_idx];
-    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0));
-
-
+    fr->AddBoundary(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0));
 
     if(!isBoundary)
     {
@@ -1017,9 +990,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
         // add new boundaries
         uint8_t edge_idx2 = ssr.faces[1]->getEdgeIdx(nd,edge_split1);
-        fr->boundaryEdgesAsElemIdx.emplace_back(ssr.faces[1],edge_idx2);
+        fr->AddBoundary(ssr.faces[1],edge_idx2);
         Element* insertedElem2 = ssr.faces[1]->incident_elems[edge_idx2];
-        fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1));
+        fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1));
     }
 
     // SPLIT nd
@@ -1059,7 +1032,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
         else
         {
             nd_split->adj_elems.push_back(s.face);
+
             s.face->ReplaceNode(nd, nd_split);
+
             if(s.face->isCWBoundary(nd_split))
             {
                 Node *cw = s.face->CW_Node(nd_split);
@@ -1159,6 +1134,7 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
         {
             s.face->ReplaceNode(nd, split);
             split->adj_elems.push_back(s.face);
+
             if(s.face->isCWBoundary(split))
             {
                 Node *cw = s.face->CW_Node(split);
@@ -1185,10 +1161,13 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
 
 void icy::Mesh::ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *newA, Node *newB)
 {
-    MeshFragment *fr = oldA->fragment;
-    auto find_result = std::find(fr->boundaryEdges.begin(),fr->boundaryEdges.end(), BoundaryEdge(oldA,oldB));
-    if(find_result == fr->boundaryEdges.end()) return;
-    *find_result = BoundaryEdge(newA,newB,elem);
+    MeshFragment *fr = newA->fragment;
+    uint8_t idx = elem->getEdgeIdx(newA,newB);
+    auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
+                             [elem,idx](const BoundaryEdge *be){return be->elem==elem && be->edge_idx==idx;});
+
+    if(iter == fr->boundaryEdges.end()) return;
+    (*iter)->UpdateNodes();
 }
 
 

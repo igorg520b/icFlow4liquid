@@ -47,7 +47,7 @@ public:
     std::vector<icy::Node*> allNodes;
     std::vector<icy::Element*> allElems;
     std::vector<icy::CohesiveZone*> allCZs;
-    std::vector<BoundaryEdge> globalBoundaryEdges;
+    std::vector<BoundaryEdge*> globalBoundaryEdges;
 
     std::vector<std::pair<Node*,Node*>> movableBoundary;    // controlled via GUI
     std::vector<icy::Node*> movableNodes;
@@ -142,7 +142,7 @@ private:
     vtkNew<vtkDataSetMapper> dataSetMapper_deformable;
 
     // boundary
-    vtkNew<vtkLookupTable> hueLutBlackRed;
+    vtkNew<vtkLookupTable> hueLutBoundary;
     vtkNew<vtkIntArray> visualized_values_edges;
     vtkNew<vtkUnstructuredGrid> ugrid_boundary_all;
     vtkNew<vtkCellArray> cellArray_boundary_all;

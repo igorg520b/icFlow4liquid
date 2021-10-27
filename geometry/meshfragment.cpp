@@ -10,8 +10,8 @@
 icy::ConcurrentPool<icy::BVHN> icy::MeshFragment::BVHNLeafFactory(nPreallocate);
 icy::ConcurrentPool<icy::Node> icy::MeshFragment::NodeFactory(nPreallocate);
 icy::ConcurrentPool<icy::Element> icy::MeshFragment::ElementFactory(nPreallocate);
+icy::ConcurrentPool<icy::BoundaryEdge> icy::MeshFragment::BoundaryEdgeFactory(nPreallocate);
 icy::ConcurrentPool<icy::CohesiveZone> icy::MeshFragment::CZFactory(nPreallocate);
-
 
 icy::MeshFragment::~MeshFragment()
 {
@@ -537,7 +537,8 @@ void icy::MeshFragment::GetFromGmsh()
         {
             Node *nd0 = nodes[mtags.at(nodeTagsInEdges[i*2+0])];
             Node *nd1 = nodes[mtags.at(nodeTagsInEdges[i*2+1])];
-            BoundaryEdge be(nd0,nd1,nullptr);
+            BoundaryEdge *be = BoundaryEdgeFactory.take();
+            be->Initialize(nd0,nd1);
             boundaryEdges.push_back(be);
         }
     }
@@ -546,22 +547,6 @@ void icy::MeshFragment::GetFromGmsh()
     gmsh::clear();
 }
 
-
-void icy::MeshFragment::ConvertBoundaryEdges()
-{
-    if(!isDeformable) return;
-    boundaryEdges.clear();
-    boundaryEdges.reserve(boundaryEdgesAsElemIdx.size());
-    for(auto &p : boundaryEdgesAsElemIdx)
-    {
-        Element *elem = p.first;
-        uint8_t edgeIdx = p.second;
-        uint8_t nd1Idx = (edgeIdx+2)%3;
-        uint8_t nd2Idx = (edgeIdx+1)%3;
-        boundaryEdges.push_back(BoundaryEdge(elem->nds[nd1Idx],elem->nds[nd2Idx],elem));
-    }
-    spdlog::info("MeshFragment::ConvertBoundaryEdges {}",boundaryEdges.size());
-}
 
 void icy::MeshFragment::CreateLeaves()
 {
@@ -573,12 +558,12 @@ void icy::MeshFragment::CreateLeaves()
 
     leaves_for_ccd.reserve(boundaryEdges.size());
 
-    for(const auto &boundary : boundaryEdges)
+    for(const BoundaryEdge *boundary : boundaryEdges)
     {
         BVHN *leaf_ccd = BVHNLeafFactory.take();
         leaves_for_ccd.push_back(leaf_ccd);
         leaf_ccd->test_self_collision = false;
-        leaf_ccd->boundaryEdge = &boundary;
+        leaf_ccd->boundaryEdge = boundary;
         leaf_ccd->isLeaf = true;
     }
 }
@@ -742,8 +727,6 @@ void icy::MeshFragment::ConnectIncidentElements()
         }
     }
 
-    boundaryEdges.clear();
-    boundaryEdgesAsElemIdx.clear();
     for(const auto &kvpair : edges_map)
     {
         const icy::Edge &e = kvpair.second;
@@ -762,15 +745,9 @@ void icy::MeshFragment::ConnectIncidentElements()
         else
         {
             if(e.elems[0] != nullptr)
-            {
-                boundaryEdgesAsElemIdx.emplace_back(e.elems[0],e.edge_in_elem_idx[0]);
-//                boundaryEdges.emplace_back(e.nds[1],e.nds[0],e.elems[0]);
-            }
+                AddBoundary(e.elems[0],e.edge_in_elem_idx[0]);
             else
-            {
-                boundaryEdgesAsElemIdx.emplace_back(e.elems[1],e.edge_in_elem_idx[1]);
-//                boundaryEdges.emplace_back(e.nds[0],e.nds[1],e.elems[1]);
-            }
+                AddBoundary(e.elems[1],e.edge_in_elem_idx[1]);
         }
     }
 
@@ -779,3 +756,7 @@ void icy::MeshFragment::ConnectIncidentElements()
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
 }
 
+void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx)
+{
+    boundaryEdges.push_back(BoundaryEdgeFactory.take()->Initialize(elem,edge_idx));
+}

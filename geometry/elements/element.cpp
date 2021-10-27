@@ -367,15 +367,10 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
 
 void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
 {
-    //spdlog::info("Replacing Node {} with {} in elem {}-{}-{}",
-    //             replaceWhat->locId,replaceWith->locId, nds[0]->locId,nds[1]->locId,nds[2]->locId);
-    if(nds[0] == replaceWhat) nds[0] = replaceWith;
-    else if(nds[1] == replaceWhat) nds[1] = replaceWith;
-    else if(nds[2] == replaceWhat) nds[2] = replaceWith;
-    else throw std::runtime_error("icy::Element::ReplaceNode: replaced node not found");
+    nds[getNodeIdx(replaceWhat)] = replaceWith;
     PrecomputeInitialArea();
-    //spdlog::info("Replaced Node {} with {}; elem {}-{}-{}",
-    //             replaceWhat->locId,replaceWith->locId, nds[0]->locId,nds[1]->locId,nds[2]->locId);
+
+    // TODO: update boundary
 }
 
 void icy::Element::DisconnectFromElem(Element* other)
@@ -456,10 +451,9 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
     if(incident_elems[nd0Idx] == nullptr)
     {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(this,nd0Idx));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx);
-        // else throw std::runtime_error("SplitBoundaryElem: error with bounddary");
+        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
+                                 [this,nd0Idx](const BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx;});
+        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem,nd0Idx);
     }
 //    // else
     if(incident_elems[nd0Idx]!= nullptr)
@@ -469,7 +463,7 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     insertedElem->incident_elems[ndIdx] = nullptr;
 
     // add the boundary that has just appeared
-    fr->boundaryEdgesAsElemIdx.emplace_back(insertedElem,ndIdx);
+    fr->AddBoundary(insertedElem,ndIdx);
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
     incident_elems[nd0Idx] = insertedElem;
@@ -529,6 +523,7 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     // modify the original element
     nds[nd1Idx_orig] = split;
 
+
     nd1->ReplaceAdjacentElement(this,insertedElem);
 
     // initialize the inserted "main" element
@@ -539,9 +534,9 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
     if(incident_elems[nd0Idx_orig] == nullptr)
     {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(this,nd0Idx_orig));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem,nd0Idx_orig);
+        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
+                                 [this,nd0Idx_orig](const BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx_orig;});
+        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem,nd0Idx_orig);
         // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
     }
     // else
@@ -563,9 +558,9 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
     if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
     {
-        auto iter = std::find(fr->boundaryEdgesAsElemIdx.begin(),fr->boundaryEdgesAsElemIdx.end(),
-                              std::pair<Element*,uint8_t>(adjElem,nd0Idx_adj));
-        if(iter != fr->boundaryEdgesAsElemIdx.end()) *iter = std::pair<Element*,uint8_t>(insertedElem_adj,nd0Idx_adj);
+        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
+                                 [adjElem,nd0Idx_adj](const BoundaryEdge *be){return be->elem==adjElem && be->edge_idx==nd0Idx_adj;});
+        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem_adj,nd0Idx_adj);
         // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
     }
     // else
