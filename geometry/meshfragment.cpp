@@ -756,7 +756,7 @@ void icy::MeshFragment::ConnectIncidentElements()
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
 }
 
-void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx)
+void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx, uint8_t status)
 {
-    boundaryEdges.push_back(BoundaryEdgeFactory.take()->Initialize(elem,edge_idx));
+    boundaryEdges.push_back(BoundaryEdgeFactory.take()->Initialize(elem,edge_idx,status));
 }

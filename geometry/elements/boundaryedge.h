@@ -7,20 +7,20 @@
 
 namespace icy {struct BoundaryEdge; struct Element;}
 
-struct icy::BoundaryEdge
+struct icy::BoundaryEdge : public icy::BaseElement
 {
     Node* nds[2];
     Element *elem;                      // element to which this boundary belongs
     uint8_t edge_idx;                   // side in the element to which this boundary is attached
     uint8_t status;                     // color/type for visualization
 
-    BoundaryEdge() = default;
+    BoundaryEdge() { type = ElementType::BEdge; };
     ~BoundaryEdge() = default;
     BoundaryEdge& operator= (const BoundaryEdge&) = delete;
 
-    BoundaryEdge* Initialize(Element *elem_, uint8_t edge_idx_)
+    BoundaryEdge* Initialize(Element *elem_, uint8_t edge_idx_, uint8_t status_ = 0)
     {
-        status = 0;
+        status = status_;
         elem = elem_;
         edge_idx = edge_idx_;
         UpdateNodes();

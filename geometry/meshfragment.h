@@ -81,7 +81,7 @@ private:
 
 // FRACTURE MODEL
 public:
-    void AddBoundary(Element *elem, uint8_t edge_idx);
+    void AddBoundary(Element *elem, uint8_t edge_idx, uint8_t status = 0);
 private:
     void ConnectIncidentElements();     // infer adjacency information and create the "fan", i.e. sorted vector of sectors per node
 

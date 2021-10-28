@@ -19,6 +19,10 @@ struct icy::Element : public icy::BaseElement
     icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 
+    Element() { type = ElementType::TElem; }
+    ~Element() = default;
+    Element& operator=(const Element&) = delete;
+
     void Reset(void);
     void Initialize(Node *nd0, Node *nd1, Node *nd2);
     void PrecomputeInitialArea();

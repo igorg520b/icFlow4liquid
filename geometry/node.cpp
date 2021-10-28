@@ -76,35 +76,7 @@ void icy::Node::PrepareFan()
 {
     CreateUnrotatedFan();
     isBoundary = std::any_of(fan.begin(),fan.end(),[this](Sector &s){return s.face->isOnBoundary(this);});
-/*
-    if(adj_elems.size()==0) throw std::runtime_error("PrepareFan: disconnected node");
 
-    fan.clear();
-    fan.resize(adj_elems.size());
-    area = 0;
-    isBoundary = false;
-    for(unsigned k=0;k<adj_elems.size();k++)
-    {
-        icy::Element *elem = adj_elems[k];
-        if(!elem->containsNode(this))  throw std::runtime_error("PrepareFan: mesh topology error");
-        area += elem->area_initial/3;
-
-        Sector &s = fan[k];
-        s.face = elem;
-        Eigen::Vector2d tcv = elem->getCenter() - x_initial;
-        s.centerAngle = atan2(tcv.y(), tcv.x());
-
-        short thisIdx, CWIdx, CCWIdx;
-        elem->getIdxs(this, thisIdx, CWIdx, CCWIdx);
-
-        s.nd[0] = elem->nds[CWIdx];
-        s.nd[1] = elem->nds[CCWIdx];
-
-        if(elem->isOnBoundary(this)) isBoundary = true;
-    }
-
-    std::sort(fan.begin(), fan.end());
-*/
     // if boundary, then ensure that sectors start with a boundary element and end with a boundary element
     if(isBoundary)
     {

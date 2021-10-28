@@ -1,4 +1,5 @@
 #include "element.h"
+#include "boundaryedge.h"
 #include "node.h"
 #include "meshfragment.h"
 
@@ -36,8 +37,6 @@ Eigen::Matrix<double,6,6> icy::Element::consistentMassMatrix =
 
 void icy::Element::Reset(void)
 {
-    type = ElementType::TriangularElement;
-
     nds[0] = nds[1] = nds[2] = nullptr;
     incident_elems[0] = incident_elems[1] = incident_elems[2] = nullptr;
     area_initial = area_current = 0;
@@ -452,7 +451,7 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     if(incident_elems[nd0Idx] == nullptr)
     {
         auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
-                                 [this,nd0Idx](const BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx;});
+                                 [this,nd0Idx](const icy::BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx;});
         if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem,nd0Idx);
     }
 //    // else

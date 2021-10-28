@@ -979,9 +979,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
     // add new boundaries
     uint8_t edge_idx = ssr.faces[0]->getEdgeIdx(nd,edge_split0);
-    fr->AddBoundary(ssr.faces[0],edge_idx);
+    fr->AddBoundary(ssr.faces[0],edge_idx,2);
     Element* insertedElem1 = ssr.faces[0]->incident_elems[edge_idx];
-    fr->AddBoundary(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0));
+    fr->AddBoundary(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0),2);
 
     if(!isBoundary)
     {
@@ -990,9 +990,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
         // add new boundaries
         uint8_t edge_idx2 = ssr.faces[1]->getEdgeIdx(nd,edge_split1);
-        fr->AddBoundary(ssr.faces[1],edge_idx2);
+        fr->AddBoundary(ssr.faces[1],edge_idx2,2);
         Element* insertedElem2 = ssr.faces[1]->incident_elems[edge_idx2];
-        fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1));
+        fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1),2);
     }
 
     // SPLIT nd
@@ -1034,7 +1034,7 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
             nd_split->adj_elems.push_back(s.face);
 
             s.face->ReplaceNode(nd, nd_split);
-
+/*
             if(s.face->isCWBoundary(nd_split))
             {
                 Node *cw = s.face->CW_Node(nd_split);
@@ -1045,6 +1045,7 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
                 Node *ccw = s.face->CCW_Node(nd_split);
                 ReplaceBoundary(s.face, nd,ccw,nd_split,ccw);
             }
+            */
         }
     }
     //nd->isBoundary = nd_split->isBoundary = true;
@@ -1134,7 +1135,7 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
         {
             s.face->ReplaceNode(nd, split);
             split->adj_elems.push_back(s.face);
-
+/*
             if(s.face->isCWBoundary(split))
             {
                 Node *cw = s.face->CW_Node(split);
@@ -1145,6 +1146,7 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
                 Node *ccw = s.face->CCW_Node(split);
                 ReplaceBoundary(s.face, nd,ccw,split,ccw);
             }
+            */
         }
         else
         {
@@ -1168,6 +1170,7 @@ void icy::Mesh::ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *new
 
     if(iter == fr->boundaryEdges.end()) return;
     (*iter)->UpdateNodes();
+    (*iter)->status = 3;
 }
 
 

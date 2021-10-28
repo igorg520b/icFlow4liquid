@@ -2,15 +2,15 @@
 #define BASEELEMENT_H
 
 #include <cstdint>
-#include "node.h"
-#include "equationofmotionsolver.h"
+//#include "node.h"
+//#include "equationofmotionsolver.h"
 
 namespace icy {class BaseElement; class Node;}
 
 class icy::BaseElement
 {
 public:
-    enum ElementType {Edge, TriangularElement, CohesiveZone, Interaction};
+    enum ElementType {BEdge, TElem, CZ, Inter};
     ElementType type;
 //    virtual ElementType type() = 0;
 //    Node *nds_begin, *nds_end;
