@@ -327,13 +327,9 @@ bool icy::Element::isCCWBoundary(const Node* nd) const
 }
 
 
-
-icy::Element* icy::Element::getAdjacentElementOppositeToNode(Node *nd)
+icy::BaseElement* icy::Element::getIncidentElementOppositeToNode(Node *nd)
 {
-    if(nds[0]==nd) return incident_elems[0];
-    else if(nds[1]==nd)  return incident_elems[1];
-    else if(nds[2]==nd)  return incident_elems[2];
-    else throw std::runtime_error("getAdjacentElementOppositeToNode");
+    return incident_elems[getNodeIdx(nd)];
 }
 
 uint8_t icy::Element::getNodeIdx(const Node *nd) const
@@ -366,12 +362,14 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
 
 void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
 {
-    nds[getNodeIdx(replaceWhat)] = replaceWith;
+    uint8_t nd_idx = getNodeIdx(replaceWhat);
+    nds[nd_idx] = replaceWith;
     PrecomputeInitialArea();
 
     // TODO: update boundary
 }
 
+/*
 void icy::Element::DisconnectFromElem(Element* other)
 {
     if(incident_elems[0]==other) incident_elems[0]=nullptr;
@@ -385,13 +383,15 @@ void icy::Element::DisconnectCWElem(Node *center)
 {
     uint8_t idx_center = getNodeIdx(center);
     uint8_t cw_edge_idx = (idx_center+2)%3;
-    Element* incident_elem = incident_elems[cw_edge_idx];
+    if(incident_elems[cw_edge_idx] == nullptr) throw std::runtime_error("icy::Element::DisconnectCWElem incident_elem is null");
+    Element* incident_elem = dynamic_cast<icy::Element*>(incident_elems[cw_edge_idx]);
+    if(incident_elem == nullptr) throw std::runtime_error("icy::Element::DisconnectCWElem dynamic cast issue");
     incident_elem->DisconnectFromElem(this);
     incident_elems[cw_edge_idx] = nullptr;
 }
+*/
 
-
-void icy::Element::ReplaceIncidentElem(Element* which, Element* withWhat)
+void icy::Element::ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat)
 {
     if(incident_elems[0]==which) incident_elems[0]=withWhat;
     else if(incident_elems[1]==which) incident_elems[1]=withWhat;
@@ -408,11 +408,13 @@ void icy::Element::RecalculatePiMultiplierFromDeformationGradient(Eigen::Matrix2
 
 icy::Node* icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
 {
-    bool boundary_elem = (getAdjacentElementOppositeToNode(nd) == nullptr);
-    if(boundary_elem)
+    BaseElement* incident_elem = getIncidentElementOppositeToNode(nd);
+
+    if(incident_elem->type == ElementType::BEdge)
         return SplitBoundaryElem(nd, nd0, nd1, where);
-    else
+    else if(incident_elem->type == ElementType::TElem)
         return SplitNonBoundaryElem(nd, nd0, nd1, where);
+    else throw std::runtime_error("icy::Element::SplitElem: unknown type of incident element");
 }
 
 
@@ -448,21 +450,14 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     insertedElem->nds[nd0Idx] = split;
 
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(incident_elems[nd0Idx] == nullptr)
-    {
-        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
-                                 [this,nd0Idx](const icy::BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx;});
-        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem,nd0Idx);
-    }
-//    // else
-    if(incident_elems[nd0Idx]!= nullptr)
-        incident_elems[nd0Idx]->ReplaceIncidentElem(this,insertedElem);
-
-    // initialize the inserted element's adjacency data
-    insertedElem->incident_elems[ndIdx] = nullptr;
+    if(incident_elems[nd0Idx]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(incident_elems[nd0Idx])->Initialize(insertedElem,nd0Idx,3);
+    else if(incident_elems[nd0Idx]->type == ElementType::TElem)
+        static_cast<Element*>(incident_elems[nd0Idx])->ReplaceIncidentElem(this,insertedElem);
 
     // add the boundary that has just appeared
-    fr->AddBoundary(insertedElem,ndIdx);
+    // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
+    fr->AddBoundary(insertedElem,ndIdx,3);
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
     incident_elems[nd0Idx] = insertedElem;
@@ -482,12 +477,12 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // "fix" the fan for the node, whose element was just replaced
     nd1->PrepareFan();
     return split;
-
 }
 
 icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where)
 {
-    icy::Element *adjElem = getAdjacentElementOppositeToNode(nd);
+    icy::Element *adjElem = dynamic_cast<icy::Element*>(getIncidentElementOppositeToNode(nd));
+    if(adjElem == nullptr) throw std::runtime_error("icy::Element::SplitNonBoundaryElem dynamic cast issue");
 
     MeshFragment *fr = nd1->fragment;
 
@@ -531,17 +526,10 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     insertedElem->nds[nd0Idx_orig] = split;
 
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(incident_elems[nd0Idx_orig] == nullptr)
-    {
-        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
-                                 [this,nd0Idx_orig](const BoundaryEdge *be){return be->elem==this && be->edge_idx==nd0Idx_orig;});
-        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem,nd0Idx_orig);
-        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 1");
-    }
-    // else
-
-    if(incident_elems[nd0Idx_orig] != nullptr)
-        incident_elems[nd0Idx_orig]->ReplaceIncidentElem(this,insertedElem);
+    if(incident_elems[nd0Idx_orig]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(incident_elems[nd0Idx_orig])->Initialize(insertedElem,nd0Idx_orig);
+    else if(incident_elems[nd0Idx_orig]->type == ElementType::TElem)
+        static_cast<Element*>(incident_elems[nd0Idx_orig])->ReplaceIncidentElem(this,insertedElem);
 
     insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
@@ -555,16 +543,10 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     insertedElem_adj->nds[nd0Idx_adj] = split;
 
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(adjElem->incident_elems[nd0Idx_adj] == nullptr)
-    {
-        auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
-                                 [adjElem,nd0Idx_adj](const BoundaryEdge *be){return be->elem==adjElem && be->edge_idx==nd0Idx_adj;});
-        if(iter != fr->boundaryEdges.end()) (*iter)->Initialize(insertedElem_adj,nd0Idx_adj);
-        // else throw std::runtime_error("SplitNonBoundaryElem: error with bounddary 2");
-    }
-    // else
-    if(adjElem->incident_elems[nd0Idx_adj] != nullptr)
-        adjElem->incident_elems[nd0Idx_adj]->ReplaceIncidentElem(adjElem,insertedElem_adj);
+    if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(adjElem->incident_elems[nd0Idx_adj])->Initialize(insertedElem_adj,nd0Idx_adj);
+    else if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::TElem)
+        static_cast<Element*>(adjElem->incident_elems[nd0Idx_adj])->ReplaceIncidentElem(adjElem,insertedElem_adj);
 
     insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
     insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;

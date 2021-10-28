@@ -607,7 +607,7 @@ void icy::Mesh::CreateLeaves()
 
     for(auto &mf : fragments)
     {
-        for(auto be : mf->boundaryEdges) be->UpdateNodes(); // temporary fix?
+//        for(auto be : mf->boundaryEdges) be->UpdateNodes(); // temporary fix?
         mf->CreateLeaves();
         globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf->boundaryEdges.begin(),mf->boundaryEdges.end());
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());
@@ -977,11 +977,12 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
     EstablishSplittingEdge(nd, ssr.phi[0], ssr.theta[0], ssr.faces[0], edge_split0);
 
-    // add new boundaries
+    // add boundaries to ssr.faces[0] and its incident elem along the edge nd--edge_split0
     uint8_t edge_idx = ssr.faces[0]->getEdgeIdx(nd,edge_split0);
+    Element* incidentElem1 = dynamic_cast<Element*>(ssr.faces[0]->incident_elems[edge_idx]);
+    if(incidentElem1 == nullptr) throw std::runtime_error("PropagateCrack: insertedElem1 == nullptr");
     fr->AddBoundary(ssr.faces[0],edge_idx,2);
-    Element* insertedElem1 = ssr.faces[0]->incident_elems[edge_idx];
-    fr->AddBoundary(insertedElem1,insertedElem1->getEdgeIdx(nd,edge_split0),2);
+    fr->AddBoundary(incidentElem1,incidentElem1->getEdgeIdx(nd,edge_split0),2);
 
     if(!isBoundary)
     {
@@ -990,8 +991,9 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
         // add new boundaries
         uint8_t edge_idx2 = ssr.faces[1]->getEdgeIdx(nd,edge_split1);
+        Element* insertedElem2 = dynamic_cast<Element*>(ssr.faces[1]->incident_elems[edge_idx2]);
+        if(insertedElem2 == nullptr) throw std::runtime_error("PropagateCrack: insertedElem2 == nullptr");
         fr->AddBoundary(ssr.faces[1],edge_idx2,2);
-        Element* insertedElem2 = ssr.faces[1]->incident_elems[edge_idx2];
         fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1),2);
     }
 
@@ -1004,7 +1006,8 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
     if(cw_boundary_sector == nd->fan.end()) throw std::runtime_error("SplitNode: cw boundary not found 1");
     std::rotate(nd->fan.begin(), cw_boundary_sector, nd->fan.end());
 
-    nd->fan.front().face->DisconnectCWElem(nd);
+
+//    nd->fan.front().face->DisconnectCWElem(nd);
     // TODO: ADD 2 BOUNDARY EDGES to fr->boundaryEdges; nd--edge_split0 and nd_split--edge_split_0
 
     nd->adj_elems.clear();
@@ -1021,7 +1024,7 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
         else if(!isBoundary && s.nd[0] == edge_split1)
         {
             other_side = true;
-            s.face->DisconnectCWElem(nd);
+            //s.face->DisconnectCWElem(nd);
             // TODO ADD 2 BOUNDARY EDGES along nd--edge_split1 and nd_split--edge_split_1
         }
 

@@ -10,8 +10,11 @@ namespace icy {class BaseElement; class Node;}
 class icy::BaseElement
 {
 public:
-    enum ElementType {BEdge, TElem, CZ, Inter};
+    enum ElementType {BEdge, TElem, CZ};
     ElementType type;
+
+    virtual ~BaseElement() = default;
+
 //    virtual ElementType type() = 0;
 //    Node *nds_begin, *nds_end;
 //    virtual void AddToSparsityStructure(EquationOfMotionSolver &eq) const = 0;

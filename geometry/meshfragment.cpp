@@ -754,9 +754,15 @@ void icy::MeshFragment::ConnectIncidentElements()
     //ConvertBoundaryEdges();
 #pragma omp parallel for
     for(std::size_t i=0;i<nodes.size();i++) nodes[i]->PrepareFan();
+
+    for(auto elem : elems)
+        for(int k=0;k<3;k++)
+            if(elem->incident_elems[k]==nullptr) throw std::runtime_error("ConnectIncidentElements assertion fail");
 }
 
 void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx, uint8_t status)
 {
-    boundaryEdges.push_back(BoundaryEdgeFactory.take()->Initialize(elem,edge_idx,status));
+    BoundaryEdge *be = BoundaryEdgeFactory.take()->Initialize(elem,edge_idx,status);
+    be->elem->incident_elems[be->edge_idx] = be;
+    boundaryEdges.push_back(be);
 }

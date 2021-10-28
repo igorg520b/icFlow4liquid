@@ -16,7 +16,7 @@ struct icy::Element : public icy::BaseElement
 {
     icy::Node* nds[3];          // initialized when the geometry is loaded or remeshed
     std::bitset<8> group;
-    icy::Element* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
+    icy::BaseElement* incident_elems[3];    // nullptr or the element lying opposite of corresponding node
     Eigen::Matrix2d PiMultiplier;   // multiplicative plasticity
 
     Element() { type = ElementType::TElem; }
@@ -64,7 +64,7 @@ public:
 
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
-    bool isBoundaryEdge(const uint8_t idx) const {return incident_elems[idx]==nullptr;}
+    bool isBoundaryEdge(const uint8_t idx) const {return incident_elems[idx]->type != ElementType::TElem;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;
@@ -78,18 +78,20 @@ public:
     bool containsNode(const Node* nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
     void getIdxs(const icy::Node* nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const;
-    Element* getAdjacentElementOppositeToNode(Node* nd);
     uint8_t getNodeIdx(const Node* nd) const;
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
-    void DisconnectFromElem(Element* other);
-    void DisconnectCWElem(Node *center);
-    void ReplaceIncidentElem(Element* which, Element* withWhat);
+    // void DisconnectFromElem(Element* other);
+    // void DisconnectCWElem(Node *center);
+    void ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat);
 
 private:
     constexpr static double threshold_area = 1e-7;
     Node* SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
     Node* SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
+
+    BaseElement* getIncidentElementOppositeToNode(Node* nd);
+
 };
 
 #endif // ELEMENT123_H

@@ -82,7 +82,7 @@ void icy::Node::PrepareFan()
     {
         // find the fan element with the border on the CW direction
         auto cw_boundary = std::find_if(fan.begin(), fan.end(), [this](const Sector &f){return f.face->isCWBoundary(this);});
-        if(cw_boundary == fan.end()) { PrintoutFan(); throw std::runtime_error("cw boundary not found"); }
+        if(cw_boundary == fan.end()) { PrintoutFan(); throw std::runtime_error("icy::Node::PrepareFan(): cw boundary not found"); }
         std::rotate(fan.begin(), cw_boundary, fan.end());
         if(!fan.back().face->isCCWBoundary(this)) { PrintoutFan(); throw std::runtime_error("PrepareFan(): no CCW boundary"); }
 
