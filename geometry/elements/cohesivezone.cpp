@@ -83,8 +83,6 @@ void icy::CohesiveZone::Disconnect()
 
     fr0->AddBoundary(elems2[0],edgeIds[0],3);
     fr1->AddBoundary(elems2[1],edgeIds[1],2);
-
-    spdlog::info("disconnecting CZ: elem {} side {}; elem {} side {}", (void*)elems2[0], edgeIds[0], (void*)elems2[1], edgeIds[1]);
 }
 
 

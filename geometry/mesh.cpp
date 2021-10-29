@@ -260,8 +260,6 @@ void icy::Mesh::SetIndenterPosition(double position)
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
-    spdlog::info("Mesh::RegenerateVisualizedGeometry(); glob boundaries {}", globalBoundaryEdges.size());
-
     points_deformable->SetNumberOfPoints(allNodes.size());
 
     // deformable material - elements

@@ -767,8 +767,5 @@ void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx, uint8_t sta
 {
     BoundaryEdge *be = BoundaryEdgeFactory.take()->Initialize(elem,edge_idx,status);
     be->elem->incident_elems[be->edge_idx] = be;
-    spdlog::info("boundaryEdges before: {}",boundaryEdges.size());
     boundaryEdges.push_back(be);
-    spdlog::info("boundaryEdges after: {}",boundaryEdges.size());
-
 }
