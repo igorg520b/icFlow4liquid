@@ -58,8 +58,6 @@ private:
 
 // FRACTURE ALGORITHM
 public:
-    bool traversed;     // used for identifying disjoint regions and n-regions around crack tips
-
     Node* SplitElem(Node *nd, Node *nd0, Node *nd1, double where); // split the element by inserting a node between nd0 and nd1
 
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}

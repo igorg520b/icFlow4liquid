@@ -260,6 +260,8 @@ void icy::Mesh::SetIndenterPosition(double position)
 
 void icy::Mesh::RegenerateVisualizedGeometry()
 {
+    spdlog::info("Mesh::RegenerateVisualizedGeometry(); glob boundaries {}", globalBoundaryEdges.size());
+
     points_deformable->SetNumberOfPoints(allNodes.size());
 
     // deformable material - elements
@@ -1216,31 +1218,25 @@ void icy::Mesh::CreateSupportRange(const int neighborLevel)
                         }
                     }
                 }
-            }
-        }
 
-        for(CohesiveZone *cz : nd->adj_czs)
-        {
-            if(!cz->traversed)
-            {
-                local_czs.push_back(cz);
-                cz->traversed = true;
-                if(level<neighborLevel)
-                {
-                    for(Node *nd2 : cz->nds)
+                for(BaseElement *be : e->incident_elems)
+                    if(be->type == BaseElement::ElementType::CZ)
                     {
-                        if(nd2->traversal == 0)
+                        CohesiveZone *cz = static_cast<CohesiveZone*>(be);
+                        cz->traversed = true;
+                        local_czs.push_back(cz);
+                        for(Node *nd2 : cz->nds)
                         {
-                            nd2->traversal = level+1;
-                            q_wave.push(nd2);
+                            if(nd2->traversal == 0)
+                            {
+                                nd2->traversal = level+1;
+                                q_wave.push(nd2);
+                            }
                         }
                     }
-                }
             }
         }
-
     }
-
 }
 
 

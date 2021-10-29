@@ -5,7 +5,7 @@
 #include <functional>
 #include <Eigen/Core>
 
-namespace icy {struct Edge; struct Node; struct Element;}
+namespace icy {struct Edge; struct Node; struct Element; class BaseElement;}
 
 struct icy::Edge
 {
@@ -13,14 +13,15 @@ struct icy::Edge
     Edge(icy::Node* nd0, icy::Node* nd1);
 
     icy::Node* nds[2];
-    icy::Element* elems[2];
+    icy::BaseElement* elems[2];
 
     short edge_in_elem_idx[2];  // index in the range [0,3] indicating where the edge is located in the corresponding element
-    bool isBoundary;    // belongs to only one element
+    bool isBoundary() const {return (elems[0] == nullptr || elems[1] == nullptr);};    // belongs to only one element
+    bool containsCZ() const;
 
-    void AddElement(icy::Element* elem, short idx);
-    Eigen::Vector2d getVec(const icy::Node* const from_node) const;  // edge as vector
-    icy::Node* getOtherNode(const icy::Node* const nd) const;
+    void AddElement(icy::BaseElement* elem, short idx);
+//    Eigen::Vector2d getVec(const icy::Node* const from_node) const;  // edge as vector
+//    icy::Node* getOtherNode(const icy::Node* const nd) const;
 };
 
 #endif // EDGE_H

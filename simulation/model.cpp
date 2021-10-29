@@ -314,12 +314,13 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     }
 
     // remove failed czs from the list
+    for(CohesiveZone *cz : mesh.allCZs) if(!cz->isActive) cz->Disconnect();
     auto result = std::remove_if(mesh.allCZs.begin(),mesh.allCZs.end(),[](CohesiveZone *cz){return !cz->isActive;});
 
     if(result != mesh.allCZs.end())
     {
-//        for(auto iter = result; iter!=mesh.allCZs.end(); iter++) (*iter)->Disconnect();     // "inform" the nodes that CZ disappeared
         mesh.allCZs.erase(result,mesh.allCZs.end());
+        mesh.CreateLeaves();
         topologyInvalid = true;
     }
     vtk_update_mutex.unlock();

@@ -2,6 +2,7 @@
 #include "cohesivezone.h"
 #include "element.h"
 #include "node.h"
+#include "meshfragment.h"
 #include <spdlog/spdlog.h>
 
 const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
@@ -43,35 +44,28 @@ const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
      -0,-0.9305681557970262).finished(),
     };
 
-void icy::CohesiveZone::Reset()
-{
-    for(int i=0;i<nQPts;i++)
-    {
-        pmax[i] = tmax[i] = 0;
-    }
-    isActive = true;
-    isDamaged = false;
-}
 
-
-void icy::CohesiveZone::Initialize(Node *nd1a, Node *nd2a, Node *nd1b, Node *nd2b)
+icy::CohesiveZone::CohesiveZone()
 {
-    nds[0] = nd1a;
-    nds[1] = nd2a;
-    nds[2] = nd1b;
-    nds[3] = nd2b;
-    for(int i=0;i<4;i++) nds[i]->adj_czs.push_back(this);
+    type = ElementType::CZ;
 }
 
 
 void icy::CohesiveZone::Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1)
 {
+    for(int i=0;i<nQPts;i++)
+        pmax[i] = tmax[i] = 0;
+    isActive = true;
+    isDamaged = false;
+
     elems2[0] = elem0;
     elems2[1] = elem1;
     edgeIds[0] = edgeIdx0;
     edgeIds[1] = edgeIdx1;
+
+    elem0->incident_elems[edgeIdx0] = this;
+    elem1->incident_elems[edgeIdx1] = this;
     GetNodes();
-//    for(int i=0;i<4;i++) nds[i]->adj_czs.push_back(this);
 }
 
 void icy::CohesiveZone::GetNodes()
@@ -84,13 +78,17 @@ void icy::CohesiveZone::GetNodes()
 
 void icy::CohesiveZone::Disconnect()
 {
-    for(int i=0;i<4;i++)
-    {
-        auto v = nds[i]->adj_czs;
-        auto iter = std::find(v.begin(),v.end(),this);
-        v.erase(iter);
-    }
+    MeshFragment *fr0 = elems2[0]->nds[0]->fragment;
+    MeshFragment *fr1 = elems2[1]->nds[0]->fragment;
+
+    fr0->AddBoundary(elems2[0],edgeIds[0],3);
+    fr1->AddBoundary(elems2[1],edgeIds[1],2);
+
+    spdlog::info("disconnecting CZ: elem {} side {}; elem {} side {}", (void*)elems2[0], edgeIds[0], (void*)elems2[1], edgeIds[1]);
 }
+
+
+
 
 void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq)
 {

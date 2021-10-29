@@ -175,7 +175,7 @@ public:
         // features
         EnableCollisions = true;
         EnablePlasticity = true;
-        EnableFracture = true;
+        EnableFracture = false;
         EnableInsertCZs = true;
         EnableCZs = true;
 
@@ -216,12 +216,12 @@ public:
         // cohesive zones
         cz_alpha = 4;
         cz_beta = 4;
-        cz_lambda_n = 0.15;
-        cz_lambda_t = 0.15;
-        cz_phi_n = 100;
-        cz_phi_t = 100; // fracture energy
-        cz_sigma_max = 2300;
-        cz_tau_max = 2300;
+        cz_lambda_n = 0.1;
+        cz_lambda_t = 0.1;
+        cz_phi_n = 10;
+        cz_phi_t = 10; // fracture energy
+        cz_sigma_max = 500;
+        cz_tau_max = 500;
         RecomputeCZParams();
     }
 

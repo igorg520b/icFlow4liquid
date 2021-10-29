@@ -13,7 +13,13 @@ public:
     enum ElementType {BEdge, TElem, CZ};
     ElementType type;
 
+    // for identifying disjoint regions and n-regions around crack tips
+    bool traversed;
+//    BaseElement **incident_begin = nullptr;
+//    BaseElement **incident_end = nullptr;
+
     virtual ~BaseElement() = default;
+
 
 //    virtual ElementType type() = 0;
 //    Node *nds_begin, *nds_end;

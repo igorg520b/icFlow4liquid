@@ -68,7 +68,6 @@ struct icy::Node
     };
 
     boost::container::small_vector<icy::Element*, 8> adj_elems;
-    boost::container::small_vector<icy::CohesiveZone*, 4> adj_czs;
     boost::container::small_vector<icy::Node::Sector,8> fan;
     double fan_angle_span;  // assigned in UpdateFan();
     bool isCrackTip;

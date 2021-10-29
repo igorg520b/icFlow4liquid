@@ -45,7 +45,6 @@ icy::Element* icy::MeshFragment::AddElement()
 icy::CohesiveZone* icy::MeshFragment::AddCZ()
 {
     CohesiveZone *cz = CZFactory.take();
-    cz->Reset();
     czs.push_back(cz);
     parentMesh->allCZs.push_back(cz);
     return cz;
@@ -713,7 +712,7 @@ void icy::MeshFragment::ConnectIncidentElements()
     {
         for(int i=0;i<3;i++)
         {
-            elem->incident_elems[i] = nullptr;
+            //elem->incident_elems[i] = nullptr;
             elem->nds[i]->adj_elems.push_back(elem);
 
             // insert element's edges into edges_map
@@ -727,17 +726,21 @@ void icy::MeshFragment::ConnectIncidentElements()
         }
     }
 
+
     for(const auto &kvpair : edges_map)
     {
         const icy::Edge &e = kvpair.second;
-        icy::Element *elem_of_edge0 = e.elems[0];
-        icy::Element *elem_of_edge1 = e.elems[1];
         short idx0 = e.edge_in_elem_idx[0];
         short idx1 = e.edge_in_elem_idx[1];
+
+        if(e.containsCZ()) continue;
+
+        icy::Element *elem_of_edge0 = static_cast<Element*>(e.elems[0]);
+        icy::Element *elem_of_edge1 = static_cast<Element*>(e.elems[1]);
         if(elem_of_edge0 == nullptr && elem_of_edge1 == nullptr) throw std::runtime_error("CreateEdges(): disconnected edge");
 
         // ensure that each element "knows" its incident elements (remains nullptr if element is on the boundary)
-        if(!e.isBoundary)
+        if(!e.isBoundary())
         {
             elem_of_edge0->incident_elems[idx0] = elem_of_edge1;
             elem_of_edge1->incident_elems[idx1] = elem_of_edge0;
@@ -745,9 +748,9 @@ void icy::MeshFragment::ConnectIncidentElements()
         else
         {
             if(e.elems[0] != nullptr)
-                AddBoundary(e.elems[0],e.edge_in_elem_idx[0]);
+                AddBoundary(elem_of_edge0,e.edge_in_elem_idx[0]);
             else
-                AddBoundary(e.elems[1],e.edge_in_elem_idx[1]);
+                AddBoundary(elem_of_edge1,e.edge_in_elem_idx[1]);
         }
     }
 
@@ -764,5 +767,8 @@ void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx, uint8_t sta
 {
     BoundaryEdge *be = BoundaryEdgeFactory.take()->Initialize(elem,edge_idx,status);
     be->elem->incident_elems[be->edge_idx] = be;
+    spdlog::info("boundaryEdges before: {}",boundaryEdges.size());
     boundaryEdges.push_back(be);
+    spdlog::info("boundaryEdges after: {}",boundaryEdges.size());
+
 }
