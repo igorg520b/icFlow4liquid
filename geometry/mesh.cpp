@@ -1035,20 +1035,7 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
         else
         {
             nd_split->adj_elems.push_back(s.face);
-
             s.face->ReplaceNode(nd, nd_split);
-/*
-            if(s.face->isCWBoundary(nd_split))
-            {
-                Node *cw = s.face->CW_Node(nd_split);
-                ReplaceBoundary(s.face, nd,cw,nd_split,cw);
-            }
-            else if(s.face->isCCWBoundary(nd_split))
-            {
-                Node *ccw = s.face->CCW_Node(nd_split);
-                ReplaceBoundary(s.face, nd,ccw,nd_split,ccw);
-            }
-            */
         }
     }
     //nd->isBoundary = nd_split->isBoundary = true;
@@ -1136,20 +1123,8 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
         if(s.nd[0] != alignment_node && s.face->isCWBoundary(nd)) other_side = true;
         if(other_side)
         {
-            s.face->ReplaceNode(nd, split);
             split->adj_elems.push_back(s.face);
-/*
-            if(s.face->isCWBoundary(split))
-            {
-                Node *cw = s.face->CW_Node(split);
-                ReplaceBoundary(s.face, nd,cw,split,cw);
-            }
-            else if(s.face->isCCWBoundary(split))
-            {
-                Node *ccw = s.face->CCW_Node(split);
-                ReplaceBoundary(s.face, nd,ccw,split,ccw);
-            }
-            */
+            s.face->ReplaceNode(nd, split);
         }
         else
         {

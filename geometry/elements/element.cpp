@@ -362,34 +362,22 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
 
 void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
 {
-    uint8_t nd_idx = getNodeIdx(replaceWhat);
-    nds[nd_idx] = replaceWith;
+    uint8_t idx = getNodeIdx(replaceWhat);
+    nds[idx] = replaceWith;
     PrecomputeInitialArea();
 
-    // TODO: update boundary
+    uint8_t cw_idx = (idx+1)%3;
+    uint8_t ccw_idx = (idx+2)%3;
+
+    // update boundaries
+    if(incident_elems[cw_idx]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(incident_elems[cw_idx])->UpdateNodes();
+    if(incident_elems[ccw_idx]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(incident_elems[ccw_idx])->UpdateNodes();
+
+    // TODO: update cohesive zones
 }
 
-/*
-void icy::Element::DisconnectFromElem(Element* other)
-{
-    if(incident_elems[0]==other) incident_elems[0]=nullptr;
-    else if(incident_elems[1]==other) incident_elems[1]=nullptr;
-    else if(incident_elems[2]==other) incident_elems[2]=nullptr;
-    else throw std::runtime_error("DisconnectFromElem: incident elem not found");
-}
-
-
-void icy::Element::DisconnectCWElem(Node *center)
-{
-    uint8_t idx_center = getNodeIdx(center);
-    uint8_t cw_edge_idx = (idx_center+2)%3;
-    if(incident_elems[cw_edge_idx] == nullptr) throw std::runtime_error("icy::Element::DisconnectCWElem incident_elem is null");
-    Element* incident_elem = dynamic_cast<icy::Element*>(incident_elems[cw_edge_idx]);
-    if(incident_elem == nullptr) throw std::runtime_error("icy::Element::DisconnectCWElem dynamic cast issue");
-    incident_elem->DisconnectFromElem(this);
-    incident_elems[cw_edge_idx] = nullptr;
-}
-*/
 
 void icy::Element::ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat)
 {
@@ -458,6 +446,7 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
     fr->AddBoundary(insertedElem,ndIdx,3);
+    dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
     incident_elems[nd0Idx] = insertedElem;
