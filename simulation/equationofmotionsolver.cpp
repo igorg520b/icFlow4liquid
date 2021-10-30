@@ -297,7 +297,7 @@ bool EquationOfMotionSolver::Solve()
     r = MSK_optimizetrm(task, &trmcode);
     if(r == MSK_RES_ERR_OBJ_Q_NOT_PSD)
     {
-        //        spdlog::info("EquationOfMotionSolver: The quadratic coefficient matrix in the objective is not positive semidefinite");
+        spdlog::info("EquationOfMotionSolver: The quadratic coefficient matrix in the objective is not positive semidefinite");
         r = MSK_deletetask(&task);
         if (r != MSK_RES_OK) spdlog::warn("MSK_deletetask error");
         return false;

@@ -264,7 +264,7 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
     gmsh::model::add("block1");
 
     std::vector<std::pair<double,double>> ptCoords {
-        {0,0},                      // 0
+        {-width/5,0},                      // 0
         {-width/2,0},               // 1
         {-width/2,height},          // 2
         {-width/50,height},         // 3
@@ -407,7 +407,7 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
             uint8_t edgeIdx1 = e1->getEdgeIdx(nd0,nd1);
             uint8_t edgeIdx2 = e2->getEdgeIdx(nd2,nd3);
 
-            if(e1->isEdgeCW(nd0,nd1)) cz->Initialize(e1,edgeIdx1,e2,edgeIdx2);
+            if(i%2) cz->Initialize(e1,edgeIdx1,e2,edgeIdx2);
             else cz->Initialize(e2,edgeIdx2,e1,edgeIdx1);
         }
     }

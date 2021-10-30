@@ -111,12 +111,15 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
 
     Eigen::Vector2d dir;
     dir = ((xc[1]-xc[0])+(xc[3]-xc[2]))*0.5;
+//    dir = xc[1]-xc[0];
 
     double cz_area = dir.norm()*prms.Thickness; // "length" of the zone times an assumed thickness of the 2D material
     dir.normalize();
     Eigen::Matrix2d r;  // aligns midplane with x-axis
-    r << dir.y(), dir.x(),
-        -dir.x(), dir.y();
+    r << dir.x(), dir.y(),
+        -dir.y(), dir.x();
+
+//    std::cout << "r \n" << r << std::endl;
 
     Eigen::Vector2d xr[4];  // rotated cz nodes
     for(int i=0;i<4;i++) xr[i] = r*xc[i];
@@ -131,6 +134,8 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
     Eigen::Matrix<double,8,8> HE;       // energy Hessian
     DE.setZero();
     HE.setZero();
+
+    bool return_value = true;
 
     // iterate over QPs
     for(int qp=0;qp<nQPts;qp++)
@@ -165,36 +170,35 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
         DT << Dtt*opt_sign*opt_sign, Dtn*opt_sign, Dtn*opt_sign, Dnn;
 
         DE -= (B[qp]*T)*(cz_area*qp_weight);
-        HE -= (B[qp]*DT*B[qp].transpose())*(cz_area*qp_weight);
+        HE += (B[qp]*DT*B[qp].transpose())*(cz_area*qp_weight);
 
         // ensure that CZ is not openend too quickly
         double delta_n = tentative_pmax[qp] - pmax[qp];
         double delta_t = tentative_tmax[qp] - tmax[qp];
         constexpr double coeff = 0.35;   // max progression coeff
 
-        if(pmax[qp]<prms.cz_nThreshold && delta_n > prms.cz_nThreshold*coeff) return false;
-        if(pmax[qp]>=prms.cz_nThreshold && delta_n > prms.cz_del_n*coeff) return false;
-        if(tmax[qp] < prms.cz_tThreshold && delta_t > prms.cz_tThreshold*coeff) return false;
-        if(tmax[qp] >= prms.cz_tThreshold && delta_t > prms.cz_del_t*coeff) return false;
-
+        if(pmax[qp]<prms.cz_nThreshold && delta_n > prms.cz_nThreshold*coeff) return_value = false;
+        if(pmax[qp]>=prms.cz_nThreshold && delta_n > prms.cz_del_n*coeff) return_value = false;
+        if(tmax[qp] < prms.cz_tThreshold && delta_t > prms.cz_tThreshold*coeff) return_value = false;
+        if(tmax[qp] >= prms.cz_tThreshold && delta_t > prms.cz_del_t*coeff) return_value = false;
     }
 
     // rotate back to the initial reference frace
-    Eigen::Matrix2d rT = r.transpose();
-    Eigen::Matrix<double,8,8> RT;
+    Eigen::Matrix<double,8,8> R;
     Eigen::Matrix2d z;
     z.setZero();
-    RT << rT,z, z, z,
-          z, rT,z, z,
-          z, z, rT,z,
-          z, z, z, rT;
+    R << r,z, z, z,
+          z, r,z, z,
+          z, z, r,z,
+          z, z, z, r;
 
-    DE=RT*DE;
-    HE=RT*HE;
+    DE = R.transpose()*DE;
+    HE = R.transpose()*HE*R;
 
     double hsq = h*h;
     DE *= hsq;
     HE *= hsq;
+    eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId,nds[3]->eqId});
 
     tentative_pmax_final = *std::max_element(std::begin(tentative_pmax),std::end(tentative_pmax));
     tentative_tmax_final = *std::max_element(std::begin(tentative_tmax),std::end(tentative_tmax));
@@ -210,14 +214,15 @@ bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const
             { tentative_damaged = true; break; }
     }
 
-    eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId,nds[3]->eqId});
-    return true;
+    return return_value;
 }
 
 void icy::CohesiveZone::AcceptValues()
 {
     if(!isActive) return;
     isActive = !tentative_failed;
+    if(!isActive) Disconnect();
+
     for(int i=0;i<nQPts;i++)
     {
         pmax[i] = tentative_pmax[i];

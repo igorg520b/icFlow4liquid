@@ -31,7 +31,8 @@ bool icy::Model::Step()
 
     int attempt = 0;
     bool converges=false;
-    bool sln_res, ccd_res=true; // false if matrix is not PSD
+    bool sln_res; // false if matrix is not PSD
+    bool ccd_res=true;
     double h;
     do
     {
@@ -65,7 +66,7 @@ bool icy::Model::Step()
 
         if(!ccd_res || !sln_res || !converges)
         {
-            spdlog::info("discarding attempt {}; intersection {}; PSD {}; converges {}",attempt, ccd_res,sln_res,converges);
+            spdlog::info("discarding attempt {}; intersection-free {}; PSD {}; converges {}",attempt, ccd_res,sln_res,converges);
             attempt++;
             timeStepFactor*=0.5;
         }
@@ -260,7 +261,7 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
     if(prms.EnableCZs)
     {
         bool non_smooth_loading_detected = false;
-#pragma omp parallel for
+//#pragma omp parallel for
         for(unsigned i=0;i<nCzs;i++)
         {
             bool result = czs[i]->ComputeEquationEntries(eqOfMotion, prms, timeStep);
@@ -276,7 +277,11 @@ bool icy::Model::AssembleAndSolve(double timeStep, bool enable_collisions, bool 
 
     // solve
     bool solve_result = eqOfMotion.Solve();
-    if(!solve_result) return false;
+    if(!solve_result)
+    {
+        spdlog::info("eqOfMotion.Solve() returns {}",solve_result);
+        return false;
+    }
 
     // pull into Node::xt
 #pragma omp parallel for
@@ -314,7 +319,7 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     }
 
     // remove failed czs from the list
-    for(CohesiveZone *cz : mesh.allCZs) if(!cz->isActive) cz->Disconnect();
+//    for(CohesiveZone *cz : mesh.allCZs) if(!cz->isActive) cz->Disconnect();
     auto result = std::remove_if(mesh.allCZs.begin(),mesh.allCZs.end(),[](CohesiveZone *cz){return !cz->isActive;});
 
     if(result != mesh.allCZs.end())
