@@ -962,20 +962,20 @@ void icy::Mesh::ComputeFractureDirections(const icy::SimParams &prms, double tim
 
 void icy::Mesh::PropagateCrack(const SimParams &prms)
 {
-    if(maxNode == nullptr) throw std::runtime_error("SplitNode: trying to split nullptr");
-
-    new_crack_tips.clear();
     icy::Node* nd = maxNode;
-    nd->time_loaded_above_threshold = 0;
+    if(nd == nullptr) throw std::runtime_error("PropagateCrack: trying to split nullptr");
+
     MeshFragment *fr = nd->fragment;
+    nd->time_loaded_above_threshold = 0;
+    new_crack_tips.clear();
 
     // subsequent calculations are based on the fracture direction where the traction is maximal
     icy::Node::SepStressResult &ssr = nd->result_with_max_traction;
 
     // ensure that the interior node has two split faces
     bool isBoundary = (ssr.faces[1] == nullptr);
-    if(isBoundary != nd->isBoundary) std::runtime_error("SplitNode: isBoundary != nd->isBoundary");
-    if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 0");
+    if(isBoundary != nd->isBoundary) std::runtime_error("PropagateCrack: isBoundary != nd->isBoundary");
+    if(!ssr.faces[0]->containsNode(nd)) throw std::runtime_error("PropagateCrack: mesh toplogy error 0");
 
     Node *edge_split0, *edge_split1 = nullptr;
 
@@ -990,7 +990,7 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
 
     if(!isBoundary)
     {
-        if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("SplitNode: mesh toplogy error 1");
+        if(!ssr.faces[1]->containsNode(nd)) throw std::runtime_error("PropagateCrack: mesh toplogy error 1");
         EstablishSplittingEdge(nd, ssr.phi[1], ssr.theta[1], ssr.faces[1], edge_split1);
 
         // add new boundaries
@@ -1002,51 +1002,44 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
     }
 
     // SPLIT nd
-    nd->CreateUnrotatedFan();
-
-    // find the sector whose CW boundary is nd--edge_split0
-    auto cw_boundary_sector = std::find_if(nd->fan.begin(), nd->fan.end(),
-                                    [edge_split0](const Node::Sector &f){return f.nd[0]==edge_split0;});
-    if(cw_boundary_sector == nd->fan.end()) throw std::runtime_error("SplitNode: cw boundary not found 1");
-    std::rotate(nd->fan.begin(), cw_boundary_sector, nd->fan.end());
-
-
-//    nd->fan.front().face->DisconnectCWElem(nd);
-    // TODO: ADD 2 BOUNDARY EDGES to fr->boundaryEdges; nd--edge_split0 and nd_split--edge_split_0
-
-    nd->adj_elems.clear();
     Node *nd_split = fr->AddNode();
-    nd_split->Initialize(nd);
-    bool other_side = false;
-
-    for(Node::Sector &s : nd->fan)
     {
-        if(isBoundary && s.face->isCWBoundary(nd) && s.nd[0] != edge_split0)
+        nd->CreateUnrotatedFan();
+
+        // find the sector whose CW boundary is nd--edge_split0
+        auto cw_boundary_sector = std::find_if(nd->fan.begin(), nd->fan.end(),
+                                               [edge_split0](const Node::Sector &f){return f.nd[0]==edge_split0;});
+        if(cw_boundary_sector == nd->fan.end()) throw std::runtime_error("PropagateCrack: cw boundary not found 1");
+        std::rotate(nd->fan.begin(), cw_boundary_sector, nd->fan.end());
+
+
+        nd->adj_elems.clear();
+        nd_split->Initialize(nd);
+        bool other_side = false;
+
+        for(Node::Sector &s : nd->fan)
         {
-            other_side = true;
-        }
-        else if(!isBoundary && s.nd[0] == edge_split1)
-        {
-            other_side = true;
-            //s.face->DisconnectCWElem(nd);
-            // TODO ADD 2 BOUNDARY EDGES along nd--edge_split1 and nd_split--edge_split_1
+            if(!other_side &&
+                    ((isBoundary && s.face->isCWBoundary(nd) && s.nd[0] != edge_split0) ||
+                     (!isBoundary && s.nd[0] == edge_split1)))
+                other_side = true;
+
+            if(other_side)
+            {
+                nd_split->adj_elems.push_back(s.face);
+                s.face->ReplaceNode(nd, nd_split);
+            }
+            else
+            {
+                nd->adj_elems.push_back(s.face);
+            }
         }
 
-        if(!other_side)
-        {
-            nd->adj_elems.push_back(s.face);
-        }
-        else
-        {
-            nd_split->adj_elems.push_back(s.face);
-            s.face->ReplaceNode(nd, nd_split);
-        }
+        nd->weakening_direction.setZero();
+        nd->isCrackTip = false;
+        nd->PrepareFan();
+        nd_split->PrepareFan();
     }
-    //nd->isBoundary = nd_split->isBoundary = true;
-    nd->weakening_direction = Eigen::Vector2d::Zero();
-    nd->isCrackTip = false;
-    nd->PrepareFan();
-    nd_split->PrepareFan();
 
 
     if(edge_split0->isBoundary)

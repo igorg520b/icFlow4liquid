@@ -96,68 +96,57 @@ bool icy::Element::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimP
     // NeoHookeanElasticity
     double lambda = prms.lambda;
     double mu = prms.mu;
-
-    Eigen::Matrix2d Ds, Finv, FT, FinvT;
-
     double W = prms.Thickness*area_initial;   // element's initial "volume"
 
     // deformed shape matrix
-    Ds << nds[0]->xt-nds[2]->xt, nds[1]->xt-nds[2]->xt;
+    Eigen::Matrix2d Ds;
+    Ds << (nds[0]->xt - nds[2]->xt), (nds[1]->xt - nds[2]->xt);
     if(Ds.determinant()<=0) return false; // mesh is inverted
 
     F = Ds*DmInv*PiMultiplier;    // deformation gradient (multiplied by a coefficient)
-    FT = F.transpose();
-    Finv = F.inverse();
-    FinvT = Finv.transpose();
-    double J = F.determinant();     // represents the change of volume in comparison with the reference
-    volume_change = J;
+    Eigen::Matrix2d FT = F.transpose();
+    Eigen::Matrix2d Finv = F.inverse();
+    Eigen::Matrix2d FinvT = Finv.transpose();
+    double J = volume_change = F.determinant();     // represents the change of volume in comparison with the reference
 
     double log_J = log(J);
-    strain_energy_density = (mu/2.0)*((F*FT).trace()-2.0)-mu*log_J+(lambda/2.0)*log_J*log_J;
+    strain_energy_density = (mu/2.0)*((F*FT).trace()-2.0) - mu*log_J + (lambda/2.0)*log_J*log_J;
 
     // First Piola-Kirchhoff stress tensor
-    P = F*mu + FinvT*(lambda*log_J-mu);
+    P = F*mu + FinvT*(lambda*log_J - mu);
 
     // forces on nodes 1 and 2 (inverted sign)
-    Eigen::Matrix2d H = W*P*DmInv.transpose();
+    Eigen::Matrix2d H = W * P * DmInv.transpose();
 
     // energy gradient with respect to x1,y1,x2,y2,x3,y3
-    Eigen::Matrix<double, 6, 1> DE;    // energy gradient
-    DE << H(0,0), H(1,0), H(0,1), H(1,1), -(H(0,0)+H(0,1)),-(H(1,0)+H(1,1));
+    Eigen::Matrix<double,6,1> DE; // energy gradient
+    DE << H(0,0), H(1,0), H(0,1), H(1,1), -(H(0,0) + H(0,1)), -(H(1,0) + H(1,1));
 
-    Eigen::Matrix<double, 6, 6> HE; // energy Hessian, 6x6 symmetric
-    for(int i=0;i<6;i++)
+    Eigen::Matrix < double, 6, 6 > HE; // energy Hessian, 6x6 symmetric
+    for (int i=0;i<6;i++)
     {
-        Eigen::Matrix2d DF_i = DDs[i]*DmInv; // derivative of F with respect to x_i
-        Eigen::Matrix2d dP = mu*DF_i + (mu-lambda*log_J)*FinvT*DF_i.transpose()*FinvT + lambda*(Finv*DF_i).trace()*FinvT;
+        Eigen::Matrix2d DF_i = DDs[i] * DmInv; // derivative of F with respect to x_i
+        Eigen::Matrix2d dP = mu*DF_i + (mu - lambda*log_J)*FinvT*DF_i.transpose()*FinvT + lambda*(Finv*DF_i).trace()*FinvT;
         Eigen::Matrix2d dH = W*dP*DmInv.transpose();
         HE(0,i) = dH(0,0);
         HE(1,i) = dH(1,0);
         HE(2,i) = dH(0,1);
         HE(3,i) = dH(1,1);
-        HE(4,i) = -dH(0,0)-dH(0,1);
-        HE(5,i) = -dH(1,0)-dH(1,1);
+        HE(4,i) = -dH(0,0) - dH(0,1);
+        HE(5,i) = -dH(1,0) - dH(1,1);
     }
 
-    double hsq = h*h;   // squared time step
-    DE*=hsq;
-    HE*=hsq;
+    double hsq = h*h; // squared time step
+    DE *= hsq;
+    HE *= hsq;
 
     // Apply body forces via consistent mass matrix
-    double massMatrixMultiplier = area_initial * prms.Density * prms.Thickness;
-    Eigen::Matrix<double,6,6> massMatrix = consistentMassMatrix*massMatrixMultiplier;
+    Eigen::Matrix<double,6,6> massMatrix = consistentMassMatrix*(area_initial*prms.Thickness*prms.Density);
     HE += massMatrix;
 
-    Eigen::Matrix<double,6,1> xt, x_hat, lambda_n, linear_term_mass;
-    xt << nds[0]->xt[0],nds[0]->xt[1],nds[1]->xt[0],nds[1]->xt[1],nds[2]->xt[0],nds[2]->xt[1];
-    x_hat << nds[0]->x_hat[0],nds[0]->x_hat[1],nds[1]->x_hat[0],nds[1]->x_hat[1],nds[2]->x_hat[0],nds[2]->x_hat[1];
-    lambda_n = xt-x_hat;
-    linear_term_mass = massMatrix*lambda_n;
-    DE+=linear_term_mass;
-
-//    double constTerm = strain_energy_density*W*hsq;
-//    double const_term_mass = lambda_n.dot(massMatrix*lambda_n)/2;
-//    constTerm += const_term_mass;
+    Eigen::Matrix<double,6,1> xt_xhat;
+    xt_xhat << (nds[0]->xt - nds[0]->x_hat), (nds[1]->xt - nds[1]->x_hat), (nds[2]->xt - nds[2]->x_hat);
+    DE += massMatrix*(xt_xhat);
 
     // distribute to the equation of motion
     eq.AddToEquation(DE.data(), HE.data(), {nds[0]->eqId,nds[1]->eqId,nds[2]->eqId});
@@ -181,19 +170,15 @@ void icy::Element::ComputeVisualizedVariables()
     hydrostatic_stress = CauchyStress.trace()/2;
     GreenStrain = (F.transpose()*F - Eigen::Matrix2d::Identity())/2;
 
-    // velocity divergence
-    Eigen::Matrix2d D, DinvT, DDot;
-
-    // deformed shape matrix
-    D << nds[1]->xn-nds[0]->xn, nds[2]->xn-nds[0]->xn;
-    DinvT = D.inverse().transpose();
-
-    // velocity matrix
-    DDot << nds[1]->vn-nds[0]->vn, nds[2]->vn-nds[0]->vn;
-    velocity_divergence = DinvT.cwiseProduct(DDot).sum();
+    // calculate velocity vector divergence
+    // velocity matrix (same as Ds, but with velocities)
+    Eigen::Matrix2d Ds, DDot;
+    Ds = getDs_at_n();
+    DDot << (nds[0]->vn - nds[2]->vn), (nds[1]->vn - nds[2]->vn);
+    velocity_divergence = Ds.inverse().transpose().cwiseProduct(DDot).sum();
 
     //  quality measures
-    double V = D.determinant()/2;
+    double V = Ds.determinant()/2;
     double e0sq = (nds[1]->xn-nds[2]->xn).squaredNorm();
     double e1sq = (nds[0]->xn-nds[2]->xn).squaredNorm();
     double e2sq = (nds[1]->xn-nds[0]->xn).squaredNorm();
@@ -246,13 +231,28 @@ bool icy::Element::PlasticDeformation(const SimParams &prms, double timeStep)
 }
 
 
-// FRACTURE ALGORITHM
+
+
+// GEOMETRICAL HELPER FUNCTIONS
+
+uint8_t icy::Element::getNodeIdx(const Node *nd) const
+{
+    if(nds[0]==nd) return 0;
+    else if(nds[1]==nd) return 1;
+    else if(nds[2]==nd) return 2;
+    else
+    {
+        spdlog::info("getNodeIdx: node not found; *nd = {}", (void*)nd);
+        spdlog::info("getNodeIdx: nd->locId {}", nd->locId);
+        spdlog::info("getNodeIdx: elem nds {} - {} - {}", (void*)nds[0],(void*)nds[1],(void*)nds[2]);
+        spdlog::info("getNodeIdx: elem nds locid {} - {} - {}", nds[0]->locId,nds[1]->locId,nds[2]->locId);
+        throw std::runtime_error("getNodeIdx");
+    }
+}
+
 void icy::Element::getIdxs(const icy::Node*nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const
 {
-    if(nd==nds[0]) thisIdx=0;
-    else if(nd==nds[1]) thisIdx=1;
-    else if(nd==nds[2]) thisIdx=2;
-    else throw std::runtime_error("getIdxs: node does not belong to the element");
+    thisIdx = getNodeIdx(nd);
     CWIdx = (thisIdx+1)%3;
     CCWIdx = (thisIdx+2)%3;
 }
@@ -315,7 +315,8 @@ bool icy::Element::isCWBoundary(const Node* nd) const
 {
     uint8_t idx = getNodeIdx(nd);
     uint8_t cw_idx = (idx+2)%3;
-    return isBoundaryEdge(cw_idx);
+    bool result = isBoundaryEdge(cw_idx);
+    return result;
 }
 
 bool icy::Element::isCCWBoundary(const Node* nd) const
@@ -325,23 +326,9 @@ bool icy::Element::isCCWBoundary(const Node* nd) const
     return isBoundaryEdge(ccw_idx);
 }
 
-
 icy::BaseElement* icy::Element::getIncidentElementOppositeToNode(Node *nd)
 {
     return incident_elems[getNodeIdx(nd)];
-}
-
-uint8_t icy::Element::getNodeIdx(const Node *nd) const
-{
-    if(nds[0]==nd) return 0;
-    else if(nds[1]==nd) return 1;
-    else if(nds[2]==nd) return 2;
-    else
-    {
-        spdlog::critical("getNodeIdx: trying to obtain index of the node {} in element {}-{}-{}",
-                         nd->locId,nds[0]->locId,nds[1]->locId,nds[2]->locId);
-        throw std::runtime_error("getNodeIdx");
-    }
 }
 
 icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
@@ -359,31 +346,38 @@ icy::Node* icy::Element::getOppositeNode(Node *nd0, Node* nd1)
     throw std::runtime_error("getOppositeNode: opposite node not found");
 }
 
+
+
+
+// FRACTURE ALGORITHM
+
 void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
 {
-    uint8_t idx = getNodeIdx(replaceWhat);
-    nds[idx] = replaceWith;
+    uint8_t nd_idx = getNodeIdx(replaceWhat);
+    nds[nd_idx] = replaceWith;
+
     PrecomputeInitialArea();
 
-    uint8_t cw_idx = (idx+1)%3;
-    uint8_t ccw_idx = (idx+2)%3;
+    uint8_t cw_idx = (nd_idx+1)%3;
+    uint8_t ccw_idx = (nd_idx+2)%3;
 
     // update incident elements after replacing the node
     for(uint8_t idx : {cw_idx,ccw_idx})
     {
         if(incident_elems[idx]->type == ElementType::BEdge)
-            static_cast<BoundaryEdge*>(incident_elems[cw_idx])->UpdateNodes();
+            dynamic_cast<BoundaryEdge*>(incident_elems[idx])->UpdateNodes();
         else if(incident_elems[idx]->type == ElementType::CZ)
-            static_cast<CohesiveZone*>(incident_elems[cw_idx])->UpdateNodes();
+            dynamic_cast<CohesiveZone*>(incident_elems[idx])->UpdateNodes();
     }
+
 }
 
 
 void icy::Element::ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat)
 {
-    if(incident_elems[0]==which) incident_elems[0]=withWhat;
-    else if(incident_elems[1]==which) incident_elems[1]=withWhat;
-    else if(incident_elems[2]==which) incident_elems[2]=withWhat;
+    if(incident_elems[0] == which) incident_elems[0] = withWhat;
+    else if(incident_elems[1] == which) incident_elems[1] = withWhat;
+    else if(incident_elems[2] == which) incident_elems[2] = withWhat;
     else throw std::runtime_error("ReplaceIncidentElem: incident elem not found");
 }
 
@@ -402,7 +396,9 @@ icy::Node* icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
         return SplitBoundaryElem(nd, nd0, nd1, where);
     else if(incident_elem->type == ElementType::TElem)
         return SplitNonBoundaryElem(nd, nd0, nd1, where);
-    else throw std::runtime_error("icy::Element::SplitElem: unknown type of incident element");
+    else if(incident_elem->type == ElementType::CZ)
+        return SplitElemWithCZ(nd, nd0, nd1, where);
+    else throw std::runtime_error("SplitElem: unknown incident element type");
 }
 
 
@@ -559,4 +555,101 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     oppositeNode->PrepareFan();
     nd1->PrepareFan();
     return split;
+}
+
+icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where)
+{
+    throw std::runtime_error("icy::Element::SplitElemWithCZ not implemented");
+
+    /*
+    icy::Element *adjElem = dynamic_cast<icy::Element*>(getIncidentElementOppositeToNode(nd));
+    if(adjElem == nullptr) throw std::runtime_error("icy::Element::SplitNonBoundaryElem dynamic cast issue");
+
+    MeshFragment *fr = nd1->fragment;
+
+    uint8_t ndIdx_orig = getNodeIdx(nd);
+    uint8_t nd0Idx_orig = getNodeIdx(nd0);
+    uint8_t nd1Idx_orig = getNodeIdx(nd1);
+
+    // preserve deformation gradient
+    Eigen::Matrix2d F_orig = getF_at_n();
+    Eigen::Matrix2d F_adj = adjElem->getF_at_n();
+
+    Node *oppositeNode = adjElem->getOppositeNode(nd0, nd1);
+    uint8_t nd0Idx_adj = adjElem->getNodeIdx(nd0);
+    uint8_t nd1Idx_adj = adjElem->getNodeIdx(nd1);
+    uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
+
+    MeshFragment *fragment = nd->fragment;
+
+    // insert "main" element
+    Element *insertedElem = fragment->AddElement();
+    nd->adj_elems.push_back(insertedElem);
+
+    // insert "adjacent" element
+    Element *insertedElem_adj = fragment->AddElement();
+
+    // insert the "split" node between nd0 and nd1
+    Node *split = fragment->AddNode();
+    split->InitializeLERP(nd0, nd1, where);
+    split->adj_elems.insert(split->adj_elems.end(),{this,insertedElem,adjElem,insertedElem_adj});
+    split->isBoundary = false;
+
+    // modify the original element
+    nds[nd1Idx_orig] = split;
+
+
+    nd1->ReplaceAdjacentElement(this,insertedElem);
+
+    // initialize the inserted "main" element
+    insertedElem->nds[ndIdx_orig] = nd;
+    insertedElem->nds[nd1Idx_orig] = nd1;
+    insertedElem->nds[nd0Idx_orig] = split;
+
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(incident_elems[nd0Idx_orig]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(incident_elems[nd0Idx_orig])->Initialize(insertedElem,nd0Idx_orig);
+    else if(incident_elems[nd0Idx_orig]->type == ElementType::TElem)
+        static_cast<Element*>(incident_elems[nd0Idx_orig])->ReplaceIncidentElem(this,insertedElem);
+
+    insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
+    insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
+    insertedElem->incident_elems[nd1Idx_orig] = this;
+    incident_elems[nd0Idx_orig] = insertedElem;
+
+    // similarly, modify the existing adjacent element
+    adjElem->nds[nd1Idx_adj] = split;
+    insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
+    insertedElem_adj->nds[nd1Idx_adj] = nd1;
+    insertedElem_adj->nds[nd0Idx_adj] = split;
+
+    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+    if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(adjElem->incident_elems[nd0Idx_adj])->Initialize(insertedElem_adj,nd0Idx_adj);
+    else if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::TElem)
+        static_cast<Element*>(adjElem->incident_elems[nd0Idx_adj])->ReplaceIncidentElem(adjElem,insertedElem_adj);
+
+    insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
+    insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
+    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
+    adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
+
+    oppositeNode->adj_elems.push_back(insertedElem_adj);
+    nd1->ReplaceAdjacentElement(adjElem,insertedElem_adj);
+
+    this->PrecomputeInitialArea();
+    insertedElem->PrecomputeInitialArea();
+    adjElem->PrecomputeInitialArea();
+    insertedElem_adj->PrecomputeInitialArea();
+
+    // "fix" palsticity on all four elements
+    this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+    adjElem->RecalculatePiMultiplierFromDeformationGradient(F_adj);
+    insertedElem_adj->RecalculatePiMultiplierFromDeformationGradient(F_adj);
+
+    oppositeNode->PrepareFan();
+    nd1->PrepareFan();
+    return split;
+*/
 }

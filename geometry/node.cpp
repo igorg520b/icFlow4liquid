@@ -30,6 +30,8 @@ void icy::Node::Initialize(const Node *nd)
     xt = nd->xt;
     xn = nd->xn;
     vn = nd->vn;
+//    pinned = nd->pinned;
+    group = nd->group;
 }
 
 

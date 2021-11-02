@@ -62,21 +62,22 @@ public:
 
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
+    uint8_t getNodeIdx(const Node* nd) const;
+    void getIdxs(const icy::Node* nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const;
+    uint8_t getEdgeIdx(const Node *nd1, const Node *nd2) const;
+    Node* CW_Node(const Node* nd) const;
+    Node* CCW_Node(const Node* nd) const;
+    std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
+
     bool isBoundaryEdge(const uint8_t idx) const {return incident_elems[idx]->type != ElementType::TElem;}
     bool isOnBoundary(const Node* nd) const;
     bool isCWBoundary(const Node* nd) const;
     bool isCCWBoundary(const Node* nd) const;
     bool isEdgeCW(const Node *nd1, const Node *nd2) const; // true if nd1-nd2 is oriented clockwise
-    uint8_t getEdgeIdx(const Node *nd1, const Node *nd2) const;
     bool containsEdge(const Node *nd1, const Node *nd2) const;
-    std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
-    Node* CW_Node(const Node* nd) const;
-    Node* CCW_Node(const Node* nd) const;
 
     bool containsNode(const Node* nd) const {return (nds[0]==nd || nds[1]==nd || nds[2]==nd);}
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
-    void getIdxs(const icy::Node* nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const;
-    uint8_t getNodeIdx(const Node* nd) const;
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
     void ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat);
@@ -85,6 +86,7 @@ private:
     constexpr static double threshold_area = 1e-7;
     Node* SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
     Node* SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
+    Node* SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where);
 
     BaseElement* getIncidentElementOppositeToNode(Node* nd);
 
