@@ -2,7 +2,6 @@
 // the PPR potential-based cohesive model in ABAQUS: Educational perspective."
 // Engineering fracture mechanics 93 (2012): 239-262.
 
-
 #ifndef COHESIVEZONE_H
 #define COHESIVEZONE_H
 
@@ -11,7 +10,7 @@
 #include "equationofmotionsolver.h"
 #include "parameters_sim.h"
 #include "baseelement.h"
-// #include "node.h"
+
 
 namespace icy {struct CohesiveZone; struct Node; struct Element; }
 
@@ -36,6 +35,8 @@ struct icy::CohesiveZone : public BaseElement
 
     // first element/edge must be CW, sedond will be CCW
     void Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1);
+    void InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to); // from/to [-1,+1]
+
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();

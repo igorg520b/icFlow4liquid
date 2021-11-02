@@ -5,6 +5,10 @@
 #include "meshfragment.h"
 #include <spdlog/spdlog.h>
 
+// for interpolating pmax and tmax when spliting CZs
+#include <boost/math/interpolators/barycentric_rational.hpp>
+
+
 const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
     (Eigen::Matrix<double,8,2>() <<
          0.9305681557970262,0,
@@ -67,6 +71,25 @@ void icy::CohesiveZone::Initialize(Element *elem0, uint8_t edgeIdx0, Element *el
     elem1->incident_elems[edgeIdx1] = this;
     UpdateNodes();
 }
+
+void icy::CohesiveZone::InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to)
+{
+    boost::math::barycentric_rational<double> p_interpolator(quadraturePoints, other->pmax, nQPts);
+    boost::math::barycentric_rational<double> t_interpolator(quadraturePoints, other->tmax, nQPts);
+
+    for(int qp=0;qp<nQPts;qp++)
+    {
+        const double qp_coord = quadraturePoints[qp];
+
+        const double N1 = (1-qp_coord)/2;   // shape functions (their values at current QP)
+        const double N2 = (1+qp_coord)/2;
+
+        double new_qp_coord = from*N1 + to*N2;
+        pmax[qp] = p_interpolator(new_qp_coord);
+        tmax[qp] = t_interpolator(new_qp_coord);
+    }
+}
+
 
 void icy::CohesiveZone::UpdateNodes()
 {
