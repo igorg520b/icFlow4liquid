@@ -354,3 +354,10 @@ void MainWindow::on_actionCZs_triggered()
     model.Reset(4);
     updateGUI();
 }
+
+void MainWindow::on_actionCZs_fracture_triggered()
+{
+    model.Reset(5);
+    updateGUI();
+}
+

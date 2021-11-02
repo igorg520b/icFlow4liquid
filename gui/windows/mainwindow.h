@@ -50,14 +50,11 @@
 #include <vtkPointPicker.h>
 #include <vtkProp3DCollection.h>
 #include <vtkRenderWindowInteractor.h>
-//#include <vtkCallbackCommand.h>
-//#include <vtkInteractorStyleRubberBandPick.h>
 
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkJPEGWriter.h>
 
-//#include <vtkInteractorStyleRubberBand2D.h>
 #include "SpecialSelector2D.h"
 
 #include <iostream>
@@ -69,7 +66,6 @@
 #include <cstdint>
 
 #include "objectpropertybrowser.h"
-//#include "preferences_gui.h"
 
 #include "model.h"
 #include "backgroundworker.h"
@@ -115,6 +111,8 @@ private slots:
     void on_actionSelf_collision_triggered();
 
     void on_actionCZs_triggered();
+
+    void on_actionCZs_fracture_triggered();
 
 private:
     void render_results();

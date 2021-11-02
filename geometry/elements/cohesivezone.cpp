@@ -65,10 +65,10 @@ void icy::CohesiveZone::Initialize(Element *elem0, uint8_t edgeIdx0, Element *el
 
     elem0->incident_elems[edgeIdx0] = this;
     elem1->incident_elems[edgeIdx1] = this;
-    GetNodes();
+    UpdateNodes();
 }
 
-void icy::CohesiveZone::GetNodes()
+void icy::CohesiveZone::UpdateNodes()
 {
     nds[0] = elems2[0]->nds[(edgeIds[0]+2)%3];
     nds[1] = elems2[0]->nds[(edgeIds[0]+1)%3];
@@ -91,7 +91,7 @@ void icy::CohesiveZone::Disconnect()
 void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq)
 {
     if(!isActive) return;
-    GetNodes();
+//    GetNodes();
     int idxs[] {nds[0]->eqId, nds[1]->eqId, nds[2]->eqId, nds[3]->eqId};
     eq.AddEntriesToStructure(std::begin(idxs),std::end(idxs));
 }
@@ -99,7 +99,7 @@ void icy::CohesiveZone::AddToSparsityStructure(EquationOfMotionSolver &eq)
 bool icy::CohesiveZone::ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h)
 {
     if(!isActive) return true;
-    GetNodes();
+//    GetNodes();
 
     Eigen::Vector2d xc[4];  // coordinates of the cz nodes
     for(int i=0;i<4;i++)

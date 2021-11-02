@@ -12,8 +12,6 @@
 
 void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
 {
-    //icy::CohesiveZone::CalculateAndPrintBMatrix();
-
     maxNode = nullptr;
     typeOfSetup = typeOfSetup_;
     fragments.clear();
@@ -84,6 +82,14 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
         movableBoundary.reserve(fragments[0]->special_boundary.size());
         for(const auto &b : fragments[0]->special_boundary) movableBoundary.push_back(b);
         break;
+
+        //CZs - fracture test
+    case 5:
+        fragments.push_back(std::make_unique<MeshFragment>(this));
+        fragments[0]->GenerateCZBrickFractureTest(MeshSizeMax,2,1);
+        movableBoundary.reserve(fragments[0]->special_boundary.size());
+        for(const auto &b : fragments[0]->special_boundary) movableBoundary.push_back(b);
+        break;
     }
 
     // make a list of nodes that only belong to the movable boudnary
@@ -94,10 +100,7 @@ void icy::Mesh::Reset(double MeshSizeMax, double offset, unsigned typeOfSetup_)
     for(unsigned i=0;i<movableNodes.size();i++) movableNodes[i]->indId=i;
 
 
-
-
     tree_update_counter=0;
-
     updateMinMax = true;
 
     area_initial = area_current = std::accumulate(allElems.begin(), allElems.end(),0.0,
@@ -244,6 +247,7 @@ void icy::Mesh::SetIndenterPosition(double position)
     case 2:
     case 3:
     case 4:
+    case 5:
         Eigen::Vector2d x_direction = Eigen::Vector2d(0.5,0);
         for(unsigned i=0;i<movableNodes.size();i++)
         {

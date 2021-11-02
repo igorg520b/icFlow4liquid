@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <algorithm>
 
-//#include <iostream>
 #include <vector>
 #include <utility>
 #include <cmath>
@@ -369,13 +368,14 @@ void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
     uint8_t cw_idx = (idx+1)%3;
     uint8_t ccw_idx = (idx+2)%3;
 
-    // update boundaries
-    if(incident_elems[cw_idx]->type == ElementType::BEdge)
-        static_cast<BoundaryEdge*>(incident_elems[cw_idx])->UpdateNodes();
-    if(incident_elems[ccw_idx]->type == ElementType::BEdge)
-        static_cast<BoundaryEdge*>(incident_elems[ccw_idx])->UpdateNodes();
-
-    // TODO: update cohesive zones
+    // update incident elements after replacing the node
+    for(uint8_t idx : {cw_idx,ccw_idx})
+    {
+        if(incident_elems[idx]->type == ElementType::BEdge)
+            static_cast<BoundaryEdge*>(incident_elems[cw_idx])->UpdateNodes();
+        else if(incident_elems[idx]->type == ElementType::CZ)
+            static_cast<CohesiveZone*>(incident_elems[cw_idx])->UpdateNodes();
+    }
 }
 
 

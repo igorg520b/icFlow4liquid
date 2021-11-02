@@ -175,7 +175,7 @@ public:
         // features
         EnableCollisions = true;
         EnablePlasticity = true;
-        EnableFracture = false;
+        EnableFracture = true;
         EnableInsertCZs = true;
         EnableCZs = true;
 

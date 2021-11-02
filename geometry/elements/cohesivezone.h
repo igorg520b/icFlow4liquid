@@ -39,7 +39,7 @@ struct icy::CohesiveZone : public BaseElement
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
-    void GetNodes(); // convert elems[2], edgeIds[2] into nodes[4]
+    void UpdateNodes(); // convert elems[2], edgeIds[2] into nodes[4]
     void Disconnect();
 
 private:
