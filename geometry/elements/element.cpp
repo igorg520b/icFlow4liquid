@@ -454,6 +454,10 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
 
     spdlog::info("icy::Element::SplitBoundaryElem stage 3.1");
 
+    spdlog::info("incident_elems[ndIdx] type {}", incident_elems[ndIdx]->type);
+    BoundaryEdge *ptr = dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx]);
+    spdlog::info("ptr {}", (void*)ptr);
+
     dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
 
     spdlog::info("icy::Element::SplitBoundaryElem stage 3.2");
@@ -580,7 +584,7 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
 
 icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where)
 {
-    spdlog::info("icy::Element::SplitElemWithCZ removing CZ");
+    spdlog::info("icy::Element::SplitElemWithCZ removing CZ; elem {}",(void*)this);
 
     icy::CohesiveZone *adjCZ = dynamic_cast<icy::CohesiveZone*>(getIncidentElementOppositeToNode(nd));
     if(adjCZ == nullptr) throw std::runtime_error("icy::Element::SplitElemWithCZ dynamic cast issue");
@@ -589,7 +593,12 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
 
     // for testing: remove CZ, proceed as boundary elem
 
+    spdlog::info("adjCZ before disconnect {}",(void*)adjCZ);
     adjCZ->Disconnect();
+
+    icy::BaseElement* adjBase = getIncidentElementOppositeToNode(nd);
+    spdlog::info("adjBase after disconnect {}; type {}",(void*)adjBase, adjBase->type);
+
     auto iter = std::find(m->allCZs.begin(),m->allCZs.end(),adjCZ);
     if(iter == m->allCZs.end()) throw std::runtime_error("icy::Element::SplitElemWithCZ: CZ not found");
     m->allCZs.erase(iter);

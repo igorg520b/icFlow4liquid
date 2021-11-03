@@ -104,7 +104,9 @@ void icy::CohesiveZone::Disconnect()
     MeshFragment *fr0 = elems2[0]->nds[0]->fragment;
     MeshFragment *fr1 = elems2[1]->nds[0]->fragment;
 
+    spdlog::info("fr0->AddBoundary({},{},3)",(void*)elems2[0],(int)edgeIds[0]);
     fr0->AddBoundary(elems2[0],edgeIds[0],3);
+    spdlog::info("fr1->AddBoundary({},{},2)",(void*)elems2[1],(int)edgeIds[1]);
     fr1->AddBoundary(elems2[1],edgeIds[1],2);
 }
 
