@@ -319,7 +319,13 @@ bool icy::Model::AcceptTentativeValues(double timeStep)
     }
 
     // remove failed czs from the list
-//    for(CohesiveZone *cz : mesh.allCZs) if(!cz->isActive) cz->Disconnect();
+    for(CohesiveZone *cz : mesh.allCZs)
+        if(!cz->isActive)
+        {
+            cz->Disconnect();
+            icy::MeshFragment::CZFactory.release(cz);
+        }
+
     auto result = std::remove_if(mesh.allCZs.begin(),mesh.allCZs.end(),[](CohesiveZone *cz){return !cz->isActive;});
 
     if(result != mesh.allCZs.end())

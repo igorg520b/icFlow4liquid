@@ -45,7 +45,7 @@ icy::Element* icy::MeshFragment::AddElement()
 icy::CohesiveZone* icy::MeshFragment::AddCZ()
 {
     CohesiveZone *cz = CZFactory.take();
-    czs.push_back(cz);
+    cz->parentMesh = this->parentMesh;
     parentMesh->allCZs.push_back(cz);
     return cz;
 }
@@ -414,9 +414,6 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
 
     gmsh::clear();
     ConnectIncidentElements();
-    spdlog::info("GenerateCZBrick done; czs {}",czs.size());
-//    for(auto *cz : czs) cz->UpdateNodes();
-
 }
 
 void icy::MeshFragment::GenerateCZBrickFractureTest(double ElementSize, double width, double height)
@@ -583,9 +580,6 @@ void icy::MeshFragment::GenerateCZBrickFractureTest(double ElementSize, double w
 
     gmsh::clear();
     ConnectIncidentElements();
-    spdlog::info("GenerateCZBrick done; czs {}",czs.size());
-//    for(auto *cz : czs) cz->GetNodes();
-
 }
 
 

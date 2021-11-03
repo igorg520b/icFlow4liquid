@@ -1,7 +1,7 @@
 #include "element.h"
 #include "boundaryedge.h"
 #include "node.h"
-#include "meshfragment.h"
+#include "mesh.h"
 
 #include <cstdlib>
 #include <algorithm>
@@ -412,6 +412,8 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
 
     Eigen::Matrix2d F_orig = getF_at_n();     // save the deformation gradient
 
+    spdlog::info("icy::Element::SplitBoundaryElem stage 1");
+
     MeshFragment *fragment = nd->fragment;
 
     // insert element
@@ -424,6 +426,10 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     split->isBoundary = true;
     split->adj_elems.push_back(this);
     split->adj_elems.push_back(insertedElem);
+
+
+    spdlog::info("icy::Element::SplitBoundaryElem stage 2");
+
 
     // modify the original element
     nds[nd1Idx] = split;
@@ -439,10 +445,19 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     else if(incident_elems[nd0Idx]->type == ElementType::TElem)
         static_cast<Element*>(incident_elems[nd0Idx])->ReplaceIncidentElem(this,insertedElem);
 
+    spdlog::info("icy::Element::SplitBoundaryElem stage 3");
+
+
     // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
     fr->AddBoundary(insertedElem,ndIdx,3);
+
+    spdlog::info("icy::Element::SplitBoundaryElem stage 3.1");
+
     dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
+
+    spdlog::info("icy::Element::SplitBoundaryElem stage 3.2");
+
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
     incident_elems[nd0Idx] = insertedElem;
@@ -451,9 +466,15 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // from node "nd1", disconnect the original element and replace it with the inserted element
     nd1->ReplaceAdjacentElement(this, insertedElem);
 
+    spdlog::info("icy::Element::SplitBoundaryElem stage 4");
+
+
     // compute the new area and reference shape matrix
     this->PrecomputeInitialArea();
     insertedElem->PrecomputeInitialArea();
+
+    spdlog::info("icy::Element::SplitBoundaryElem stage 5");
+
 
     // re-evaluate PiMultiplier on both elements to maintain consistent plasticity
     this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
@@ -559,13 +580,29 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
 
 icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where)
 {
-    throw std::runtime_error("icy::Element::SplitElemWithCZ not implemented");
+    spdlog::info("icy::Element::SplitElemWithCZ removing CZ");
+
+    icy::CohesiveZone *adjCZ = dynamic_cast<icy::CohesiveZone*>(getIncidentElementOppositeToNode(nd));
+    if(adjCZ == nullptr) throw std::runtime_error("icy::Element::SplitElemWithCZ dynamic cast issue");
+
+    Mesh *m = adjCZ->parentMesh;
+
+    // for testing: remove CZ, proceed as boundary elem
+
+    adjCZ->Disconnect();
+    auto iter = std::find(m->allCZs.begin(),m->allCZs.end(),adjCZ);
+    if(iter == m->allCZs.end()) throw std::runtime_error("icy::Element::SplitElemWithCZ: CZ not found");
+    m->allCZs.erase(iter);
+    icy::MeshFragment::CZFactory.release(adjCZ);
+
+    spdlog::info("icy::Element::SplitElemWithCZ proceeding with SplitBoundaryElem");
+
+    icy::Node* result = SplitBoundaryElem(nd,nd0,nd1,where);
+    spdlog::info("icy::Element::SplitElemWithCZ done");
+
+    return result;
 
     /*
-    icy::Element *adjElem = dynamic_cast<icy::Element*>(getIncidentElementOppositeToNode(nd));
-    if(adjElem == nullptr) throw std::runtime_error("icy::Element::SplitNonBoundaryElem dynamic cast issue");
-
-    MeshFragment *fr = nd1->fragment;
 
     uint8_t ndIdx_orig = getNodeIdx(nd);
     uint8_t nd0Idx_orig = getNodeIdx(nd0);

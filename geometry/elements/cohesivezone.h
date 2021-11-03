@@ -12,12 +12,14 @@
 #include "baseelement.h"
 
 
-namespace icy {struct CohesiveZone; struct Node; struct Element; }
+namespace icy {struct CohesiveZone; struct Node; struct Element; class Mesh; }
 
 struct icy::CohesiveZone : public BaseElement
 {
     Element *elems2[2];                  // each CZ connects two elements
     uint8_t edgeIds[2];                  // side in the corresponding element to which CZ connects
+    Mesh* parentMesh;
+
 
     // two nodes per side: Side_A_Node_1, Side_A_Node_2, Side_B_Node_1, Side_B_Node_2
     // NOTE: this is populated at a later stage from elems[] and edgeIds[]

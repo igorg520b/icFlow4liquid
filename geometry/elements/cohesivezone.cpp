@@ -244,7 +244,6 @@ void icy::CohesiveZone::AcceptValues()
 {
     if(!isActive) return;
     isActive = !tentative_failed;
-    if(!isActive) Disconnect();
 
     for(int i=0;i<nQPts;i++)
     {
