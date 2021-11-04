@@ -1108,7 +1108,11 @@ void icy::Mesh::EstablishSplittingEdge(Node* nd, const double phi, const double 
     else if(phi == 0 && !elem->isCWBoundary(nd))
         adjacentNode = nd0;
     else
-        adjacentNode = elem->SplitElem(nd,nd0,nd1,whereToSplit);
+    {
+        Node* additionalNode;
+        std::tie(adjacentNode,additionalNode) = elem->SplitElem(nd,nd0,nd1,whereToSplit);
+        if(additionalNode!=nullptr) new_crack_tips.push_back(additionalNode);
+    }
 }
 
 

@@ -58,7 +58,7 @@ private:
 
 // FRACTURE ALGORITHM
 public:
-    Node* SplitElem(Node *nd, Node *nd0, Node *nd1, double where); // split the element by inserting a node between nd0 and nd1
+    std::pair<Node*,Node*> SplitElem(Node *nd, Node *nd0, Node *nd1, double where); // split the element by inserting a node between nd0 and nd1
 
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
@@ -86,7 +86,7 @@ private:
     constexpr static double threshold_area = 1e-7;
     Node* SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
     Node* SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where);
-    Node* SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where);
+    std::pair<icy::Node*,icy::Node*> SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where);
 
     BaseElement* getIncidentElementOppositeToNode(Node* nd);
 

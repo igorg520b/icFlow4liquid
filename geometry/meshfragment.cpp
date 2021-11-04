@@ -934,3 +934,11 @@ void icy::MeshFragment::AddBoundary(Element *elem, uint8_t edge_idx, uint8_t sta
     be->elem->incident_elems[be->edge_idx] = be;
     boundaryEdges.push_back(be);
 }
+
+void icy::MeshFragment::RemoveBoundary(Element *elem, uint8_t edge_idx)
+{
+    BoundaryEdge *be = dynamic_cast<BoundaryEdge*>(elem->incident_elems[edge_idx]);
+    boundaryEdges.erase(std::remove(boundaryEdges.begin(),boundaryEdges.end(),be),boundaryEdges.end());
+    BoundaryEdgeFactory.release(be);
+}
+

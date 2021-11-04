@@ -388,14 +388,14 @@ void icy::Element::RecalculatePiMultiplierFromDeformationGradient(Eigen::Matrix2
 
 
 
-icy::Node* icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
+std::pair<icy::Node*,icy::Node*> icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
 {
     BaseElement* incident_elem = getIncidentElementOppositeToNode(nd);
 
     if(incident_elem->type == ElementType::BEdge)
-        return SplitBoundaryElem(nd, nd0, nd1, where);
+        return {SplitBoundaryElem(nd, nd0, nd1, where),nullptr};
     else if(incident_elem->type == ElementType::TElem)
-        return SplitNonBoundaryElem(nd, nd0, nd1, where);
+        return {SplitNonBoundaryElem(nd, nd0, nd1, where),nullptr};
     else if(incident_elem->type == ElementType::CZ)
         return SplitElemWithCZ(nd, nd0, nd1, where);
     else throw std::runtime_error("SplitElem: unknown incident element type");
@@ -404,7 +404,7 @@ icy::Node* icy::Element::SplitElem(Node *nd, Node *nd0, Node *nd1, double where)
 
 icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where)
 {
-    MeshFragment *fr = nd1->fragment;
+    MeshFragment *fragment = nd->fragment;
 
     uint8_t ndIdx = getNodeIdx(nd);
     uint8_t nd0Idx = getNodeIdx(nd0);
@@ -412,7 +412,6 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
 
     Eigen::Matrix2d F_orig = getF_at_n();     // save the deformation gradient
 
-    MeshFragment *fragment = nd->fragment;
 
     // insert element
     Element *insertedElem = fragment->AddElement();
@@ -443,7 +442,7 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
 
     // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
-    fr->AddBoundary(insertedElem,ndIdx,3);
+    fragment->AddBoundary(insertedElem,ndIdx,3);
     dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
@@ -468,10 +467,10 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
 
 icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, double where)
 {
+    MeshFragment *fragment = nd->fragment;
+
     icy::Element *adjElem = dynamic_cast<icy::Element*>(getIncidentElementOppositeToNode(nd));
     if(adjElem == nullptr) throw std::runtime_error("icy::Element::SplitNonBoundaryElem dynamic cast issue");
-
-    MeshFragment *fr = nd1->fragment;
 
     uint8_t ndIdx_orig = getNodeIdx(nd);
     uint8_t nd0Idx_orig = getNodeIdx(nd0);
@@ -485,8 +484,6 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     uint8_t nd0Idx_adj = adjElem->getNodeIdx(nd0);
     uint8_t nd1Idx_adj = adjElem->getNodeIdx(nd1);
     uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
-
-    MeshFragment *fragment = nd->fragment;
 
     // insert "main" element
     Element *insertedElem = fragment->AddElement();
@@ -504,7 +501,6 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     // modify the original element
     nds[nd1Idx_orig] = split;
 
-
     nd1->ReplaceAdjacentElement(this,insertedElem);
 
     // initialize the inserted "main" element
@@ -519,7 +515,6 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
         static_cast<Element*>(incident_elems[nd0Idx_orig])->ReplaceIncidentElem(this,insertedElem);
     else if(incident_elems[nd0Idx_orig]->type == ElementType::CZ)
         static_cast<CohesiveZone*>(incident_elems[nd0Idx_orig])->ReplaceAdjacentElem(this, insertedElem, nd0Idx_orig);
-
 
     insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
     insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
@@ -564,7 +559,7 @@ icy::Node* icy::Element::SplitNonBoundaryElem(Node *nd, Node *nd0, Node *nd1, do
     return split;
 }
 
-icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where)
+std::pair<icy::Node*,icy::Node*> icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double where)
 {
     icy::CohesiveZone *adjCZ = dynamic_cast<icy::CohesiveZone*>(getIncidentElementOppositeToNode(nd));
     if(adjCZ == nullptr) throw std::runtime_error("icy::Element::SplitElemWithCZ dynamic cast issue");
@@ -577,9 +572,11 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
     // for testing: remove CZ, proceed as boundary elem
 
     adjCZ->Disconnect();
-    auto iter = std::find(m->allCZs.begin(),m->allCZs.end(),adjCZ);
-    if(iter == m->allCZs.end()) throw std::runtime_error("icy::Element::SplitElemWithCZ: CZ not found");
-    m->allCZs.erase(iter);
+//    auto iter = std::find(m->allCZs.begin(),m->allCZs.end(),adjCZ);
+//    if(iter == m->allCZs.end()) throw std::runtime_error("icy::Element::SplitElemWithCZ: CZ not found");
+//    m->allCZs.erase(iter);
+
+    m->allCZs.erase(std::remove(m->allCZs.begin(), m->allCZs.end(), adjCZ), m->allCZs.end());
     icy::MeshFragment::CZFactory.release(adjCZ);
 
 
@@ -596,8 +593,60 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
     Eigen::Matrix2d F_orig = getF_at_n();
 
 
+    icy::Node* split_orig;
+//    split_orig = SplitBoundaryElem(nd,nd0,nd1,where);
 
-    icy::Node* split_orig = SplitBoundaryElem(nd,nd0,nd1,where);
+        MeshFragment *fragment_orig = nd->fragment;
+
+        // insert element
+        Element *insertedElem = fragment_orig->AddElement();
+        nd->adj_elems.push_back(insertedElem);
+
+        // insert the node between nd0 and nd1; initialize its coordinates; connect to adjacent elements
+        split_orig = fragment_orig->AddNode();
+        split_orig->InitializeLERP(nd0, nd1, where);
+        split_orig->isBoundary = true;
+        split_orig->adj_elems.push_back(this);
+        split_orig->adj_elems.push_back(insertedElem);
+
+        // modify the original element
+        nds[nd1Idx_orig] = split_orig;
+
+        // initialize the inserted element's nodes
+        insertedElem->nds[ndIdx_orig] = nd;
+        insertedElem->nds[nd1Idx_orig] = nd1;
+        insertedElem->nds[nd0Idx_orig] = split_orig;
+
+        // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
+        if(incident_elems[nd0Idx_orig]->type == ElementType::BEdge)
+            static_cast<BoundaryEdge*>(incident_elems[nd0Idx_orig])->Initialize(insertedElem,nd0Idx_orig,3);
+        else if(incident_elems[nd0Idx_orig]->type == ElementType::TElem)
+            static_cast<Element*>(incident_elems[nd0Idx_orig])->ReplaceIncidentElem(this,insertedElem);
+        else if(incident_elems[nd0Idx_orig]->type == ElementType::CZ)
+            static_cast<CohesiveZone*>(incident_elems[nd0Idx_orig])->ReplaceAdjacentElem(this, insertedElem, nd0Idx_orig);
+
+        // add the boundary that has just appeared
+        // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
+        fragment_orig->AddBoundary(insertedElem,ndIdx_orig,3);
+        dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx_orig])->UpdateNodes();
+
+        insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
+        incident_elems[nd0Idx_orig] = insertedElem;
+        insertedElem->incident_elems[nd1Idx_orig] = this;
+
+        // from node "nd1", disconnect the original element and replace it with the inserted element
+        nd1->ReplaceAdjacentElement(this, insertedElem);
+
+        // compute the new area and reference shape matrix
+        this->PrecomputeInitialArea();
+        insertedElem->PrecomputeInitialArea();
+
+        // re-evaluate PiMultiplier on both elements to maintain consistent plasticity
+        this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+        insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
+
+        // "fix" the fan for the node, whose element was just replaced
+        nd1->PrepareFan();
 
 
 
@@ -621,6 +670,8 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
     split_adj->InitializeLERP(nd2, nd3, where);
     split_adj->adj_elems.insert(split_adj->adj_elems.end(),{adjElem,insertedElem_adj});
     split_adj->isBoundary = true;
+    split_adj->weakening_direction = (split_orig->xn - nd->xn).normalized();
+    split_adj->isCrackTip = true;
 
     adjElem->nds[nd3Idx_adj] = split_adj;
     static_cast<BoundaryEdge*>(adjElem->incident_elems[oppIdx_adj])->UpdateNodes();
@@ -662,9 +713,20 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
     nd3->PrepareFan();
     split_adj->PrepareFan();
 
-    spdlog::info("stage 3");
+
+    // remove the old boundaries
+    nd->fragment->RemoveBoundary(this,ndIdx_orig);
+    nd2->fragment->RemoveBoundary(adjElem,oppIdx_adj);
+    CohesiveZone *cz1 = m->AddCZ();
+    cz1->Initialize(this, ndIdx_orig, adjElem, oppIdx_adj);
 
 
-    return split_orig;
+    nd->fragment->RemoveBoundary(insertedElem,ndIdx_orig);
+    nd2->fragment->RemoveBoundary(insertedElem_adj,oppIdx_adj);
+    CohesiveZone *cz2 = m->AddCZ();
+    cz2->Initialize(insertedElem,ndIdx_orig, insertedElem_adj,oppIdx_adj);
+
+
+    return {split_orig,split_adj};
 
 }
