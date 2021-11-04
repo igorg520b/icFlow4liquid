@@ -38,12 +38,15 @@ struct icy::CohesiveZone : public BaseElement
     // first element/edge must be CW, sedond will be CCW
     void Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1);
     void InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to); // from/to [-1,+1]
+    void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx);
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
     void UpdateNodes(); // convert elems[2], edgeIds[2] into nodes[4]
     void Disconnect();
+    Element *getOtherElem(const Element* elem) {return elems2[(getElemIdx(elem)+1)%2];}
+    Node* getOtherNode(const Node* nd);
 
 private:
     bool tentative_contact, tentative_failed, tentative_damaged;
@@ -58,6 +61,7 @@ private:
     constexpr static double quadratureWeights[nQPts] {0.3478548451374539,0.6521451548625461,0.6521451548625461,0.3478548451374539};
     const static Eigen::Matrix<double,8,2> B[nQPts];
 
+    int getElemIdx(const Element *elem) const;
 
     static double Tn_(const SimParams &prms, const double Dn, const double Dt);
     static double Tt_(const SimParams &prms, const double Dn, const double Dt);

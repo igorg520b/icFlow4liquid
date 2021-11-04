@@ -42,6 +42,7 @@ icy::Element* icy::MeshFragment::AddElement()
     return elem;
 }
 
+/*
 icy::CohesiveZone* icy::MeshFragment::AddCZ()
 {
     CohesiveZone *cz = CZFactory.take();
@@ -49,7 +50,7 @@ icy::CohesiveZone* icy::MeshFragment::AddCZ()
     parentMesh->allCZs.push_back(cz);
     return cz;
 }
-
+*/
 
 
 void icy::MeshFragment::GenerateBrick(double ElementSize, double width, double height)
@@ -391,7 +392,7 @@ void icy::MeshFragment::GenerateCZBrick(double ElementSize, double width, double
         // insert cohesive zones
         if(nd0->group.test(3) && nd1->group.test(3))
         {
-            CohesiveZone *cz = AddCZ();
+            CohesiveZone *cz = parentMesh->AddCZ();
             Node *nd2 = splitNodes.at(nd0);
             Node *nd3 = splitNodes.at(nd1);
             auto iter1 = std::find_if(elems.begin(),elems.end(),
@@ -557,7 +558,7 @@ void icy::MeshFragment::GenerateCZBrickFractureTest(double ElementSize, double w
         // insert cohesive zones
         if(nd0->group.test(3) && nd1->group.test(3))
         {
-            CohesiveZone *cz = AddCZ();
+            CohesiveZone *cz = parentMesh->AddCZ();
             Node *nd2 = splitNodes.at(nd0);
             Node *nd3 = splitNodes.at(nd1);
             auto iter1 = std::find_if(elems.begin(),elems.end(),

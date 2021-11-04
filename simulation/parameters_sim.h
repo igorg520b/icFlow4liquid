@@ -207,7 +207,7 @@ public:
         FractureWeakeningCoeff = 0.75;
         FractureTemporalAttenuation = 0.025;
         FractureMaxSubsteps = 1000;
-        FractureTractionThreshold = 500;
+        FractureTractionThreshold = 1500;
         FractureSubstepLevels = 4;
         FractureTimerLevels = 10;
         FractureAngleThreshold = 10;    // in degrees

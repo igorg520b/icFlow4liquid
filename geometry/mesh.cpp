@@ -985,8 +985,16 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
     uint8_t edge_idx = ssr.faces[0]->getEdgeIdx(nd,edge_split0);
     Element* incidentElem1 = dynamic_cast<Element*>(ssr.faces[0]->incident_elems[edge_idx]);
     if(incidentElem1 == nullptr) throw std::runtime_error("PropagateCrack: insertedElem1 == nullptr");
-    fr->AddBoundary(ssr.faces[0],edge_idx,2);
-    fr->AddBoundary(incidentElem1,incidentElem1->getEdgeIdx(nd,edge_split0),2);
+    if(prms.EnableInsertCZs)
+    {
+        CohesiveZone *cz = AddCZ();
+        cz->Initialize(ssr.faces[0],edge_idx,incidentElem1,incidentElem1->getEdgeIdx(nd,edge_split0));
+    }
+    else
+    {
+        fr->AddBoundary(ssr.faces[0],edge_idx,2);
+        fr->AddBoundary(incidentElem1,incidentElem1->getEdgeIdx(nd,edge_split0),2);
+    }
 
     if(!isBoundary)
     {
@@ -997,8 +1005,16 @@ void icy::Mesh::PropagateCrack(const SimParams &prms)
         uint8_t edge_idx2 = ssr.faces[1]->getEdgeIdx(nd,edge_split1);
         Element* insertedElem2 = dynamic_cast<Element*>(ssr.faces[1]->incident_elems[edge_idx2]);
         if(insertedElem2 == nullptr) throw std::runtime_error("PropagateCrack: insertedElem2 == nullptr");
-        fr->AddBoundary(ssr.faces[1],edge_idx2,2);
-        fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1),2);
+        if(prms.EnableInsertCZs)
+        {
+            CohesiveZone *cz = AddCZ();
+            cz->Initialize(ssr.faces[1],edge_idx2,insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1));
+        }
+        else
+        {
+            fr->AddBoundary(ssr.faces[1],edge_idx2,2);
+            fr->AddBoundary(insertedElem2,insertedElem2->getEdgeIdx(nd,edge_split1),2);
+        }
     }
 
     // SPLIT nd
@@ -1136,18 +1152,6 @@ icy::Node* icy::Mesh::Fix_X_Topology(Node *nd, Node *alignment_node)
     return split;
 }
 
-void icy::Mesh::ReplaceBoundary(Element *elem, Node *oldA, Node *oldB, Node *newA, Node *newB)
-{
-    MeshFragment *fr = newA->fragment;
-    uint8_t idx = elem->getEdgeIdx(newA,newB);
-    auto iter = std::find_if(fr->boundaryEdges.begin(),fr->boundaryEdges.end(),
-                             [elem,idx](const BoundaryEdge *be){return be->elem==elem && be->edge_idx==idx;});
-
-    if(iter == fr->boundaryEdges.end()) return;
-    (*iter)->UpdateNodes();
-    (*iter)->status = 3;
-}
-
 
 
 
@@ -1234,4 +1238,10 @@ void icy::Mesh::CreateSupportRange(const int neighborLevel)
     }
 }
 
-
+icy::CohesiveZone* icy::Mesh::AddCZ()
+{
+    CohesiveZone *cz = MeshFragment::CZFactory.take();
+    cz->parentMesh = this;
+    allCZs.push_back(cz);
+    return cz;
+}

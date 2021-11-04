@@ -41,7 +41,7 @@ public:
 
     icy::Node* AddNode();       // add to nodes vector from NodeFactory; used in the fracture algorithm
     icy::Element* AddElement(); // add to elems vector from ElementFactory
-    icy::CohesiveZone* AddCZ();
+//    icy::CohesiveZone* AddCZ();
     static ConcurrentPool<CohesiveZone> CZFactory;
 
 private:

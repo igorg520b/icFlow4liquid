@@ -9,44 +9,7 @@
 #include <boost/math/interpolators/barycentric_rational.hpp>
 
 
-const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
-    (Eigen::Matrix<double,8,2>() <<
-         0.9305681557970262,0,
-     0,0.9305681557970262,
-     0.06943184420297371,0,
-     0,0.06943184420297371,
-     -0.9305681557970262,-0,
-     -0,-0.9305681557970262,
-     -0.06943184420297371,-0,
-     -0,-0.06943184420297371).finished(),
-    (Eigen::Matrix<double,8,2>() <<
-         0.6699905217924281,0,
-     0,0.6699905217924281,
-     0.3300094782075719,0,
-     0,0.3300094782075719,
-     -0.6699905217924281,-0,
-     -0,-0.6699905217924281,
-     -0.3300094782075719,-0,
-     -0,-0.3300094782075719).finished(),
-    (Eigen::Matrix<double,8,2>() <<
-         0.3300094782075719,0,
-     0,0.3300094782075719,
-     0.6699905217924281,0,
-     0,0.6699905217924281,
-     -0.3300094782075719,-0,
-     -0,-0.3300094782075719,
-     -0.6699905217924281,-0,
-     -0,-0.6699905217924281).finished(),
-    (Eigen::Matrix<double,8,2>() <<
-         0.06943184420297371,0,
-     0,0.06943184420297371,
-     0.9305681557970262,0,
-     0,0.9305681557970262,
-     -0.06943184420297371,-0,
-     -0,-0.06943184420297371,
-     -0.9305681557970262,-0,
-     -0,-0.9305681557970262).finished(),
-    };
+
 
 
 icy::CohesiveZone::CohesiveZone()
@@ -71,6 +34,30 @@ void icy::CohesiveZone::Initialize(Element *elem0, uint8_t edgeIdx0, Element *el
     elem1->incident_elems[edgeIdx1] = this;
     UpdateNodes();
 }
+
+void icy::CohesiveZone::ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx)
+{
+    int elem_idx = getElemIdx(originalElem);
+    elems2[elem_idx] = insertedElem;
+    edgeIds[elem_idx] = idx;
+}
+
+int icy::CohesiveZone::getElemIdx(const Element *elem) const
+{
+    if(elems2[0] == elem) return 0;
+    else if(elems2[1] == elem) return 1;
+    else throw std::runtime_error("icy::CohesiveZone::getElemIdx elem not found");
+}
+
+icy::Node* icy::CohesiveZone::getOtherNode(const Node* nd)
+{
+    if(nds[0]==nd) return nds[2];
+    else if(nds[1]==nd) return nds[3];
+    else if(nds[2]==nd) return nds[0];
+    else if(nds[3]==nd) return nds[1];
+    else throw std::runtime_error("icy::CohesiveZone::getOtherNode");
+}
+
 
 void icy::CohesiveZone::InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to)
 {
@@ -101,12 +88,21 @@ void icy::CohesiveZone::UpdateNodes()
 
 void icy::CohesiveZone::Disconnect()
 {
+    if(elems2[0]->incident_elems[edgeIds[0]] != this || elems2[1]->incident_elems[edgeIds[1]] != this)
+    {
+        spdlog::info("icy::CohesiveZone::Disconnect(); this = {}; ",(void*)this);
+        spdlog::info("icy::CohesiveZone::Disconnect(); this->type = {} ",type);
+        spdlog::info("icy::CohesiveZone::Disconnect(); elems2[0] {}; elems2[1] {}",(void*)elems2[0],(void*)elems2[1]);
+        spdlog::info("icy::CohesiveZone::Disconnect(); elems2[0]->type {}; elems2[1]-type {}",elems2[0]->type,elems2[1]->type);
+        throw std::runtime_error("icy::CohesiveZone::Disconnect() topology error 1");
+    }
+
+    this->isActive = false;
+
     MeshFragment *fr0 = elems2[0]->nds[0]->fragment;
     MeshFragment *fr1 = elems2[1]->nds[0]->fragment;
 
-    spdlog::info("fr0->AddBoundary({},{},3)",(void*)elems2[0],(int)edgeIds[0]);
     fr0->AddBoundary(elems2[0],edgeIds[0],3);
-    spdlog::info("fr1->AddBoundary({},{},2)",(void*)elems2[1],(int)edgeIds[1]);
     fr1->AddBoundary(elems2[1],edgeIds[1],2);
 }
 
@@ -548,3 +544,41 @@ void icy::CohesiveZone::CalculateAndPrintBMatrix()
     }
 }
 
+const Eigen::Matrix<double,8,2> icy::CohesiveZone::B[nQPts] = {
+    (Eigen::Matrix<double,8,2>() <<
+         0.9305681557970262,0,
+     0,0.9305681557970262,
+     0.06943184420297371,0,
+     0,0.06943184420297371,
+     -0.9305681557970262,-0,
+     -0,-0.9305681557970262,
+     -0.06943184420297371,-0,
+     -0,-0.06943184420297371).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.6699905217924281,0,
+     0,0.6699905217924281,
+     0.3300094782075719,0,
+     0,0.3300094782075719,
+     -0.6699905217924281,-0,
+     -0,-0.6699905217924281,
+     -0.3300094782075719,-0,
+     -0,-0.3300094782075719).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.3300094782075719,0,
+     0,0.3300094782075719,
+     0.6699905217924281,0,
+     0,0.6699905217924281,
+     -0.3300094782075719,-0,
+     -0,-0.3300094782075719,
+     -0.6699905217924281,-0,
+     -0,-0.6699905217924281).finished(),
+    (Eigen::Matrix<double,8,2>() <<
+         0.06943184420297371,0,
+     0,0.06943184420297371,
+     0.9305681557970262,0,
+     0,0.9305681557970262,
+     -0.06943184420297371,-0,
+     -0,-0.06943184420297371,
+     -0.9305681557970262,-0,
+     -0,-0.9305681557970262).finished(),
+    };
