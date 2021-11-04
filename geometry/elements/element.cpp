@@ -444,9 +444,6 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
     fr->AddBoundary(insertedElem,ndIdx,3);
-
-    BoundaryEdge *ptr = dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx]);
-
     dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
@@ -600,7 +597,7 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
 
 
 
-    icy::Node* split = SplitBoundaryElem(nd,nd0,nd1,where);
+    icy::Node* split_orig = SplitBoundaryElem(nd,nd0,nd1,where);
 
 
 
@@ -612,86 +609,62 @@ icy::Node* icy::Element::SplitElemWithCZ(Node *nd, Node *nd0, Node *nd1, double 
     uint8_t nd3Idx_adj = adjElem->getNodeIdx(nd3);
     uint8_t oppIdx_adj = adjElem->getNodeIdx(oppositeNode);
 
-    MeshFragment *fragment = nd->fragment;
+    MeshFragment *fragment = nd2->fragment;
 
     // insert "adjacent" element
-//    Element *insertedElem_adj = fragment->AddElement();
+    Element *insertedElem_adj = fragment->AddElement();
 
     // insert the "split" node between nd0 and nd1
-//    Node *split_adj = fragment->AddNode();
+    Node *split_adj = fragment->AddNode();
 
 
-//    split_adj->InitializeLERP(nd2, nd3, where);
-//    split_adj->adj_elems.insert(split->adj_elems.end(),{adjElem,insertedElem_adj});
-//    split_adj->isBoundary = true;
+    split_adj->InitializeLERP(nd2, nd3, where);
+    split_adj->adj_elems.insert(split_adj->adj_elems.end(),{adjElem,insertedElem_adj});
+    split_adj->isBoundary = true;
 
+    adjElem->nds[nd3Idx_adj] = split_adj;
+    static_cast<BoundaryEdge*>(adjElem->incident_elems[oppIdx_adj])->UpdateNodes();
 
-    /*
-
-
-
-    // insert "main" element
-    Element *insertedElem = fragment->AddElement();
-    nd->adj_elems.push_back(insertedElem);
-
-
-    // modify the original element
-    nds[nd1Idx_orig] = split;
-
-
-    nd1->ReplaceAdjacentElement(this,insertedElem);
-
-    // initialize the inserted "main" element
-    insertedElem->nds[ndIdx_orig] = nd;
-    insertedElem->nds[nd1Idx_orig] = nd1;
-    insertedElem->nds[nd0Idx_orig] = split;
-
-    // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(incident_elems[nd0Idx_orig]->type == ElementType::BEdge)
-        static_cast<BoundaryEdge*>(incident_elems[nd0Idx_orig])->Initialize(insertedElem,nd0Idx_orig);
-    else if(incident_elems[nd0Idx_orig]->type == ElementType::TElem)
-        static_cast<Element*>(incident_elems[nd0Idx_orig])->ReplaceIncidentElem(this,insertedElem);
-
-    insertedElem->incident_elems[ndIdx_orig] = insertedElem_adj;
-    insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
-    insertedElem->incident_elems[nd1Idx_orig] = this;
-    incident_elems[nd0Idx_orig] = insertedElem;
-
-    // similarly, modify the existing adjacent element
-    adjElem->nds[nd1Idx_adj] = split;
     insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
-    insertedElem_adj->nds[nd1Idx_adj] = nd1;
-    insertedElem_adj->nds[nd0Idx_adj] = split;
+    insertedElem_adj->nds[nd3Idx_adj] = nd3;
+    insertedElem_adj->nds[nd2Idx_adj] = split_adj;
+
 
     // if the original element had a boundary at nd0Idx, the inserted element now takes that boundary
-    if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::BEdge)
-        static_cast<BoundaryEdge*>(adjElem->incident_elems[nd0Idx_adj])->Initialize(insertedElem_adj,nd0Idx_adj);
-    else if(adjElem->incident_elems[nd0Idx_adj]->type == ElementType::TElem)
-        static_cast<Element*>(adjElem->incident_elems[nd0Idx_adj])->ReplaceIncidentElem(adjElem,insertedElem_adj);
+    if(adjElem->incident_elems[nd2Idx_adj]->type == ElementType::BEdge)
+        static_cast<BoundaryEdge*>(adjElem->incident_elems[nd2Idx_adj])->Initialize(insertedElem_adj,nd2Idx_adj);
+    else if(adjElem->incident_elems[nd2Idx_adj]->type == ElementType::TElem)
+        static_cast<Element*>(adjElem->incident_elems[nd2Idx_adj])->ReplaceIncidentElem(adjElem,insertedElem_adj);
+    else if(adjElem->incident_elems[nd2Idx_adj]->type == ElementType::CZ)
+        static_cast<CohesiveZone*>(adjElem->incident_elems[nd2Idx_adj])->ReplaceAdjacentElem(adjElem, insertedElem_adj, nd2Idx_adj);
 
-    insertedElem_adj->incident_elems[oppIdx_adj] = insertedElem;
-    insertedElem_adj->incident_elems[nd1Idx_adj] = adjElem;
-    insertedElem_adj->incident_elems[nd0Idx_adj] = adjElem->incident_elems[nd0Idx_adj];
-    adjElem->incident_elems[nd0Idx_adj] = insertedElem_adj;
+
+    fragment->AddBoundary(insertedElem_adj,oppIdx_adj,3);
+    dynamic_cast<BoundaryEdge*>(insertedElem_adj->incident_elems[oppIdx_adj])->UpdateNodes();
+
+    insertedElem_adj->incident_elems[nd3Idx_adj] = adjElem;
+    insertedElem_adj->incident_elems[nd2Idx_adj] = adjElem->incident_elems[nd2Idx_adj];
+    adjElem->incident_elems[nd2Idx_adj] = insertedElem_adj;
 
     oppositeNode->adj_elems.push_back(insertedElem_adj);
-    nd1->ReplaceAdjacentElement(adjElem,insertedElem_adj);
+    nd3->ReplaceAdjacentElement(adjElem,insertedElem_adj);
 
-    this->PrecomputeInitialArea();
-    insertedElem->PrecomputeInitialArea();
+
+
+
     adjElem->PrecomputeInitialArea();
     insertedElem_adj->PrecomputeInitialArea();
 
-    // "fix" palsticity on all four elements
-    this->RecalculatePiMultiplierFromDeformationGradient(F_orig);
-    insertedElem->RecalculatePiMultiplierFromDeformationGradient(F_orig);
     adjElem->RecalculatePiMultiplierFromDeformationGradient(F_adj);
     insertedElem_adj->RecalculatePiMultiplierFromDeformationGradient(F_adj);
 
     oppositeNode->PrepareFan();
-    nd1->PrepareFan();
-    return split;
-*/
-    return split;
+    nd3->PrepareFan();
+    split_adj->PrepareFan();
+
+    spdlog::info("stage 3");
+
+
+    return split_orig;
 
 }
