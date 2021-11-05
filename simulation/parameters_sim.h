@@ -174,13 +174,13 @@ public:
     {
         // features
         EnableCollisions = true;
-        EnablePlasticity = true;
+        EnablePlasticity = false; //true;
         EnableFracture = true;
         EnableInsertCZs = true;
         EnableCZs = true;
 
         MaxSteps = 20000;
-        InitialTimeStep = 0.05;
+        InitialTimeStep = 0.0005;//0.05;
 
         // material parameters and physical constants
         Gravity = 9.81;
@@ -188,11 +188,11 @@ public:
         Thickness = 0.1;
 
         PoissonsRatio = 0.3;
-        YoungsModulus = 5000;
+        YoungsModulus = 3e9; // 5000;
 
         InteractionDistance = 0.01;
 
-        CharacteristicLength = 0.07;
+        CharacteristicLength = 0.035;//0.07;
         ConvergenceEpsilon = 1e-2;
         ConvergenceCutoff = 1e-7;
 
@@ -205,9 +205,9 @@ public:
 
         // fracture
         FractureWeakeningCoeff = 0.75;
-        FractureTemporalAttenuation = 0.025;
+        FractureTemporalAttenuation = InitialTimeStep*2;//0.025;
         FractureMaxSubsteps = 1000;
-        FractureTractionThreshold = 1500;
+        FractureTractionThreshold = 1e6;//1500;
         FractureSubstepLevels = 4;
         FractureTimerLevels = 10;
         FractureAngleThreshold = 10;    // in degrees
@@ -216,12 +216,12 @@ public:
         // cohesive zones
         cz_alpha = 4;
         cz_beta = 4;
-        cz_lambda_n = 0.1;
-        cz_lambda_t = 0.1;
-        cz_phi_n = 10;
-        cz_phi_t = 10; // fracture energy
-        cz_sigma_max = 500;
-        cz_tau_max = 500;
+        cz_lambda_n = 0.02;
+        cz_lambda_t = 0.02;
+        cz_phi_n = 30;
+        cz_phi_t = 30; // fracture energy
+        cz_sigma_max = 5e5;//500;
+        cz_tau_max = 5e5;//500;
         RecomputeCZParams();
     }
 

@@ -151,7 +151,7 @@ icy::Mesh::Mesh()
     actor_mesh_deformable->GetProperty()->ShadingOff();
     actor_mesh_deformable->GetProperty()->SetInterpolationToFlat();
     actor_mesh_deformable->PickableOff();
-    actor_mesh_deformable->GetProperty()->SetLineWidth(1);
+    actor_mesh_deformable->GetProperty()->SetLineWidth(0.6);
 
     // boundary
     ugrid_boundary_all->SetPoints(points_deformable);
