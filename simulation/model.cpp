@@ -527,6 +527,8 @@ void icy::Model::Fracture_LocalSubstep()
     double h;
     if(prms.EnableCollisions) mesh.UpdateTree(prms.InteractionDistance);
 
+    constexpr int max_local_substeps = 10;
+
     do
     {
         int iter = 0;
@@ -565,7 +567,11 @@ void icy::Model::Fracture_LocalSubstep()
             attempt++;
         }
         if(attempt > 20) throw std::runtime_error("Fracture_LocalSubstep: could not solve");
-    } while (!ccd_res || !sln_res || !converges);
+    } while (attempt < max_local_substeps && (!ccd_res || !sln_res || !converges));
+
+    if(attempt == max_local_substeps)
+        for(Node *nd : mesh.local_support)
+            nd->xt = nd->xn;
 
 #pragma omp parallel for
         for(unsigned i=0;i<mesh.local_elems.size();i++) mesh.local_elems[i]->ComputeVisualizedVariables();
