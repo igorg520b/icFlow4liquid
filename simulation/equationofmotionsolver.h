@@ -54,8 +54,8 @@ private:
 
     void ResizeRows();
 
-    void AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22);
-    void AddToC(const int idx, const double v1, const double v2);
+    void AddToQ(const int row, const int column, const double *v);
+    void AddToC(const int idx, const double *v);
     unsigned get_offset(const int row, const int column) const;
 
     // MOSEK

@@ -38,7 +38,7 @@ struct icy::CohesiveZone : public BaseElement
     // first element/edge must be CW, sedond will be CCW
     void Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1);
     void InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to); // from/to [-1,+1]
-    void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx);
+    void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) override;
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);

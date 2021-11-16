@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include "spdlog/spdlog.h"
+#include <Eigen/Core>
 
 EquationOfMotionSolver::EquationOfMotionSolver()
 {
@@ -154,72 +155,44 @@ unsigned EquationOfMotionSolver::get_offset(const int row, const int column) con
     unsigned offset = std::distance(start_pt,it)+col_offset_begin;
     offset*=dofssq;
 
-/*
-
-    // find the value array offset corresponding to the "row/column" entry
-    int offset2 = -1;
-    tbb::concurrent_vector<unsigned>&vec = *rows_neighbors[row];
-
-    for(unsigned count = 0;count<vec.size();count++)
-    {
-        if(vec.at(count) == (unsigned)column)
-        {
-            offset2 = rows_pcsr[row]->at(count);
-            break;
-        }
-    }
-
-    if(offset2<0) throw std::runtime_error("AddToQ: column index not found");
-    else if((unsigned)offset2 >= nnz) throw std::runtime_error("AddToQ: offset >= nnz");
-
-    if(offset2 != offset)
-    {
-        spdlog::info("offset {}; offset2 {}",offset,offset2);
-        throw std::runtime_error("offsets don't match");
-    }
-*/
     return offset;
 }
 
-void EquationOfMotionSolver::AddToQ(const int row, const int column, const double v11, const double v12, const double v21, const double v22)
+void EquationOfMotionSolver::AddToQ(const int row, const int column, const double *v)
 {
     if (row < 0 || column < 0 || row < column) return;
     else if((unsigned)row >= N || (unsigned)column >= N) throw std::runtime_error("AddToQ: out of range");
     int offset = get_offset(row,column);
 
-
-
     if(row > column)
     {
-#pragma omp atomic
-        qoval[offset+0] += v11;
-#pragma omp atomic
-        qoval[offset+1] += v12;
-#pragma omp atomic
-        qoval[offset+2] += v21;
-#pragma omp atomic
-        qoval[offset+3] += v22;
+        for(unsigned i=0;i<dofssq;i++)
+        {
+    #pragma omp atomic
+            qoval[offset+i] += v[i];
+        }
     }
     else if(row == column)
     {
 #pragma omp atomic
-        qoval[offset+0] += v11;
+        qoval[offset+0] += v[0];
 #pragma omp atomic
-        qoval[offset+2] += v21;
+        qoval[offset+2] += v[2];
 #pragma omp atomic
-        qoval[offset+3] += v22;
+        qoval[offset+3] += v[3];
     }
 }
 
-void EquationOfMotionSolver::AddToC(const int idx, const double v1, const double v2)
+void EquationOfMotionSolver::AddToC(const int idx, const double *v)
 {
     if(idx < 0) return;
     if((unsigned)idx >= N) throw std::runtime_error("AddToC: index out of range");
 
+    for(unsigned i=0;i<dofs;i++)
+    {
 #pragma omp atomic
-    cval[idx*dofs+0] += v1;
-#pragma omp atomic
-    cval[idx*dofs+1] += v2;
+        cval[idx*dofs+i] += v[i];
+    }
 }
 
 
@@ -227,25 +200,31 @@ void EquationOfMotionSolver::AddToC(const int idx, const double v1, const double
 void EquationOfMotionSolver::AddToEquation(const double *lE, const double *qE, const std::initializer_list<int> ids)
 {
     unsigned n = ids.size();
-    unsigned n2 = n*dofs;
-    unsigned i_ct=0;
-    for(auto i=ids.begin();i!=ids.end();i++,i_ct+=dofs)
+
+    Eigen::Map<const Eigen::MatrixXd> levec(lE, 1, n*dofs);
+    Eigen::Map<const Eigen::MatrixXd> qevec(qE, n*dofs, n*dofs);
+
+    unsigned idx_i=0;
+    for(auto iter_row=ids.begin(); iter_row!=ids.end(); ++iter_row,++idx_i)
     {
-        int row = *i;
+        int row = *iter_row;
         if(row < 0) continue;
-        AddToC(row, *(lE+i_ct), *(lE+i_ct+1));
-        unsigned j_ct=0;
-        for(auto j=ids.begin();j!=ids.end();j++,j_ct+=dofs)
+
+        Eigen::Matrix<double, 1, dofs> vec = levec.block(idx_i*dofs,0, dofs,1);
+        AddToC(row, vec.data());
+
+        unsigned idx_j=0;
+        for(auto iter_col=ids.begin(); iter_col!=ids.end(); ++iter_col,++idx_j)
         {
-            int col = *j;
+            int col = *iter_col;
             if(col < 0) continue;
-            double m11 = *(qE+j_ct*n2+i_ct);
-            double m12 = *(qE+(j_ct+1)*n2+i_ct);
-            double m21 = *(qE+j_ct*n2+i_ct+1);
-            double m22 = *(qE+(j_ct+1)*n2+i_ct+1);
-            AddToQ(row, col, m11, m12, m21, m22);
+            Eigen::Matrix<double,dofs,dofs> mat = qevec.block(idx_i*dofs, idx_j*dofs, dofs, dofs);
+            mat.transposeInPlace();
+            AddToQ(row,col,mat.data());
         }
     }
+
+
 }
 
 

@@ -5,7 +5,7 @@
 //#include "node.h"
 //#include "equationofmotionsolver.h"
 
-namespace icy {class BaseElement; class Node;}
+namespace icy {class BaseElement; class Node; class Element; }
 
 class icy::BaseElement
 {
@@ -15,15 +15,11 @@ public:
 
     // for identifying disjoint regions and n-regions around crack tips
     bool traversed;
-//    BaseElement **incident_begin = nullptr;
-//    BaseElement **incident_end = nullptr;
 
     virtual ~BaseElement() = default;
 
-
-//    virtual ElementType type() = 0;
-//    Node *nds_begin, *nds_end;
-//    virtual void AddToSparsityStructure(EquationOfMotionSolver &eq) const = 0;
+    // all derived classes keep some sort of list of incident elems and need a way to substitute one Element for another
+    virtual void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) = 0;
 };
 
 #endif // BASEELEMENT_H

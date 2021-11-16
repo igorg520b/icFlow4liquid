@@ -80,7 +80,8 @@ public:
     Eigen::Vector2d getCenter() const {return (nds[0]->x_initial + nds[1]->x_initial + nds[2]->x_initial)/3.0;};
     icy::Node* getOppositeNode(Node* nd0, Node* nd1);
     void ReplaceNode(Node* replaceWhat, Node* replaceWith);
-    void ReplaceIncidentElem(BaseElement* which, BaseElement* withWhat);
+    void ReplaceIncidentElem(const BaseElement* which, BaseElement* withWhat);
+    void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) override;
 
 private:
     constexpr static double threshold_area = 1e-7;

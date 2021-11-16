@@ -36,6 +36,12 @@ struct icy::BoundaryEdge : public icy::BaseElement
         return this;
     }
 
+    void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) override
+    {
+        Initialize(insertedElem, idx);
+    }
+
+
     // infer nds[2] from elem and edge_idx
     void UpdateNodes()
     {
