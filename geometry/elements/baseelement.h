@@ -2,8 +2,6 @@
 #define BASEELEMENT_H
 
 #include <cstdint>
-//#include "node.h"
-//#include "equationofmotionsolver.h"
 
 namespace icy {class BaseElement; class Node; class Element; }
 

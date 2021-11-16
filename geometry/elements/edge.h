@@ -20,8 +20,6 @@ struct icy::Edge
     bool containsCZ() const;
 
     void AddElement(icy::BaseElement* elem, short idx);
-//    Eigen::Vector2d getVec(const icy::Node* const from_node) const;  // edge as vector
-//    icy::Node* getOtherNode(const icy::Node* const nd) const;
 };
 
 #endif // EDGE_H
