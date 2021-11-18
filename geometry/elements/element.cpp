@@ -39,9 +39,9 @@ void icy::Element::Reset(void)
     nds[0] = nds[1] = nds[2] = nullptr;
     incident_elems[0] = incident_elems[1] = incident_elems[2] = nullptr;
     area_initial = area_current = 0;
-    PiMultiplier = Eigen::Matrix2d::Identity();
+    PiMultiplier.setIdentity();
+    leftCauchyGreenDeformationTensor.setIdentity();
     quality_measure_Wicke = 1;
-    leftCauchyGreenDeformationTensor = Eigen::Matrix2d::Identity();
 }
 
 void icy::Element::Initialize(Node *nd0, Node *nd1, Node *nd2)
@@ -263,17 +263,6 @@ std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const
     return {nds[(idx+1)%3],nds[(idx+2)%3]};
 }
 
-icy::Node* icy::Element::CW_Node(const Node* nd) const
-{
-    uint8_t idx = getNodeIdx(nd);
-    return nds[(idx+1)%3];
-}
-
-icy::Node* icy::Element::CCW_Node(const Node* nd) const
-{
-    uint8_t idx = getNodeIdx(nd);
-    return nds[(idx+2)%3];
-}
 
 bool icy::Element::isEdgeCW(const Node *nd1, const Node *nd2) const
 {
@@ -362,14 +351,7 @@ void icy::Element::ReplaceNode(Node *replaceWhat, Node *replaceWith)
     uint8_t ccw_idx = (nd_idx+2)%3;
 
     // update incident elements after replacing the node
-    for(uint8_t idx : {cw_idx,ccw_idx})
-    {
-        if(incident_elems[idx]->type == ElementType::BEdge)
-            dynamic_cast<BoundaryEdge*>(incident_elems[idx])->UpdateNodes();
-        else if(incident_elems[idx]->type == ElementType::CZ)
-            dynamic_cast<CohesiveZone*>(incident_elems[idx])->UpdateNodes();
-    }
-
+    for(uint8_t idx : {cw_idx,ccw_idx}) incident_elems[idx]->UpdateNodes();
 }
 
 
@@ -439,7 +421,7 @@ icy::Node* icy::Element::SplitBoundaryElem(Node *nd, Node *nd0, Node *nd1, doubl
     // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
     fragment->AddBoundary(insertedElem,ndIdx,3);
-    dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx])->UpdateNodes();
+    incident_elems[ndIdx]->UpdateNodes();
 
     insertedElem->incident_elems[nd0Idx] = incident_elems[nd0Idx];
     incident_elems[nd0Idx] = insertedElem;
@@ -604,7 +586,7 @@ std::pair<icy::Node*,icy::Node*> icy::Element::SplitElemWithCZ(Node *nd, Node *n
         // add the boundary that has just appeared
     // automatically initialize the inserted element's adjacency data (insertedElem->incident_elems[ndIdx])
     fragment_orig->AddBoundary(insertedElem,ndIdx_orig,3);
-    dynamic_cast<BoundaryEdge*>(incident_elems[ndIdx_orig])->UpdateNodes();
+    incident_elems[ndIdx_orig]->UpdateNodes();
 
     insertedElem->incident_elems[nd0Idx_orig] = incident_elems[nd0Idx_orig];
     incident_elems[nd0Idx_orig] = insertedElem;
@@ -651,7 +633,7 @@ std::pair<icy::Node*,icy::Node*> icy::Element::SplitElemWithCZ(Node *nd, Node *n
     split_adj->isCrackTip = true;
 
     adjElem->nds[nd3Idx_adj] = split_adj;
-    static_cast<BoundaryEdge*>(adjElem->incident_elems[oppIdx_adj])->UpdateNodes();
+    adjElem->incident_elems[oppIdx_adj]->UpdateNodes();
 
     insertedElem_adj->nds[oppIdx_adj] = oppositeNode;
     insertedElem_adj->nds[nd3Idx_adj] = nd3;
@@ -662,7 +644,7 @@ std::pair<icy::Node*,icy::Node*> icy::Element::SplitElemWithCZ(Node *nd, Node *n
     adjElem->incident_elems[nd2Idx_adj]->ReplaceAdjacentElem(adjElem, insertedElem_adj, nd2Idx_adj);
 
     fragment->AddBoundary(insertedElem_adj,oppIdx_adj,3);
-    dynamic_cast<BoundaryEdge*>(insertedElem_adj->incident_elems[oppIdx_adj])->UpdateNodes();
+    insertedElem_adj->incident_elems[oppIdx_adj]->UpdateNodes();
 
     insertedElem_adj->incident_elems[nd3Idx_adj] = adjElem;
     insertedElem_adj->incident_elems[nd2Idx_adj] = adjElem->incident_elems[nd2Idx_adj];

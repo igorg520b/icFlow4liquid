@@ -42,14 +42,12 @@ struct icy::BoundaryEdge : public icy::BaseElement
     }
 
 
-    // infer nds[2] from elem and edge_idx
-    void UpdateNodes()
+    void UpdateNodes() override
     {
         if(elem!=nullptr)
         {
             uint8_t nd1Idx = (edge_idx+2)%3;
             uint8_t nd2Idx = (edge_idx+1)%3;
-            MeshFragment *fr = elem->nds[0]->fragment;
             nds[0] = elem->nds[nd1Idx];
             nds[1] = elem->nds[nd2Idx];
         }

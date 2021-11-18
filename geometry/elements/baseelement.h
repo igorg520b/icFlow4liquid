@@ -18,6 +18,9 @@ public:
 
     // all derived classes keep some sort of list of incident elems and need a way to substitute one Element for another
     virtual void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) = 0;
+
+    // if BaseElement is CZ or BoudnaryEdge, then UpdateNodes re-creates the list of nodes who which this element is conected
+    virtual void UpdateNodes() {};
 };
 
 #endif // BASEELEMENT_H

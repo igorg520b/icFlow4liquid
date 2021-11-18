@@ -65,8 +65,6 @@ public:
     uint8_t getNodeIdx(const Node* nd) const;
     void getIdxs(const icy::Node* nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const;
     uint8_t getEdgeIdx(const Node *nd1, const Node *nd2) const;
-    Node* CW_Node(const Node* nd) const;
-    Node* CCW_Node(const Node* nd) const;
     std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
 
     bool isBoundaryEdge(const uint8_t idx) const {return incident_elems[idx]->type != ElementType::TElem;}

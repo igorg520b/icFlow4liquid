@@ -611,7 +611,6 @@ void icy::Mesh::CreateLeaves()
 
     for(auto &mf : fragments)
     {
-//        for(auto be : mf->boundaryEdges) be->UpdateNodes(); // temporary fix?
         mf->CreateLeaves();
         globalBoundaryEdges.insert(globalBoundaryEdges.end(), mf->boundaryEdges.begin(),mf->boundaryEdges.end());
         global_leaves_ccd.insert(global_leaves_ccd.end(), mf->leaves_for_ccd.begin(), mf->leaves_for_ccd.end());

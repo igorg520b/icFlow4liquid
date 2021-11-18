@@ -86,10 +86,6 @@ void icy::Node::PrepareFan()
         if(cw_boundary == fan.end()) { PrintoutFan(); throw std::runtime_error("icy::Node::PrepareFan(): cw boundary not found"); }
         std::rotate(fan.begin(), cw_boundary, fan.end());
         if(!fan.back().face->isCCWBoundary(this)) { PrintoutFan(); throw std::runtime_error("PrepareFan(): no CCW boundary"); }
-
-        // assign CWBoundaryNode and CCWBoundaryNode
-        this->CWBoundaryNode = fan.front().face->CW_Node(this);
-        this->CCWBoundaryNode = fan.back().face->CCW_Node(this);
     }
 
     // assert that the nodes of the fan connect

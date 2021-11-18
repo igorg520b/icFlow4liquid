@@ -39,11 +39,11 @@ struct icy::CohesiveZone : public BaseElement
     void Initialize(Element *elem0, uint8_t edgeIdx0, Element *elem1, uint8_t edgeIdx1);
     void InterpolatePMaxTMaxFromAnother(const CohesiveZone *other, double from, double to); // from/to [-1,+1]
     void ReplaceAdjacentElem(const Element* originalElem, Element* insertedElem, uint8_t idx) override;
+    void UpdateNodes() override; // convert elems[2], edgeIds[2] into nodes[4]
 
     void AddToSparsityStructure(EquationOfMotionSolver &eq);
     bool ComputeEquationEntries(EquationOfMotionSolver &eq, const SimParams &prms, double timeStep);
     void AcceptValues();
-    void UpdateNodes(); // convert elems[2], edgeIds[2] into nodes[4]
     void Disconnect();
     Element *getOtherElem(const Element* elem) {return elems2[(getElemIdx(elem)+1)%2];}
     Node* getOtherNode(const Node* nd);
