@@ -40,7 +40,6 @@ struct icy::Node
 
 // FRACTURE MODEL
     MeshFragment *fragment;         // mesh fragment to which the node belongs
-//    Node *CWBoundaryNode, *CCWBoundaryNode;     // if this->isBoundary, then these point to adjacent nodes
     unsigned short traversal;
 
     struct Sector
