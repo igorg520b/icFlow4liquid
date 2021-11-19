@@ -30,10 +30,16 @@ void icy::Node::Initialize(const Node *nd)
     xt = nd->xt;
     xn = nd->xn;
     vn = nd->vn;
-//    pinned = nd->pinned;
     group = nd->group;
 }
 
+void icy::Node::InitializeLERP(const Node *nd0, const Node *nd1, double f)
+{
+    x_initial = nd0->x_initial*f + nd1->x_initial*(1-f);
+    xt = nd0->xt*f + nd1->xt*(1-f);
+    xn = nd0->xn*f + nd1->xn*(1-f);
+    vn = nd0->vn*f + nd1->vn*(1-f);
+}
 
 void icy::Node::AddSpringEntries(EquationOfMotionSolver &eq, const SimParams &prms, double h, Eigen::Vector2d &spring)
 {
@@ -63,10 +69,7 @@ void icy::Node::CreateUnrotatedFan()
         s.face = elem;
         Eigen::Vector2d tcv = elem->getCenter() - x_initial;
         s.centerAngle = atan2(tcv.y(), tcv.x());
-        uint8_t thisIdx, CWIdx, CCWIdx;
-        elem->getIdxs(this, thisIdx, CWIdx, CCWIdx);
-        s.nd[0] = elem->nds[CWIdx];
-        s.nd[1] = elem->nds[CCWIdx];
+        std::tie(s.nd[0],s.nd[1]) = elem->CW_CCW_Node(this);
         fan.push_back(s);
     }
     std::sort(fan.begin(), fan.end());  // order by angle of the element, counter-clockwise
@@ -110,16 +113,11 @@ void icy::Node::UpdateFan()
 
     for(Sector &f : fan)
     {
-        // TODO: this can be simplified by using icy::Element::getIdxs()
-        Node *cw_node, *ccw_node;
-        std::tie(cw_node,ccw_node) = f.face->CW_CCW_Node(this);
-
-        f.u_normalized = (cw_node->xt-this->xt).normalized();
-        f.v_normalized = (ccw_node->xt-this->xt).normalized();
+        f.u_normalized = (f.nd[0]->xt - this->xt).normalized();
+        f.v_normalized = (f.nd[1]->xt - this->xt).normalized();
 
         f.angle0 = fan_angle_span;
-        fan_angle_span += get_angle(f.u_normalized,f.v_normalized);
-        f.angle1 = fan_angle_span;
+        f.angle1 = fan_angle_span += get_angle(f.u_normalized,f.v_normalized);
 
         f.u_p << -f.u_normalized[1], f.u_normalized[0];
         f.v_p << -f.v_normalized[1], f.v_normalized[0];
@@ -384,13 +382,7 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
     }
 }
 
-void icy::Node::InitializeLERP(const Node *nd0, const Node *nd1, double f)
-{
-    x_initial = nd0->x_initial*f + nd1->x_initial*(1-f);
-    xt = nd0->xt*f + nd1->xt*(1-f);
-    xn = nd0->xn*f + nd1->xn*(1-f);
-    vn = nd0->vn*f + nd1->vn*(1-f);
-}
+
 
 
 uint64_t icy::Node::make_local_key(Node *nd0, Node *nd1)

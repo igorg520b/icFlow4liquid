@@ -9,7 +9,6 @@
 #include <vector>
 #include <utility>
 #include <cmath>
-#include <tuple>
 
 #include "spdlog/spdlog.h"
 
@@ -248,13 +247,6 @@ uint8_t icy::Element::getNodeIdx(const Node *nd) const
         spdlog::info("getNodeIdx: elem nds locid {} - {} - {}", nds[0]->locId,nds[1]->locId,nds[2]->locId);
         throw std::runtime_error("getNodeIdx");
     }
-}
-
-void icy::Element::getIdxs(const icy::Node*nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const
-{
-    thisIdx = getNodeIdx(nd);
-    CWIdx = (thisIdx+1)%3;
-    CCWIdx = (thisIdx+2)%3;
 }
 
 std::pair<icy::Node*,icy::Node*> icy::Element::CW_CCW_Node(const Node* nd) const

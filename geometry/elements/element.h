@@ -1,6 +1,8 @@
 #ifndef ELEMENT123_H
 #define ELEMENT123_H
 
+#include <tuple>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
@@ -21,7 +23,7 @@ struct icy::Element : public icy::BaseElement
 
     Element() { type = ElementType::TElem; }
     ~Element() = default;
-    Element& operator=(const Element&) = delete;
+    Element& operator=(Element&) = delete;
 
     void Reset(void);
     void Initialize(Node *nd0, Node *nd1, Node *nd2);
@@ -63,7 +65,6 @@ public:
     bool isBoundary() {return std::any_of(std::begin(nds),std::end(nds),[](Node *nd){return nd->isBoundary;});}
 
     uint8_t getNodeIdx(const Node* nd) const;
-    void getIdxs(const icy::Node* nd, uint8_t &thisIdx, uint8_t &CWIdx, uint8_t &CCWIdx) const;
     uint8_t getEdgeIdx(const Node *nd1, const Node *nd2) const;
     std::pair<Node*,Node*> CW_CCW_Node(const Node* nd) const;
 

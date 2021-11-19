@@ -13,7 +13,10 @@ namespace icy { struct Node; struct Element; struct CohesiveZone; class MeshFrag
 
 struct icy::Node
 {
-    Node(){ Reset();}
+    Node() { Reset(); }
+    ~Node() = default;
+    Node& operator=(Node&) = delete;
+
     void Reset();
     void Initialize(double x, double y);
     void Initialize(const Node *other);
