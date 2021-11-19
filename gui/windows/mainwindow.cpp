@@ -306,7 +306,7 @@ void MainWindow::on_actionSwap_Buffers_triggered()
 
 void MainWindow::on_actionClear_Velocity_triggered()
 {
-    for(icy::Node *nd : model.mesh.allNodes) nd->vn = Eigen::Vector2d::Zero();
+    for(icy::Node *nd : model.mesh.allNodes) nd->vn.setZero();
 }
 
 void MainWindow::on_actionUse_Initial_State_triggered()

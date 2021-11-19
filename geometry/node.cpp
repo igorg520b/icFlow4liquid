@@ -7,7 +7,10 @@
 
 void icy::Node::Reset()
 {
-    x_initial = xn = vn = xt = Eigen::Vector2d::Zero();
+    x_initial.setZero();
+    xn.setZero();
+    vn.setZero();
+    xt.setZero();
     eqId = locId = globId = -1;
     area = 0;
     pinned = false;
@@ -149,7 +152,7 @@ void icy::Node::ComputeFanVariables(const SimParams &prms)
     double dont_split_nearly_degenerate_elems = prms.FractureAngleThreshold*M_PI/180;
 
     if(fan.size()==0) throw std::runtime_error("invoking ComputeFanVariables on a Node without elements");
-    dir = Eigen::Vector2d::Zero();
+    dir.setZero();
     max_normal_traction = 0;
     UpdateFan();
     unsigned nFan = fan.size();
@@ -295,7 +298,8 @@ double icy::Node::NormalTraction(double angle_fwd, double weakening_coeff) const
 
 void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const double weakening_coeff) const
 {
-    ssr.traction[0] = ssr.traction[1] = Eigen::Vector2d::Zero();
+    ssr.traction[0].setZero();
+    ssr.traction[1].setZero();
     ssr.faces[0] = ssr.faces[1] = nullptr;
 
     if(angle_fwd == fan_angle_span) angle_fwd = std::max(0.0,angle_fwd-1e-11);
@@ -317,9 +321,6 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
         if (angle_fwd >= fp.angle0 && angle_fwd < fp.angle1)
         {
             ssr.faces[0] = fp.face;
-//            ssr.e[0] = fp.face->CWEdge(this);
-//            ssr.e[1] = fp.face->CCWEdge(this);
-//            ssr.e_opposite[0] = fp.face->OppositeEdge(this);
 
             double phi = ssr.phi[0] = angle_fwd - fp.angle0;
             ssr.theta[0] = fp.angle1 - angle_fwd;
@@ -338,11 +339,8 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
         else if (!isBoundary && angle_bwd >= fp.angle0 && angle_bwd < fp.angle1)
         {
             ssr.faces[1] = fp.face;
-//            ssr.e[2] = fp.face->CWEdge(this);
-//            ssr.e[3] = fp.face->CCWEdge(this);
-//            ssr.e_opposite[1] = fp.face->OppositeEdge(this);
 
-            float phi = ssr.phi[1] = angle_bwd - fp.angle0;
+            double phi = ssr.phi[1] = angle_bwd - fp.angle0;
             ssr.theta[1] = fp.angle1 - angle_bwd;
             ssr.angle0[1] = fp.angle0;
             ssr.angle1[1] = fp.angle1;
@@ -378,7 +376,7 @@ void icy::Node::EvaluateTractions(double angle_fwd, SepStressResult &ssr, const 
     if(isCrackTip)
     {
         double coeff = ((1-weakening_coeff)+(weakening_coeff)*pow((weakening_direction.dot(ssr.tn)+1)/2, 5));
-        ssr.trac_normal*=coeff;
+        ssr.trac_normal *= coeff;
     }
 }
 

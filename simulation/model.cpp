@@ -131,7 +131,7 @@ void icy::Model::SetIndenterPosition(double position)
 void icy::Model::AttachSpring(double X, double Y, double radius)
 {
     spdlog::info("icy::Model::AttachSpring ({},{}); radius {}",X,Y,radius);
-    spring = Eigen::Vector2d::Zero();
+    spring.setZero();
     Eigen::Vector2d attachmentPos(X,Y);
     vtk_update_mutex.lock();
 #pragma omp parallel for
@@ -182,8 +182,8 @@ void icy::Model::InitialGuess(double timeStep, double timeStepFactor)
         if(nd->pinned)
         {
             nd->xt = (timeStepFactor)*nd->intended_position + (1-timeStepFactor)*nd->xn;
-            nd->vn=Eigen::Vector2d::Zero();
             nd->x_hat = nd->xn;
+            nd->vn.setZero();
         }
         else
         {

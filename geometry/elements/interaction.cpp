@@ -65,8 +65,8 @@ void icy::Interaction::potential_pushing(double dHat, double d, Eigen::Matrix<do
     else
     {
         p=0;
-        Dp=Eigen::Matrix<double,6,1>::Zero();
-        DDp=Eigen::Matrix<double,6,6>::Zero();
+        Dp.setZero();
+        DDp.setZero();
     }
 }
 
@@ -74,7 +74,7 @@ void icy::Interaction::potential_pulling(double dHat, double s, Eigen::Matrix<do
                       double &p, Eigen::Matrix<double,6,1> &Dp, Eigen::Matrix<double,6,6> &DDp)
 {
     constexpr double threshold = 0.9;
-    if(s>dHat*threshold) s=dHat*threshold;
+    if(s > dHat*threshold) s = dHat*threshold;
     double dLog = std::log((dHat-s)/dHat);
     double s_sq = s*s;
     p = -s_sq*dLog;
@@ -82,20 +82,6 @@ void icy::Interaction::potential_pulling(double dHat, double s, Eigen::Matrix<do
     double p_double_prime = s_sq/((dHat-s)*(dHat-s)) +4*s/(dHat-s) - 2*dLog;
     Dp = p_prime*Dd;
     DDp = p_double_prime*Dd*Dd.transpose() + p_prime*DDd;
-
-/*
-    if(s<dHat)
-    {
-
-
-    }
-    else
-    {
-        p=0;
-        Dp=Eigen::Matrix<double,6,1>::Zero();
-        DDp=Eigen::Matrix<double,6,6>::Zero();
-    }
-    */
 }
 
 
@@ -119,8 +105,8 @@ void icy::Interaction::distance(Eigen::Vector2d (&p)[4], double &d, double &t,
     if(t>1)
     {
         t=1;
-        Dtt = Eigen::Matrix<double,6,1>::Zero();
-        DDtt = Eigen::Matrix<double,6,6>::Zero();
+        Dtt.setZero();
+        DDtt.setZero();
     }
     else if(t<0)
     {
