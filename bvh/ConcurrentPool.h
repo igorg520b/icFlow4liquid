@@ -16,6 +16,8 @@ class icy::ConcurrentPool
 public:
     ConcurrentPool(int initialSize);
     ~ConcurrentPool();
+    ConcurrentPool& operator=(ConcurrentPool&) = delete;
+
     T* take();
     void release(T* p) {available.push(p);}
     void release(std::vector<T*> &vec);
