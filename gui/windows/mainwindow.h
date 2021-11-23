@@ -117,8 +117,6 @@ private slots:
 private:
     void render_results();
 
-
-//    PreferencesGUI prefsGUI;
     icy::Model model;
     BackgroundWorker *worker;
 
